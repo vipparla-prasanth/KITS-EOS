@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Disable all gradients in the application */
+* {
+  background-image: none !important;
+}

@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-kits-red: #D32F2F;
+  --color-akshar-blue: #1976D2;
+}
+
+/* Disable all gradients in the application */
+* {
+  background-image: none !important;
+}

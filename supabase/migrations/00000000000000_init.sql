@@ -1,0 +1,2 @@
+-- Empty migration file to initialize the migrations directory for Phase 0
+-- No database schema is implemented yet.

@@ -1,0 +1,12 @@
+{
+  "name": "@kits-eos/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  }
+}
