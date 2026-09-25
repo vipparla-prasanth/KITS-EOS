@@ -347,22 +347,6 @@ export async function renderCertificateToCanvas(options: CertificateRenderOption
   // =========================================================================
   ctx.textAlign = 'center';
 
-  // Small Institutional Fest Super-Header
-  const superHeaderY = divY + 38;
-  const festCategory = options.categoryName
-    ? `${options.categoryName.toUpperCase()} \u2022 ANNUAL TECHNICAL FEST`
-    : 'ANNUAL NATIONAL LEVEL TECHNICAL FEST';
-
-  let superHeaderFontSize = 14;
-  ctx.font = `bold ${superHeaderFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
-  let measuredSuperHeaderWidth = ctx.measureText(festCategory).width;
-  if (measuredSuperHeaderWidth > 1500) {
-    superHeaderFontSize = Math.max(11, Math.floor(superHeaderFontSize * (1500 / measuredSuperHeaderWidth)));
-    ctx.font = `bold ${superHeaderFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
-  }
-  ctx.fillStyle = '#64748B';
-  ctx.fillText(festCategory, width / 2, superHeaderY);
-
   // Event Name with Dynamic Font Scaling (Prevents clipping on long fest names)
   const rawEventName = (options.eventName || 'CENTRAL EVENT OPERATIONS').toUpperCase();
   let eventFontSize = 48;
@@ -375,7 +359,7 @@ export async function renderCertificateToCanvas(options: CertificateRenderOption
     ctx.font = `900 ${eventFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
   }
 
-  const eventY = superHeaderY + 44;
+  const eventY = divY + 54;
   ctx.fillStyle = '#003366';
   ctx.fillText(rawEventName, width / 2, eventY);
 

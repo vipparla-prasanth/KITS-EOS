@@ -809,10 +809,7 @@ export function StudentCertificates() {
                   </div>
 
                   {/* Institutional Event Header & Certificate Title */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-500 block">
-                      {selectedCert.categoryName ? `${selectedCert.categoryName.toUpperCase()} • ANNUAL TECHNICAL FEST` : 'ANNUAL NATIONAL LEVEL TECHNICAL FEST'}
-                    </span>
+                  <div className="space-y-1 pt-1">
                     <span className="text-lg sm:text-2xl md:text-3xl font-black uppercase tracking-wider text-[#003366] block">
                       {selectedCert.eventName}
                     </span>
