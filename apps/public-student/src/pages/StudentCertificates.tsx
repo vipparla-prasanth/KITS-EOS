@@ -827,35 +827,49 @@ export function StudentCertificates() {
                     {/* Certificate Title Hierarchy */}
                     {selectedCert.type === 'WINNER' ? (
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-xl font-black uppercase tracking-widest text-[#C8102E] block">
-                          CERTIFICATE OF EXCELLENCE
+                        <span className="text-sm sm:text-xl font-black uppercase tracking-[0.2em] text-[#C8102E] block">
+                          CERTIFICATE
                         </span>
-                        <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#003366] block">
+                        <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block">
+                          OF EXCELLENCE
+                        </span>
+                        <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#003366] block pt-0.5">
                           1ST PLACE • WINNER
                         </span>
                       </div>
                     ) : selectedCert.type === 'RUNNER' ? (
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-xl font-black uppercase tracking-widest text-[#C8102E] block">
-                          CERTIFICATE OF MERIT
+                        <span className="text-sm sm:text-xl font-black uppercase tracking-[0.2em] text-[#C8102E] block">
+                          CERTIFICATE
                         </span>
-                        <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#003366] block">
+                        <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block">
+                          OF MERIT
+                        </span>
+                        <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#003366] block pt-0.5">
                           2ND PLACE • RUNNER-UP
                         </span>
                       </div>
                     ) : selectedCert.type === 'THIRD_PLACE' ? (
                       <div className="space-y-0.5">
-                        <span className="text-sm sm:text-xl font-black uppercase tracking-widest text-[#C8102E] block">
-                          CERTIFICATE OF MERIT
+                        <span className="text-sm sm:text-xl font-black uppercase tracking-[0.2em] text-[#C8102E] block">
+                          CERTIFICATE
                         </span>
-                        <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#003366] block">
+                        <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block">
+                          OF MERIT
+                        </span>
+                        <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#003366] block pt-0.5">
                           3RD PLACE
                         </span>
                       </div>
                     ) : (
-                      <span className="text-sm sm:text-xl font-black uppercase tracking-widest text-[#003366] block">
-                        CERTIFICATE OF PARTICIPATION
-                      </span>
+                      <div className="space-y-0.5">
+                        <span className="text-sm sm:text-xl font-black uppercase tracking-[0.2em] text-[#003366] block">
+                          CERTIFICATE
+                        </span>
+                        <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block">
+                          OF PARTICIPATION
+                        </span>
+                      </div>
                     )}
 
                     <p className="text-xs sm:text-sm text-slate-500 font-medium italic font-serif pt-1">
