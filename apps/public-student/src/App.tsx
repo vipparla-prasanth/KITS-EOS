@@ -1,122 +1,140 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useLayoutEffect, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { StudentLayout } from './components/layout/StudentLayout';
+import { forceResetScrollLock, initScrollRestoration, scrollToPageTop, handleHashScroll } from '@kits-eos/shared';
 
-function App() {
-  const [count, setCount] = useState(0)
+// Eagerly loaded critical landing page
+import { Home } from './pages/Home';
 
+// Route-level code-split pages
+const AboutKeos = lazy(() => import('./pages/AboutKeos').then(m => ({ default: m.AboutKeos })));
+const Vision = lazy(() => import('./pages/Vision').then(m => ({ default: m.Vision })));
+const ContactCoordinators = lazy(() => import('./pages/ContactCoordinators').then(m => ({ default: m.ContactCoordinators })));
+const TechSupport = lazy(() => import('./pages/TechSupport').then(m => ({ default: m.TechSupport })));
+const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions').then(m => ({ default: m.TermsAndConditions })));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const PublicCertificateVerification = lazy(() => import('./pages/PublicCertificateVerification').then(m => ({ default: m.PublicCertificateVerification })));
+const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
+const EventsList = lazy(() => import('./pages/EventsList').then(m => ({ default: m.EventsList })));
+const EventDetails = lazy(() => import('./pages/EventDetails').then(m => ({ default: m.EventDetails })));
+const CategoryDetails = lazy(() => import('./pages/CategoryDetails').then(m => ({ default: m.CategoryDetails })));
+const SubEventDetails = lazy(() => import('./pages/SubEventDetails').then(m => ({ default: m.SubEventDetails })));
+const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const SubEventRegister = lazy(() => import('./pages/SubEventRegister').then(m => ({ default: m.SubEventRegister })));
+const MyRegistrations = lazy(() => import('./pages/MyRegistrations').then(m => ({ default: m.MyRegistrations })));
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard').then(m => ({ default: m.StudentDashboard })));
+const StudentAttendance = lazy(() => import('./pages/StudentAttendance').then(m => ({ default: m.StudentAttendance })));
+const StudentCertificates = lazy(() => import('./pages/StudentCertificates').then(m => ({ default: m.StudentCertificates })));
+const StudentFeedback = lazy(() => import('./pages/StudentFeedback').then(m => ({ default: m.StudentFeedback })));
+const StudentComplaints = lazy(() => import('./pages/StudentComplaints').then(m => ({ default: m.StudentComplaints })));
+const StudentNotifications = lazy(() => import('./pages/StudentNotifications').then(m => ({ default: m.StudentNotifications })));
+const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
+
+function StudentPageLoadingFallback() {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <div className="flex flex-col items-center space-y-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-kits-red border-t-transparent"></div>
+        <p className="text-xs font-semibold text-gray-500 tracking-wider uppercase">
+          Loading KITS Student Portal...
+        </p>
+      </div>
+    </div>
+  );
 }
 
-export default App
+function ScrollManager() {
+  const location = useLocation();
+
+  useEffect(() => {
+    initScrollRestoration();
+  }, []);
+
+  useLayoutEffect(() => {
+    forceResetScrollLock();
+
+    const isOAuthHash = Boolean(
+      location.hash && (
+        location.hash.includes('access_token=') ||
+        location.hash.includes('refresh_token=') ||
+        location.hash.includes('error=') ||
+        location.hash.includes('code=')
+      )
+    );
+
+    if (location.hash && !isOAuthHash) {
+      handleHashScroll(location.hash);
+    } else {
+      scrollToPageTop({ behavior: 'instant' });
+    }
+  }, [location.pathname, location.hash]);
+
+  return null;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <ScrollManager />
+        <Suspense fallback={<StudentPageLoadingFallback />}>
+          <Routes>
+            {/* Public & Student Shared Institutional Shell */}
+            <Route element={<StudentLayout />}>
+              {/* 1. Public Master Pages */}
+              <Route path="/" element={<Home />} />
+              <Route path="/about-keos" element={<AboutKeos />} />
+              <Route path="/vision" element={<Vision />} />
+              <Route path="/contact-coordinators" element={<ContactCoordinators />} />
+              <Route path="/tech-support" element={<TechSupport />} />
+              <Route path="/terms" element={<TermsAndConditions />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/cookies" element={<PrivacyPolicy />} />
+              <Route path="/cookie-policy" element={<PrivacyPolicy />} />
+
+              {/* 2. Public Event Hierarchy */}
+              <Route path="/events" element={<EventsList />} />
+              <Route path="/events/:eventId" element={<EventDetails />} />
+              <Route path="/events/:eventId/categories/:categoryId" element={<CategoryDetails />} />
+              <Route path="/events/:eventId/sub-events/:subEventId" element={<SubEventDetails />} />
+              <Route path="/events/:eventId/categories/:categoryId/sub-events/:subEventId" element={<SubEventDetails />} />
+
+              {/* 3. Public Certificate Verification (No Login Required) */}
+              <Route path="/verify" element={<PublicCertificateVerification />} />
+              <Route path="/verify/:certId" element={<PublicCertificateVerification />} />
+              <Route path="/verify-certificate" element={<PublicCertificateVerification />} />
+              <Route path="/verify-certificate/:certId" element={<PublicCertificateVerification />} />
+
+              {/* 4. Student Authentication */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Login />} />
+              <Route path="/student" element={<Navigate to="/dashboard" replace />} />
+
+              {/* 5. Protected Student Operations */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<StudentDashboard />} />
+                <Route path="/events/:eventId/sub-events/:subEventId/register" element={<SubEventRegister />} />
+                <Route path="/events/:eventId/categories/:categoryId/sub-events/:subEventId/register" element={<SubEventRegister />} />
+                <Route path="/my-registrations" element={<MyRegistrations />} />
+                <Route path="/registrations" element={<MyRegistrations />} />
+                <Route path="/attendance" element={<StudentAttendance />} />
+                <Route path="/certificates" element={<StudentCertificates />} />
+                <Route path="/achievements" element={<StudentCertificates />} />
+                <Route path="/results" element={<StudentCertificates />} />
+                <Route path="/feedback" element={<StudentFeedback />} />
+                <Route path="/complaints" element={<StudentComplaints />} />
+                <Route path="/notifications" element={<StudentNotifications />} />
+                <Route path="/profile" element={<Profile />} />
+              </Route>
+
+              {/* 404 Not Found Handling */}
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
