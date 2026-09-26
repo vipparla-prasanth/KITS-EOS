@@ -1,0 +1,21 @@
+{
+  "projects": {
+    "default": "kits-akshar-eos"
+  },
+  "targets": {
+    "kits-akshar-eos": {
+      "hosting": {
+        "public-student": [
+          "kits-akshar-eos"
+        ],
+        "admin-coordinator": [
+          "kits-akshar-eos-admin"
+        ],
+        "fallback": [
+          "kits-akshar-eos-fallback"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
