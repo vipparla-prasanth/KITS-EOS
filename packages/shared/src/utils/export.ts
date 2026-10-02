@@ -1,12 +1,12 @@
-export interface ExcelExportOptions {
-  filename: string;
-  title: string;
-  subtitle?: string;
-  headers: string[];
-  rows: (string | number)[][];
-  colWidths?: number[];
-  sheetName?: string;
-}
+export {
+  exportToExcel,
+  createKitsExcelWorkbook,
+  formatInstitutionalDateTime,
+  KITS_EXCEL_THEME,
+  REGISTRATION_REPORT_HEADERS,
+  REGISTRATION_ROSTER_HEADERS,
+} from './excelExport';
+export type { ExcelExportOptions } from './excelExport';
 
 export interface PNGExportOptions {
   filename: string;
@@ -16,63 +16,6 @@ export interface PNGExportOptions {
   rows: (string | number)[][];
   colWidths?: number[]; // percentage or relative weights e.g. [8, 22, 18, 16, 16, 20]
   rowsPerPage?: number;
-}
-
-/**
- * Generates and downloads an authentic .xlsx spreadsheet.
- * Loads the xlsx library dynamically on-demand to keep initial bundles lean.
- */
-export async function exportToExcel(options: ExcelExportOptions): Promise<void> {
-  const { filename, title, subtitle, headers, rows, colWidths, sheetName } = options;
-
-  let XLSX: typeof import('xlsx');
-  try {
-    XLSX = await import('xlsx');
-  } catch (err) {
-    console.error('Failed to load xlsx library dynamically:', err);
-    throw err;
-  }
-
-  const timestamp = new Date().toLocaleString('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-
-  // Prepare sheet data with institutional header rows
-  const sheetData: (string | number)[][] = [
-    ['KITS-EOS — EVENT OPERATIONS SYSTEM'],
-    ['KITS Akshar Institute of Technology'],
-    [subtitle ? `${title} — ${subtitle}` : title],
-    [`Generated On: ${timestamp} IST | Official Institutional Record`],
-    [], // Blank spacing row
-    headers,
-    ...rows,
-  ];
-
-  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-
-  // Auto-calculate column widths if not provided
-  const cols = headers.map((h, i) => {
-    if (colWidths && colWidths[i]) {
-      return { wch: colWidths[i] };
-    }
-    let maxLen = h.length;
-    for (const r of rows) {
-      const cellVal = r[i] !== undefined && r[i] !== null ? String(r[i]) : '';
-      if (cellVal.length > maxLen) {
-        maxLen = cellVal.length;
-      }
-    }
-    return { wch: Math.min(Math.max(maxLen + 4, 12), 40) };
-  });
-
-  worksheet['!cols'] = cols;
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || 'Directory');
-
-  const finalFilename = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
-  XLSX.writeFile(workbook, finalFilename);
 }
 
 /**
@@ -315,32 +258,6 @@ function generateAndDownloadPNGPage(options: PageRenderOptions): Promise<void> {
     }, 'image/png');
   });
 }
-
-export const REGISTRATION_ROSTER_HEADERS = [
-  'S.No',
-  'College / Institution',
-  'Student Name',
-  'Roll Number',
-  'Department',
-  'Year of Study',
-  'Contact Number',
-  'Email',
-  'Event',
-  'Category',
-  'Sub-Event',
-  'Registration Mode',
-  'Team Name',
-  'Team Role',
-  'Registration Status',
-  'Payment Status',
-  'Payment Amount (INR)',
-  'Attendance Status',
-  'Attendance Date/Time',
-  'Verification Method',
-  'Manual Token',
-  'Registration ID',
-  'Registration Date',
-];
 
 export interface RegistrationParticipantExportItem {
   name: string;

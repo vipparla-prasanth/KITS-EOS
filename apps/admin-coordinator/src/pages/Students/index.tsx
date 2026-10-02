@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase } from '@kits-eos/shared/src/api/client';
+import { supabase, invokeAdminEdgeFunction } from '@kits-eos/shared/src/api/client';
 import { formatDateTime12h } from '@kits-eos/shared/src/utils/date';
 import { exportToExcel, exportTableToPNG } from '@kits-eos/shared/src/utils/export';
 import { DownloadButton } from '../../components/ui/DownloadButton';
@@ -531,6 +531,28 @@ export function StudentsList() {
     }
   };
 
+  // Password Reset Modal Handlers
+  const handleOpenPasswordReset = (student: StudentProfile) => {
+    const user = (student as any).users;
+    setResetStudent({
+      id: student.user_id,
+      email: user?.email || '',
+      name: student.full_name || 'Student',
+    });
+    setResetMessage(null);
+    setResetError(null);
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  const handleClosePasswordReset = () => {
+    setResetStudent(null);
+    setResetMessage(null);
+    setResetError(null);
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
   // Password Reset Execution
   const handleExecutePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -548,8 +570,9 @@ export function StudentsList() {
     try {
       setResetLoading(true);
       setResetError(null);
+      setResetMessage(null);
 
-      const { data, error: fnErr } = await supabase.functions.invoke('admin-reset-user-password', {
+      const { data, error: fnErr } = await invokeAdminEdgeFunction('admin-reset-user-password', {
         body: {
           targetUserId: resetStudent.id,
           newPassword: newPassword,
@@ -563,7 +586,8 @@ export function StudentsList() {
             try {
               const body = await fnErr.context.json();
               if (body?.error?.message) msg = body.error.message;
-              else if (body?.error) msg = typeof body.error === 'string' ? body.error : msg;
+              else if (body?.message) msg = body.message;
+              else if (typeof body?.error === 'string') msg = body.error;
             } catch {
               msg = fnErr.message || msg;
             }
@@ -572,17 +596,30 @@ export function StudentsList() {
           }
         } else if (data?.error?.message) {
           msg = data.error.message;
-        } else if (data?.error) {
-          msg = typeof data.error === 'string' ? data.error : msg;
+        } else if (data?.message) {
+          msg = data.message;
+        } else if (typeof data?.error === 'string') {
+          msg = data.error;
         }
         throw new Error(msg);
       }
 
-      setResetMessage(`Password for ${resetStudent.name} (${resetStudent.email}) has been successfully updated.`);
+      // If backend returned a fresh session (e.g. admin updated own credentials):
+      // update client session immediately to keep admin active!
+      if (data?.session) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+      }
+
+      // Strictly set success ONLY when backend confirmed success
+      setResetMessage(data?.message || `Password for ${resetStudent.name} (${resetStudent.email}) has been successfully updated.`);
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
       console.error('Reset error:', err);
+      setResetMessage(null);
       setResetError(err.message || 'Failed to update student password.');
     } finally {
       setResetLoading(false);
@@ -600,8 +637,9 @@ export function StudentsList() {
         throw new Error('No student records available for export.');
       }
 
-      const headers = ['Full Name', 'Roll Number', 'Department', 'Year', 'Email', 'Mobile', 'College', 'Status', 'Registered At'];
-      const rows = dataset.map((s) => [
+      const headers = ['S.No', 'Full Name', 'Roll Number', 'Department', 'Year', 'Email', 'Mobile', 'College', 'Status', 'Registered At'];
+      const rows = dataset.map((s, idx) => [
+        idx + 1,
         s.full_name || 'N/A',
         s.roll_number || 'N/A',
         s.department === 'OTHER' ? s.other_department || 'Other' : s.department || 'N/A',
@@ -614,7 +652,7 @@ export function StudentsList() {
       ]);
 
       if (exportFormat === 'EXCEL') {
-        exportToExcel({
+        await exportToExcel({
           filename: `KITS_EOS_Student_Directory_${exportScope.toLowerCase()}_${new Date().toISOString().split('T')[0]}`,
           title: 'KITS-EOS Student Directory',
           subtitle: `Scope: ${exportScope} • Total: ${dataset.length}`,
@@ -965,7 +1003,7 @@ export function StudentsList() {
 
                           <button
                             type="button"
-                            onClick={() => setResetStudent({ id: s.user_id, email: user?.email || '', name: s.full_name })}
+                            onClick={() => handleOpenPasswordReset(s)}
                             className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
                             title="Reset Password"
                           >
@@ -1311,7 +1349,7 @@ export function StudentsList() {
               </div>
               <button
                 type="button"
-                onClick={() => setResetStudent(null)}
+                onClick={handleClosePasswordReset}
                 className="p-1 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-gray-700 transition cursor-pointer"
               >
                 <X className="h-4 w-4" />
@@ -1335,18 +1373,13 @@ export function StudentsList() {
                     Password Updated
                   </h4>
                   <p className="text-xs text-gray-600 leading-relaxed max-w-xs mx-auto">
-                    <strong className="text-gray-900">{resetStudent.name}</strong>'s student password has been successfully updated.
+                    {resetMessage}
                   </p>
                 </div>
                 <div className="pt-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setResetStudent(null);
-                      setResetMessage(null);
-                      setNewPassword('');
-                      setConfirmPassword('');
-                    }}
+                    onClick={handleClosePasswordReset}
                     className="w-full px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider hover:bg-emerald-700 transition shadow-2xs cursor-pointer"
                   >
                     Done
@@ -1387,12 +1420,7 @@ export function StudentsList() {
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
                   <button
                     type="button"
-                    onClick={() => {
-                      setResetStudent(null);
-                      setResetError(null);
-                      setNewPassword('');
-                      setConfirmPassword('');
-                    }}
+                    onClick={handleClosePasswordReset}
                     className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 cursor-pointer"
                   >
                     Cancel

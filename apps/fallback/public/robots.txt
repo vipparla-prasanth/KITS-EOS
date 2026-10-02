@@ -1,0 +1,3 @@
+# KITS-EOS Fallback Standby Node
+User-agent: *
+Disallow: /

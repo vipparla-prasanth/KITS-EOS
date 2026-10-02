@@ -1,0 +1,645 @@
+/* =========================================================================
+   KITS-EOS INSTITUTIONAL OUTLINE BUTTON SYSTEM (v3 FINAL)
+   Institutional Colors: KITS Red (#C8102E) & Akshar Blue (#003366)
+   Design Paradigm: Clean White Background, Semantic 2px Border & Text
+   Hover State: NO background fill, NO blob, NO liquid animation, NO gradient
+                Subtle physical lift (translateY(-1px)) & soft shadow only
+   Safety: Explicit class targeting ONLY (.btn-liquid / .blob-btn / .btn-secondary)
+   Specialized Controls: DeleteButton, DownloadButton, tabs, toggles protected
+   Accessibility: Touch-safe, High Contrast Focus Ring, Reduced Motion Compliant
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   1. BASE MECHANICS & STACKING
+   Clean institutional outline buttons with crisp geometry
+   ------------------------------------------------------------------------- */
+.btn-liquid,
+.blob-btn {
+  position: relative;
+  overflow: hidden;
+  background-color: #FFFFFF;
+  border-radius: 0.75rem; /* 12px default */
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 200ms ease,
+              color 200ms ease;
+}
+
+/* Tactile Active Response (Physical press-down, NO color transition or fill) */
+.btn-liquid:active:not(:disabled),
+.blob-btn:active:not(:disabled) {
+  transform: scale(0.98) translateY(0.5px);
+  box-shadow: none;
+}
+
+/* -------------------------------------------------------------------------
+   2. PERMANENT SUPPRESSION OF ALL LIQUID / BLOB PSEUDO-ELEMENTS
+   Completely kills and removes any pseudo-elements, blobs, radial gradients,
+   scale-ups, or expanding layers introduced by previous liquid systems.
+   ------------------------------------------------------------------------- */
+.btn-liquid::before,
+.btn-liquid::after,
+.blob-btn::before,
+.blob-btn::after,
+.btn-outline-red::before,
+.btn-outline-red::after,
+.btn-outline-blue::before,
+.btn-outline-blue::after,
+.btn-primary-red::before,
+.btn-primary-red::after,
+.btn-primary-blue::before,
+.btn-primary-blue::after,
+.btn-kits-red::before,
+.btn-kits-red::after,
+.btn-kits-blue::before,
+.btn-kits-blue::after,
+.blob-btn--red::before,
+.blob-btn--red::after,
+.blob-btn--blue::before,
+.blob-btn--blue::after,
+.blob-btn--solid-red::before,
+.blob-btn--solid-red::after,
+.blob-btn--solid-blue::before,
+.blob-btn--solid-blue::after {
+  content: none !important;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: none !important;
+  background: none !important;
+}
+
+/* -------------------------------------------------------------------------
+   3. DEFAULT / REST STATES
+   Primary = Solid Semantic Background & Crisp White Text
+   Secondary = Clean White Background & Semantic 2px Border
+   Neutral = Light Background & Neutral Border
+   ------------------------------------------------------------------------- */
+
+/* A1. Solid KITS Red Primary Action */
+.btn-primary-red,
+.btn-kits-red,
+.btn-solid-red,
+.blob-btn--solid-red,
+.btn-liquid.btn-primary-red,
+.btn-liquid.btn-kits-red,
+.btn-liquid.btn-solid-red,
+.btn-liquid.blob-btn--solid-red {
+  background-color: #C8102E !important;
+  background-image: none !important;
+  color: #FFFFFF !important;
+  border: 2px solid #C8102E !important;
+}
+
+.btn-primary-red .btn-content,
+.btn-primary-red .btn-content *,
+.btn-kits-red .btn-content,
+.btn-kits-red .btn-content *,
+.btn-solid-red .btn-content,
+.btn-solid-red .btn-content *,
+.blob-btn--solid-red .btn-content,
+.blob-btn--solid-red .btn-content *,
+.btn-liquid.btn-primary-red .btn-content,
+.btn-liquid.btn-primary-red .btn-content *,
+.btn-liquid.btn-kits-red .btn-content,
+.btn-liquid.btn-kits-red .btn-content *,
+.btn-liquid.btn-solid-red .btn-content,
+.btn-liquid.btn-solid-red .btn-content * {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}
+
+/* A2. KITS Red Secondary Outline Action */
+.btn-outline-red,
+.btn-secondary-red,
+.blob-btn--red,
+.btn-liquid.btn-outline-red,
+.btn-liquid.btn-secondary-red,
+.btn-liquid.blob-btn--red {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+  color: #C8102E !important;
+  border: 2px solid #C8102E !important;
+}
+
+.btn-outline-red .btn-content,
+.btn-outline-red .btn-content *,
+.btn-secondary-red .btn-content,
+.btn-secondary-red .btn-content *,
+.blob-btn--red .btn-content,
+.blob-btn--red .btn-content *,
+.btn-liquid.btn-outline-red .btn-content,
+.btn-liquid.btn-outline-red .btn-content * {
+  color: #C8102E !important;
+  stroke: #C8102E !important;
+}
+
+/* B1. Solid Akshar Blue Primary Action */
+.btn-primary-blue,
+.btn-kits-blue,
+.btn-solid-blue,
+.blob-btn--solid-blue,
+.btn-liquid.btn-primary-blue,
+.btn-liquid.btn-kits-blue,
+.btn-liquid.btn-solid-blue,
+.btn-liquid.blob-btn--solid-blue {
+  background-color: #003366 !important;
+  background-image: none !important;
+  color: #FFFFFF !important;
+  border: 2px solid #003366 !important;
+}
+
+.btn-primary-blue .btn-content,
+.btn-primary-blue .btn-content *,
+.btn-kits-blue .btn-content,
+.btn-kits-blue .btn-content *,
+.btn-solid-blue .btn-content,
+.btn-solid-blue .btn-content *,
+.blob-btn--solid-blue .btn-content,
+.blob-btn--solid-blue .btn-content *,
+.btn-liquid.btn-primary-blue .btn-content,
+.btn-liquid.btn-primary-blue .btn-content *,
+.btn-liquid.btn-kits-blue .btn-content,
+.btn-liquid.btn-kits-blue .btn-content *,
+.btn-liquid.btn-solid-blue .btn-content,
+.btn-liquid.btn-solid-blue .btn-content * {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}
+
+/* B2. Akshar Blue Secondary Outline Action */
+.btn-outline-blue,
+.btn-secondary-blue,
+.blob-btn--blue,
+.btn-liquid.btn-outline-blue,
+.btn-liquid.btn-secondary-blue,
+.btn-liquid.blob-btn--blue {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+  color: #003366 !important;
+  border: 2px solid #003366 !important;
+}
+
+.btn-outline-blue .btn-content,
+.btn-outline-blue .btn-content *,
+.btn-secondary-blue .btn-content,
+.btn-secondary-blue .btn-content *,
+.blob-btn--blue .btn-content,
+.blob-btn--blue .btn-content *,
+.btn-liquid.btn-outline-blue .btn-content,
+.btn-liquid.btn-outline-blue .btn-content * {
+  color: #003366 !important;
+  stroke: #003366 !important;
+}
+
+/* C. Neutral Secondary Action (Cancel, Stay Back, Back, Close, etc.) */
+.btn-secondary {
+  position: relative;
+  background-color: #FFFFFF;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 200ms ease,
+              border-color 200ms ease,
+              color 200ms ease,
+              box-shadow 200ms ease,
+              transform 160ms ease;
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: scale(0.98) translateY(0.5px);
+}
+
+/* -------------------------------------------------------------------------
+   4. CONTENT LAYER
+   Maintains crisp text & icon alignment
+   ------------------------------------------------------------------------- */
+.btn-liquid .btn-content,
+.btn-liquid .btn-liquid__content,
+.blob-btn .btn-content,
+.blob-btn__content,
+.btn-content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------------------------
+   5. HOVER BEHAVIOR (Restrained Institutional Interaction)
+   NO liquid/blob fill, NO left-to-right color wipe, NO gradient, NO color-mixing.
+   Filled buttons lift subtly with soft shadow and slight darkening.
+   Outlined buttons lift subtly with soft shadow.
+   Strictly gated to pointer/mouse devices to prevent sticky hover on touch.
+   ------------------------------------------------------------------------- */
+@media (hover: hover) and (pointer: fine) {
+  .btn-liquid:hover,
+  .blob-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Red Primary Solid Hover: Darker red, subtle lift, soft shadow */
+  .btn-primary-red:hover,
+  .btn-kits-red:hover,
+  .btn-solid-red:hover,
+  .blob-btn--solid-red:hover,
+  .btn-liquid.btn-primary-red:hover,
+  .btn-liquid.btn-kits-red:hover,
+  .btn-liquid.btn-solid-red:hover,
+  .btn-liquid.blob-btn--solid-red:hover {
+    background-color: #A60D26 !important;
+    background-image: none !important;
+    border-color: #A60D26 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px -1px rgba(200, 16, 46, 0.35), 0 2px 6px -1px rgba(200, 16, 46, 0.2) !important;
+  }
+
+  .btn-primary-red:hover .btn-content,
+  .btn-primary-red:hover .btn-content *,
+  .btn-kits-red:hover .btn-content,
+  .btn-kits-red:hover .btn-content *,
+  .btn-solid-red:hover .btn-content,
+  .btn-solid-red:hover .btn-content *,
+  .blob-btn--solid-red:hover .btn-content,
+  .blob-btn--solid-red:hover .btn-content *,
+  .btn-liquid.btn-primary-red:hover .btn-content,
+  .btn-liquid.btn-primary-red:hover .btn-content *,
+  .btn-liquid.btn-kits-red:hover .btn-content,
+  .btn-liquid.btn-kits-red:hover .btn-content * {
+    color: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+  }
+
+  /* Red Secondary Outline Hover: Stays white background, red border, red text with lift */
+  .btn-outline-red:hover,
+  .btn-secondary-red:hover,
+  .blob-btn--red:hover,
+  .btn-liquid.btn-outline-red:hover,
+  .btn-liquid.btn-secondary-red:hover,
+  .btn-liquid.blob-btn--red:hover {
+    background-color: #FFFFFF !important;
+    background-image: none !important;
+    color: #C8102E !important;
+    border-color: #C8102E !important;
+    box-shadow: 0 4px 12px -1px rgba(200, 16, 46, 0.15), 0 2px 4px -1px rgba(200, 16, 46, 0.08) !important;
+  }
+
+  .btn-outline-red:hover .btn-content,
+  .btn-outline-red:hover .btn-content *,
+  .btn-secondary-red:hover .btn-content,
+  .btn-secondary-red:hover .btn-content *,
+  .blob-btn--red:hover .btn-content,
+  .blob-btn--red:hover .btn-content *,
+  .btn-liquid.btn-outline-red:hover .btn-content,
+  .btn-liquid.btn-outline-red:hover .btn-content * {
+    color: #C8102E !important;
+    stroke: #C8102E !important;
+  }
+
+  /* Blue Primary Solid Hover: Darker blue, subtle lift, soft shadow */
+  .btn-primary-blue:hover,
+  .btn-kits-blue:hover,
+  .btn-solid-blue:hover,
+  .blob-btn--solid-blue:hover,
+  .btn-liquid.btn-primary-blue:hover,
+  .btn-liquid.btn-kits-blue:hover,
+  .btn-liquid.btn-solid-blue:hover,
+  .btn-liquid.blob-btn--solid-blue:hover {
+    background-color: #002244 !important;
+    background-image: none !important;
+    border-color: #002244 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px -1px rgba(0, 51, 102, 0.35), 0 2px 6px -1px rgba(0, 51, 102, 0.2) !important;
+  }
+
+  .btn-primary-blue:hover .btn-content,
+  .btn-primary-blue:hover .btn-content *,
+  .btn-kits-blue:hover .btn-content,
+  .btn-kits-blue:hover .btn-content *,
+  .btn-solid-blue:hover .btn-content,
+  .btn-solid-blue:hover .btn-content *,
+  .blob-btn--solid-blue:hover .btn-content,
+  .blob-btn--solid-blue:hover .btn-content *,
+  .btn-liquid.btn-primary-blue:hover .btn-content,
+  .btn-liquid.btn-primary-blue:hover .btn-content *,
+  .btn-liquid.btn-kits-blue:hover .btn-content,
+  .btn-liquid.btn-kits-blue:hover .btn-content * {
+    color: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+  }
+
+  /* Blue Secondary Outline Hover: Stays white background, blue border, blue text with lift */
+  .btn-outline-blue:hover,
+  .btn-secondary-blue:hover,
+  .blob-btn--blue:hover,
+  .btn-liquid.btn-outline-blue:hover,
+  .btn-liquid.btn-secondary-blue:hover,
+  .btn-liquid.blob-btn--blue:hover {
+    background-color: #FFFFFF !important;
+    background-image: none !important;
+    color: #003366 !important;
+    border-color: #003366 !important;
+    box-shadow: 0 4px 12px -1px rgba(0, 51, 102, 0.15), 0 2px 4px -1px rgba(0, 51, 102, 0.08) !important;
+  }
+
+  .btn-outline-blue:hover .btn-content,
+  .btn-outline-blue:hover .btn-content *,
+  .btn-secondary-blue:hover .btn-content,
+  .btn-secondary-blue:hover .btn-content *,
+  .blob-btn--blue:hover .btn-content,
+  .blob-btn--blue:hover .btn-content *,
+  .btn-liquid.btn-outline-blue:hover .btn-content,
+  .btn-liquid.btn-outline-blue:hover .btn-content * {
+    color: #003366 !important;
+    stroke: #003366 !important;
+  }
+
+  /* Neutral Secondary Hover: Clean slate hover */
+  .btn-secondary:hover {
+    background-color: #F8FAFC !important;
+    border-color: #94A3B8 !important;
+    color: #0F172A !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   6. ACCESSIBLE FOCUS STATES (:focus-visible)
+   High-contrast semantic focus rings, no solid fill
+   ------------------------------------------------------------------------- */
+.btn-outline-red:focus-visible,
+.btn-primary-red:focus-visible,
+.btn-kits-red:focus-visible,
+.blob-btn--red:focus-visible,
+.blob-btn--solid-red:focus-visible,
+.btn-liquid.btn-outline-red:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #C8102E !important;
+}
+
+.btn-outline-blue:focus-visible,
+.btn-primary-blue:focus-visible,
+.btn-kits-blue:focus-visible,
+.blob-btn--blue:focus-visible,
+.blob-btn--solid-blue:focus-visible,
+.btn-liquid.btn-outline-blue:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #003366 !important;
+}
+
+.btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #94A3B8 !important;
+}
+
+/* -------------------------------------------------------------------------
+   7. CANONICAL .blob-btn LEGACY SUPPORT
+   ------------------------------------------------------------------------- */
+.blob-btn {
+  padding: 10px 24px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.blob-btn__content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* -------------------------------------------------------------------------
+   8. CRITICAL SAFETY & SEMANTIC EXCLUSION GUARDS
+   Strictly protects disabled, loading, destructive, and specialized controls
+   ------------------------------------------------------------------------- */
+
+/* A. Disabled State Protection:
+   Button is visible at 50% opacity; completely non-interactive */
+button:disabled,
+button[disabled],
+[aria-disabled="true"],
+.disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+button:disabled:hover,
+button[disabled]:hover,
+[aria-disabled="true"]:hover,
+.disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+button:disabled::before,
+button:disabled::after,
+button[disabled]::before,
+button[disabled]::after,
+[aria-disabled="true"]::before,
+[aria-disabled="true"]::after,
+.disabled::before,
+.disabled::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* B. Loading State Protection:
+   Spinner & text remain clearly visible */
+button:has(.animate-spin)::before,
+button:has(.animate-spin)::after,
+button[aria-busy="true"]::before,
+button[aria-busy="true"]::after,
+button.is-loading::before,
+button.is-loading::after,
+.loading-button::before,
+.loading-button::after {
+  display: none !important;
+  content: none !important;
+}
+
+button:has(.animate-spin),
+button[aria-busy="true"],
+button.is-loading {
+  transform: none !important;
+}
+
+/* C. Destructive Button Protection (Canonical DeleteButton with 7-stage trash sequence) */
+.kits-delete-btn::before,
+.kits-delete-btn::after,
+.kits-delete-btn:hover::before,
+.kits-delete-btn:hover::after,
+.delete-button::before,
+.delete-button::after,
+[data-destructive="true"]::before,
+[data-destructive="true"]::after,
+.no-hover-fill::before,
+.no-hover-fill::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* D. Specialized Download Button Protection */
+.download-button::before,
+.download-button::after,
+button:has(.animate-download-bounce)::before,
+button:has(.animate-download-bounce)::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* E. Non-Button / Form / Navigation / Icon Controls Protection */
+.btn-icon::before,
+.btn-icon::after,
+button:has(> svg:only-child):not([class*="px-"]):not([class*="py-"])::before,
+button:has(> svg:only-child):not([class*="px-"]):not([class*="py-"])::after,
+button.rounded-full.p-1::before,
+button.rounded-full.p-1::after,
+button.rounded-full.p-1\.5::before,
+button.rounded-full.p-1\.5::after,
+button.rounded-full.p-2::before,
+button.rounded-full.p-2::after,
+button.p-1::before,
+button.p-1::after,
+button.p-1\.5::before,
+button.p-1\.5::after,
+button[role="switch"]::before,
+button[role="switch"]::after,
+button[role="combobox"]::before,
+button[role="combobox"]::after,
+button[role="menuitem"]::before,
+button[role="menuitem"]::after,
+[data-dropdown-trigger="true"]::before,
+[data-dropdown-trigger="true"]::after,
+.dropdown-toggle::before,
+.dropdown-toggle::after,
+button.text-left::before,
+button.text-left::after,
+button[role="radio"]::before,
+button[role="radio"]::after,
+button[role="tab"]::before,
+button[role="tab"]::after,
+button[class*="hover:underline"]::before,
+button[class*="hover:underline"]::after,
+button.qr-control::before,
+button.qr-control::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* -------------------------------------------------------------------------
+   9. ACCESSIBILITY & REDUCED MOTION PREFERENCES
+   No animation or movement; buttons remain in clean outline state
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .btn-liquid,
+  .blob-btn,
+  .btn-secondary {
+    transition: none !important;
+  }
+  .btn-liquid:hover,
+  .blob-btn:hover,
+  .btn-secondary:hover {
+    transform: none !important;
+  }
+  .btn-liquid:active,
+  .blob-btn:active,
+  .btn-secondary:active {
+    transform: none !important;
+  }
+  .kits-404-entrance {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .kits-wind-stream {
+    animation: none !important;
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 0.2 !important;
+  }
+}
+
+/* =========================================================================
+   10. KITS-EOS 404 WIND / AIR-FLOW & ENTRANCE ANIMATIONS
+   Restrained institutional movement:
+   - Soft, thin air lines flowing smoothly across the 404 backdrop
+   - Single gentle entrance for the 404 number (then remains calm/static)
+   - Strict prefers-reduced-motion: reduce compliance
+   ========================================================================= */
+
+@keyframes kits-404-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.kits-404-entrance {
+  animation: kits-404-entrance 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes kits-wind-flow {
+  0% {
+    stroke-dashoffset: 700;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.kits-wind-stream {
+  stroke-dasharray: 260 440;
+  stroke-dashoffset: 700;
+  animation: kits-wind-flow 14s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.kits-wind-stream--1 {
+  animation-duration: 11s;
+  animation-delay: 0s;
+}
+
+.kits-wind-stream--2 {
+  animation-duration: 16s;
+  animation-delay: -4s;
+}
+
+.kits-wind-stream--3 {
+  animation-duration: 13s;
+  animation-delay: -8s;
+}
+
+.kits-wind-stream--4 {
+  animation-duration: 18s;
+  animation-delay: -11s;
+}
+
+
+

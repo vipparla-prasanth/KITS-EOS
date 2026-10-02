@@ -27,3 +27,23 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Scratch and Temp
+scratch/
+.temp/
+supabase/.temp/
+
+# Credentials and Tokens
+*tokens*.json
+*token*.json
+*credential*.json
+*runtime_env*.json
+auth_tokens.json
+qa_runtime_env.json
+
+# Local development and generated files
+.agents/
+.firebase/
+.playwright-mcp/
+*.tsbuildinfo
+scratch_test_card.pdf

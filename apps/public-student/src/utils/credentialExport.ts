@@ -61,6 +61,8 @@ export {
   downloadIdCardAsPdf,
   downloadTeamIdCardAsPdf,
   downloadTeamIdCardAsHighResImage,
+  renderTeamIdCardToCanvas,
+  renderSoloIdCardToCanvas,
   type IdCardRenderOptions,
   type TeamMemberExportItem,
   type TeamIdCardRenderOptions,
@@ -68,8 +70,14 @@ export {
 
 export async function downloadCertificateAsHighResImage(options: CertificateRenderOptions): Promise<void> {
   const renderOpts = { ...options };
+  if (!renderOpts.logoUrl) {
+    renderOpts.logoUrl = '/kits_logo_official.jpg';
+  }
+  if (!renderOpts.naacLogoUrl) {
+    renderOpts.naacLogoUrl = '/naac_a_logo.png';
+  }
   if (!renderOpts.qrDataUrl && renderOpts.certificateCode) {
-    renderOpts.qrDataUrl = generateCertificateQrDataUrl(renderOpts.certificateCode, 220);
+    renderOpts.qrDataUrl = generateCertificateQrDataUrl(renderOpts.certificateCode, 260);
   }
   const canvas = await renderCertificateToCanvas(renderOpts);
   const pngUrl = canvas.toDataURL('image/png', 1.0);
@@ -82,17 +90,40 @@ export async function downloadCertificateAsHighResImage(options: CertificateRend
 }
 
 /**
- * Triggers clean Landscape PDF generation of the certificate using the official
- * college banner asset, authoritative institutional typography, and embedded QR code.
+ * Triggers clean A4 Landscape PDF generation of the certificate using the official
+ * KITS institutional letterhead, NAAC A medallion, and embedded QR verification code.
  */
 export async function downloadCertificateAsPdf(options: CertificateRenderOptions): Promise<void> {
   const renderOpts = { ...options };
+  if (!renderOpts.logoUrl) {
+    renderOpts.logoUrl = '/kits_logo_official.jpg';
+  }
+  if (!renderOpts.naacLogoUrl) {
+    renderOpts.naacLogoUrl = '/naac_a_logo.png';
+  }
   if (!renderOpts.qrDataUrl && renderOpts.certificateCode) {
     renderOpts.qrDataUrl = generateCertificateQrDataUrl(renderOpts.certificateCode, 280);
   }
   const canvas = await renderCertificateToCanvas(renderOpts);
   const canvasPngDataUrl = canvas.toDataURL('image/png', 1.0);
 
+  // 1. Direct high-fidelity jsPDF export (A4 Landscape: 297mm x 210mm)
+  try {
+    const { jsPDF } = await import('jspdf');
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4', // 297 x 210 mm
+    });
+    // Add full-bleed high-res certificate image onto A4 landscape canvas
+    pdf.addImage(canvasPngDataUrl, 'PNG', 0, 0, 297, 210, undefined, 'FAST');
+    pdf.save(`Certificate_${options.certificateCode}.pdf`);
+    return;
+  } catch (pdfErr) {
+    console.warn('Direct jsPDF export error, falling back to print window:', pdfErr);
+  }
+
+  // 2. Fallback: Clean print window with @page A4 landscape
   const printWindow = window.open('', '_blank', 'width=1100,height=800');
   if (!printWindow) {
     window.print();

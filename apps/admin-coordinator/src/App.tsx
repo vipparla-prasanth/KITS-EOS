@@ -38,6 +38,7 @@ const CoordinatorPortal = lazy(() => import('./pages/Coordinator').then(m => ({ 
 const Analytics = lazy(() => import('./pages/Analytics').then(m => ({ default: m.Analytics })));
 const PrivacyManagement = lazy(() => import('./pages/Privacy').then(m => ({ default: m.PrivacyManagement })));
 const PaymentManagement = lazy(() => import('./pages/PaymentManagement').then(m => ({ default: m.PaymentManagement })));
+const ManageStalls = lazy(() => import('./pages/Stalls').then(m => ({ default: m.ManageStalls })));
 
 function PageLoadingFallback({ message = 'Loading institutional portal...' }: { message?: string }) {
   return (
@@ -98,6 +99,7 @@ function App() {
               <Route index element={<PaymentManagement />} />
             </Route>
             <Route path="/analytics" element={<Navigate to="/admin/analytics" replace />} />
+            <Route path="/manage-stalls" element={<Navigate to="/admin/stalls" replace />} />
 
             {/* Protected Routes (ADMIN only) wrapped in Admin Shell */}
             <Route path="/admin" element={<ProtectedRoute />}>
@@ -105,6 +107,7 @@ function App() {
                 <Route index element={<Dashboard />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="events" element={<EventsList />} />
+                <Route path="stalls" element={<ManageStalls />} />
                 <Route path="events/new" element={<CreateEvent />} />
                 <Route path="events/:eventId" element={<EventDetails />} />
                 <Route path="events/:eventId/edit" element={<EditEvent />} />

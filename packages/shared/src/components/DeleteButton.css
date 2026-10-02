@@ -1,0 +1,223 @@
+/* =========================================================================
+   KITS-EOS CANONICAL DELETE BUTTON MICRO-INTERACTION (Single Source of Truth)
+   Choreography:
+   1. Idle: [ 🗑 Delete ]
+   2. Press: scale(0.975), ~100ms
+   3. Lid Opens: Lid swings open -45deg, ~220ms (text stays fully visible)
+   4. Bin Eats: Text visibly slides left into the bin & clips letter-by-letter, ~600ms
+   5. Pause: Brief pause with open empty bin, ~120ms
+   6. Lid Closes: Lid swings shut, ~200ms
+   7. Collapse: Button smoothly collapses into compact icon [ 🗑 ], ~220ms
+   Total Duration: ~1.4s (deliberate, visible, premium)
+   ========================================================================= */
+
+.kits-delete-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  white-space: nowrap;
+  outline: none;
+  line-height: 1;
+  transition: 
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    box-shadow 200ms ease,
+    transform 100ms cubic-bezier(0.2, 0, 0.2, 1),
+    padding 240ms cubic-bezier(0.4, 0, 0.2, 1),
+    max-width 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, padding, max-width;
+}
+
+/* Focus indicator */
+.kits-delete-btn:focus-visible {
+  outline: 2px solid #C8102E;
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------
+   Stage 2: Press Feedback (~100ms)
+   ------------------------------------------------------------------------- */
+.kits-delete-btn.state-pressing {
+  transform: scale(0.975);
+}
+
+/* -------------------------------------------------------------------------
+   Trash Icon Geometry & Groups
+   ------------------------------------------------------------------------- */
+.kits-delete-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+  position: relative;
+  z-index: 2;
+  transition: transform 220ms cubic-bezier(0.2, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.kits-delete-trash-svg {
+  display: block;
+  overflow: visible;
+}
+
+/* Bin Lid: Hinge on left at (x=3, y=6) */
+.kits-delete-trash-lid {
+  transform-origin: 3px 6px;
+  transition: transform 220ms cubic-bezier(0.34, 1.25, 0.64, 1);
+  will-change: transform;
+}
+
+/* Bin Body */
+.kits-delete-trash-body {
+  transition: transform 250ms cubic-bezier(0.2, 0, 0.2, 1);
+  will-change: transform;
+}
+
+/* -------------------------------------------------------------------------
+   Stage 3: Lid Opens Visibly (~220ms) - Text still 100% visible
+   ------------------------------------------------------------------------- */
+.kits-delete-btn.state-lid-open .kits-delete-trash-lid {
+  transform: rotate(-44deg) translateY(-2px);
+}
+
+.kits-delete-btn.state-lid-open .kits-delete-trash-body {
+  transform: translateX(1.5px);
+}
+
+/* -------------------------------------------------------------------------
+   Stage 4: Bin Eats the Text (Hero Moment: ~600ms)
+   Lid stays wide open, bin approaches, text slides left into the bin mouth
+   ------------------------------------------------------------------------- */
+.kits-delete-btn.state-eating .kits-delete-trash-lid {
+  transform: rotate(-44deg) translateY(-2px);
+}
+
+.kits-delete-btn.state-eating .kits-delete-trash-body {
+  transform: translateX(3.5px);
+}
+
+/* -------------------------------------------------------------------------
+   Stage 5: Brief Pause After Eating (~120ms)
+   Text is completely eaten, lid remains open briefly so user sees the swallow
+   ------------------------------------------------------------------------- */
+.kits-delete-btn.state-eaten .kits-delete-trash-lid {
+  transform: rotate(-44deg) translateY(-2px);
+}
+
+.kits-delete-btn.state-eaten .kits-delete-trash-body {
+  transform: translateX(2px);
+}
+
+/* -------------------------------------------------------------------------
+   Label Clipping & Sliding Animation
+   Mask container clips at the trash can border; inner text slides left into it
+   ------------------------------------------------------------------------- */
+.kits-delete-label-clipper {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 400px;
+  margin-left: 0.45rem;
+  position: relative;
+  z-index: 1;
+  transition: 
+    max-width 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    margin-left 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: max-width, margin-left;
+}
+
+.kits-delete-label-text {
+  display: inline-block;
+  white-space: nowrap;
+  transform: translateX(0);
+  opacity: 1;
+  transition: 
+    transform 600ms cubic-bezier(0.3, 0, 0.2, 1),
+    opacity 500ms cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: transform, opacity;
+}
+
+/* When eating, eaten, closing, or collapsed: text slides left into the can */
+.kits-delete-btn.state-eating .kits-delete-label-clipper,
+.kits-delete-btn.state-eaten .kits-delete-label-clipper,
+.kits-delete-btn.state-closing .kits-delete-label-clipper,
+.kits-delete-btn.state-collapsed .kits-delete-label-clipper {
+  max-width: 0 !important;
+  margin-left: 0 !important;
+}
+
+.kits-delete-btn.state-eating .kits-delete-label-text,
+.kits-delete-btn.state-eaten .kits-delete-label-text,
+.kits-delete-btn.state-closing .kits-delete-label-text,
+.kits-delete-btn.state-collapsed .kits-delete-label-text {
+  transform: translateX(-100%) !important;
+  opacity: 0 !important;
+}
+
+/* -------------------------------------------------------------------------
+   Stage 6: Lid Closes Smoothly (~200ms)
+   ------------------------------------------------------------------------- */
+.kits-delete-btn.state-closing .kits-delete-trash-lid {
+  transform: rotate(0deg) translateY(0);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.kits-delete-btn.state-closing .kits-delete-trash-body {
+  transform: translateX(0);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* -------------------------------------------------------------------------
+   Stage 7: Final Compact Icon State [ 🗑 ] (~220ms)
+   ------------------------------------------------------------------------- */
+.kits-delete-btn.state-collapsed {
+  padding-left: 0.625rem !important;
+  padding-right: 0.625rem !important;
+  gap: 0 !important;
+}
+
+.kits-delete-btn.state-collapsed .kits-delete-trash-lid {
+  transform: rotate(0deg) translateY(0);
+}
+
+.kits-delete-btn.state-collapsed .kits-delete-trash-body {
+  transform: translateX(0);
+}
+
+/* -------------------------------------------------------------------------
+   Loading Spinner inside collapsed icon
+   ------------------------------------------------------------------------- */
+.kits-delete-spinner {
+  display: inline-block;
+  animation: kitsDeleteSpin 700ms linear infinite;
+}
+
+@keyframes kitsDeleteSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* -------------------------------------------------------------------------
+   ACCESSIBILITY: PREFERS-REDUCED-MOTION
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .kits-delete-btn,
+  .kits-delete-icon-wrapper,
+  .kits-delete-trash-lid,
+  .kits-delete-trash-body,
+  .kits-delete-label-clipper,
+  .kits-delete-label-text {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}

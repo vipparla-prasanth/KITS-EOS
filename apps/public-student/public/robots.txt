@@ -1,0 +1,26 @@
+# KITS-EOS Public Portal Robots Configuration
+User-agent: *
+Allow: /
+Allow: /events
+Allow: /about-keos
+Allow: /vision
+Allow: /contact-coordinators
+Allow: /tech-support
+Allow: /terms
+Allow: /privacy
+Allow: /verify-certificate
+Allow: /verify
+
+# Exclude Authenticated & Private Student Workflows from search indexing
+Disallow: /dashboard
+Disallow: /my-registrations
+Disallow: /registrations
+Disallow: /attendance
+Disallow: /results
+Disallow: /certificates
+Disallow: /feedback
+Disallow: /complaints
+Disallow: /notifications
+Disallow: /profile
+
+Sitemap: /sitemap.xml

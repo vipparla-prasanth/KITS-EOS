@@ -18,6 +18,45 @@ export interface CertificateRenderOptions {
   qrDataUrl?: string;
   bannerUrl?: string;
   logoUrl?: string;
+  naacLogoUrl?: string;
+  eventStartDate?: string | null;
+  eventEndDate?: string | null;
+}
+
+/**
+ * Formats date into institutional standard format with full year: e.g. "15 September 2026"
+ */
+function formatLongDate(dateStr?: string | null): string {
+  if (!dateStr) return '15 September 2026';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+/**
+ * Formats date into short institutional standard format: e.g. "15 Sept 2026"
+ */
+function formatShortDate(dateStr?: string | null): string {
+  if (!dateStr) return '15 Sept 2026';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 /**
@@ -49,29 +88,6 @@ function wrapCanvasText(
   return lines;
 }
 
-/**
- * Cross-browser rounded rectangle path helper.
- */
-function drawRoundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
 
 /**
  * Draws a filled diamond glyph centered at (cx, cy).
@@ -103,23 +119,131 @@ function drawDiamond(
 }
 
 /**
- * Renders an official certificate onto an HTML5 Canvas at high resolution (2000 x 1414 landscape A4 ratio).
+ * Draws a decorative diamond wing divider: ───◇───
+ */
+function drawDiamondWingDivider(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  wingWidth: number,
+  diamondSize: number,
+  color: string,
+  lineWidth = 1.5
+): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+
+  // Left wing
+  ctx.beginPath();
+  ctx.moveTo(cx - wingWidth, cy);
+  ctx.lineTo(cx - diamondSize * 1.5, cy);
+  ctx.stroke();
+
+  // Right wing
+  ctx.beginPath();
+  ctx.moveTo(cx + diamondSize * 1.5, cy);
+  ctx.lineTo(cx + wingWidth, cy);
+  ctx.stroke();
+
+  // Center diamond
+  drawDiamond(ctx, cx, cy, diamondSize, color);
+  // Terminal accent diamonds
+  drawDiamond(ctx, cx - wingWidth, cy, diamondSize * 0.45, color);
+  drawDiamond(ctx, cx + wingWidth, cy, diamondSize * 0.45, color);
+}
+
+/**
+ * Draws a technical dot grid matrix pattern (decorative institutional accent).
+ */
+function drawDotMatrix(
+  ctx: CanvasRenderingContext2D,
+  startX: number,
+  startY: number,
+  cols: number,
+  rows: number,
+  spacing: number,
+  color: string,
+  alpha = 0.35,
+  radius = 2
+): void {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.globalAlpha = alpha;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      ctx.beginPath();
+      ctx.arc(startX + c * spacing, startY + r * spacing, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * Loads an image safely with cross-origin support.
+ */
+function loadImageSafe(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+/**
+ * Ensures required professional typography fonts are explicitly loaded before canvas drawing.
+ */
+async function ensureFontsLoaded(): Promise<void> {
+  if (typeof document !== 'undefined' && 'fonts' in document) {
+    try {
+      await Promise.allSettled([
+        document.fonts.load('700 86px Cinzel'),
+        document.fonts.load('800 48px Cinzel'),
+        document.fonts.load('bold 34px Cinzel'),
+        document.fonts.load('700 72px "Cormorant Garamond"'),
+        document.fonts.load('italic 600 28px "Cormorant Garamond"'),
+        document.fonts.load('italic bold 36px "Cormorant Garamond"'),
+        document.fonts.load('900 62px Montserrat'),
+        document.fonts.load('800 38px Montserrat'),
+        document.fonts.load('700 23px Montserrat'),
+        document.fonts.load('600 19px Montserrat'),
+        document.fonts.load('700 28px Montserrat'),
+        document.fonts.load('800 27px Montserrat'),
+        document.fonts.load('500 29px Montserrat'),
+        document.fonts.load('700 24px Montserrat'),
+        document.fonts.load('600 21px Montserrat'),
+        document.fonts.load('900 23px Montserrat'),
+        document.fonts.load('800 22px Montserrat'),
+      ]);
+      await document.fonts.ready;
+    } catch (e) {
+      console.warn('Font loading check completed with notice:', e);
+    }
+  }
+}
+
+/**
+ * Renders an official KITS Akshar Institute of Technology certificate onto an HTML5 Canvas
+ * at ultra-crisp resolution (2000 x 1414 landscape, A4 ratio).
  *
- * Implements KITS-EOS Phase 9.1 Premium Institutional Polish:
- * - Refined Multi-layer Border with subtle geometric micro-diamond accents (KITS Red #C8102E, Akshar Blue #003366)
- * - Symmetrical Architectural Corner Ornaments without mechanical blueprint crosshairs
- * - Subtle Side Architectural Framing Pylons balancing whitespace gracefully
- * - Academic Chancellor's Seal watermark at 4% opacity with concentric rings
- * - Prestigious institutional letterhead & dual-rule header divider with central crest
- * - Ceremonial two-level certificate title hierarchy (CERTIFICATE / OF PARTICIPATION, EXCELLENCE, MERIT)
- * - Distinctive central KITS ceremonial divider
- * - Dominant recipient name centerpiece with dynamic font scaling, architectural brackets, and terminal diamond underline
- * - Refined student metadata and balanced typographic narrative statement
- * - Dedicated digital verification cartouche with protected quiet-zone QR code, cert code, and issue date
- * - Anchored institutional signature block with Chairman and Principal signatures
- * - Structural baseline footer with official accreditation information
+ * Strict Compliance:
+ * - Master Color System: KITS Red (#C8102E), Akshar Blue (#003366), White (#FFFFFF)
+ * - Flowing institutional red-and-blue corner/edge waves inspired by design reference
+ * - Official KITS Emblem (Image 2) in upper-left header and as subtle 4.5% centered watermark
+ * - Official NAAC A-Grade Medallion (Image 3) in upper-right header
+ * - Institutional Header (KITS AKSHAR / INSTITUTE OF TECHNOLOGY / AUTONOMOUS / Approved by AICTE...)
+ * - Zero college banner image, zero historical name phrases, zero unauthorized taglines
+ * - Dynamically populated event, sub-event, participant name, roll number, department, year, college, and dates with year
+ * - Standalone scannable QR code in lower-right region with "Scan to Verify" label (no surrounding box)
+ * - Formal signatures of Sri. K. Subba Rao (Chairman) and Dr. Kalluri Rama Kotaiah (Principal)
+ * - Central certificate code and issue date
  */
 export async function renderCertificateToCanvas(options: CertificateRenderOptions): Promise<HTMLCanvasElement> {
+  // Ensure custom professional fonts are loaded in document.fonts
+  await ensureFontsLoaded();
+
   const canvas = document.createElement('canvas');
   const width = 2000;
   const height = 1414;
@@ -130,153 +254,225 @@ export async function renderCertificateToCanvas(options: CertificateRenderOption
   if (!ctx) throw new Error('Failed to get 2D canvas context');
 
   // =========================================================================
-  // 1. BASE BACKGROUND & MULTI-LAYER INSTITUTIONAL BORDERS
+  // 1. BASE BACKGROUND & SUBTLE INSTITUTIONAL CANVAS
   // =========================================================================
-  // Pristine white base
+  // Pure white base
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  // Outer Edge: Thin KITS Red Line (2.5px)
-  ctx.strokeStyle = '#C8102E';
-  ctx.lineWidth = 2.5;
-  ctx.strokeRect(26, 26, width - 52, height - 52);
-
-  // Secondary Frame: Thin Akshar Blue Line (1.5px)
-  ctx.strokeStyle = '#003366';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(38, 38, width - 76, height - 76);
-
-  // Inner Technical Guideline (Hairline Slate)
-  ctx.strokeStyle = '#E2E8F0';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(48, 48, width - 96, height - 96);
-
-  // Subtle Repeating Micro-Diamond Accent Motif in Border Inset Gap (y = 32 and y = height - 32)
-  [250, 500, 750, 1000, 1250, 1500, 1750].forEach((mx) => {
-    drawDiamond(ctx, mx, 32, 2.5, '#C8102E');
-    drawDiamond(ctx, mx, height - 32, 2.5, '#C8102E');
-  });
-  // Side Inset Gap Motifs (x = 32 and x = width - 32)
-  [200, 400, 600, 707, 800, 1000, 1200].forEach((my) => {
-    drawDiamond(ctx, 32, my, 2.5, '#C8102E');
-    drawDiamond(ctx, width - 32, my, 2.5, '#C8102E');
-  });
-
-  // Sophisticated Architectural Corner Ornaments (Clean University Aesthetic)
-  const drawCornerOrnament = (cornerX: number, cornerY: number, dirX: number, dirY: number) => {
-    // Outer Akshar Blue bracket
-    ctx.strokeStyle = '#003366';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cornerX + dirX * 42, cornerY);
-    ctx.lineTo(cornerX, cornerY);
-    ctx.lineTo(cornerX, cornerY + dirY * 42);
-    ctx.stroke();
-
-    // 45-degree chamfer connector in KITS Red
-    ctx.strokeStyle = '#C8102E';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cornerX + dirX * 36, cornerY);
-    ctx.lineTo(cornerX, cornerY + dirY * 36);
-    ctx.stroke();
-
-    // Inner stepped bracket in KITS Red
-    const stepInsetX = cornerX + dirX * 8;
-    const stepInsetY = cornerY + dirY * 8;
-    ctx.strokeStyle = '#C8102E';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(stepInsetX + dirX * 24, stepInsetY);
-    ctx.lineTo(stepInsetX, stepInsetY);
-    ctx.lineTo(stepInsetX, stepInsetY + dirY * 24);
-    ctx.stroke();
-
-    // Central corner diamond node
-    const nodeX = cornerX + dirX * 18;
-    const nodeY = cornerY + dirY * 18;
-    drawDiamond(ctx, nodeX, nodeY, 4, '#003366', '#C8102E', 1);
-  };
-
-  // Top-Left (48, 48)
-  drawCornerOrnament(48, 48, 1, 1);
-  // Top-Right (width - 48, 48)
-  drawCornerOrnament(width - 48, 48, -1, 1);
-  // Bottom-Left (48, height - 48)
-  drawCornerOrnament(48, height - 48, 1, -1);
-  // Bottom-Right (width - 48, height - 48)
-  drawCornerOrnament(width - 48, height - 48, -1, -1);
-
   // =========================================================================
-  // 1B. SUBTLE SIDE ARCHITECTURAL FRAMING (BALANCING UNUSED WHITESPACE)
+  // 2. FLOWING INSTITUTIONAL CORNER & BORDER WAVES (RED + BLUE + WHITE)
   // =========================================================================
   ctx.save();
-  const drawSideFraming = (sideX1: number, sideX2: number) => {
-    // Vertical slender structural guidelines
-    ctx.strokeStyle = '#003366';
-    ctx.globalAlpha = 0.12;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(sideX1, 360);
-    ctx.lineTo(sideX1, 1200);
-    ctx.moveTo(sideX2, 360);
-    ctx.lineTo(sideX2, 1200);
-    ctx.stroke();
 
-    // Horizontal pylon ties with center red diamonds
-    [480, 680, 880, 1080].forEach((ty) => {
-      ctx.strokeStyle = '#003366';
-      ctx.globalAlpha = 0.18;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(sideX1, ty);
-      ctx.lineTo(sideX2, ty);
-      ctx.stroke();
+  // -------------------------------------------------------------------------
+  // 2A. TOP-LEFT CORNER WAVE CLUSTER (Restrained to corner for logo clearance)
+  // -------------------------------------------------------------------------
+  const tlBlueGrad = ctx.createLinearGradient(0, 0, 220, 240);
+  tlBlueGrad.addColorStop(0, '#001A33');
+  tlBlueGrad.addColorStop(0.7, '#003366');
+  tlBlueGrad.addColorStop(1, '#004080');
+  ctx.fillStyle = tlBlueGrad;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(260, 0);
+  ctx.bezierCurveTo(180, 60, 80, 160, 0, 280);
+  ctx.closePath();
+  ctx.fill();
 
-      ctx.globalAlpha = 0.28;
-      drawDiamond(ctx, (sideX1 + sideX2) / 2, ty, 2.5, '#C8102E');
-    });
+  // White separator
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(210, 0);
+  ctx.bezierCurveTo(140, 80, 60, 180, 0, 305);
+  ctx.stroke();
 
-    // Top and bottom terminal diamond caps
-    ctx.globalAlpha = 0.25;
-    drawDiamond(ctx, (sideX1 + sideX2) / 2, 360, 3, '#003366', '#C8102E', 1);
-    drawDiamond(ctx, (sideX1 + sideX2) / 2, 1200, 3, '#003366', '#C8102E', 1);
-  };
+  // KITS Red ribbon wave
+  const tlRedGrad = ctx.createLinearGradient(0, 60, 200, 280);
+  tlRedGrad.addColorStop(0, '#99001A');
+  tlRedGrad.addColorStop(0.5, '#C8102E');
+  tlRedGrad.addColorStop(1, '#E61E3F');
+  ctx.fillStyle = tlRedGrad;
+  ctx.beginPath();
+  ctx.moveTo(180, 0);
+  ctx.bezierCurveTo(120, 100, 45, 200, 0, 325);
+  ctx.lineTo(0, 240);
+  ctx.bezierCurveTo(40, 140, 100, 65, 120, 0);
+  ctx.closePath();
+  ctx.fill();
 
-  // Left side framing (x: 76 & 92)
-  drawSideFraming(76, 92);
-  // Right side framing (x: width - 92 & width - 76)
-  drawSideFraming(width - 92, width - 76);
+  // Dot Matrix Accent near Top-Left
+  drawDotMatrix(ctx, 38, 335, 6, 4, 13, '#003366', 0.28, 2);
+
+  // -------------------------------------------------------------------------
+  // 2B. TOP-RIGHT CORNER WAVE CLUSTER (Restrained to corner for NAAC logo clearance)
+  // -------------------------------------------------------------------------
+  const trBlueGrad = ctx.createLinearGradient(width, 0, width - 220, 240);
+  trBlueGrad.addColorStop(0, '#001A33');
+  trBlueGrad.addColorStop(0.7, '#003366');
+  trBlueGrad.addColorStop(1, '#004080');
+  ctx.fillStyle = trBlueGrad;
+  ctx.beginPath();
+  ctx.moveTo(width, 0);
+  ctx.lineTo(width - 260, 0);
+  ctx.bezierCurveTo(width - 180, 60, width - 80, 160, width, 280);
+  ctx.closePath();
+  ctx.fill();
+
+  // White separator
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(width - 210, 0);
+  ctx.bezierCurveTo(width - 140, 80, width - 60, 180, width, 305);
+  ctx.stroke();
+
+  // KITS Red ribbon wave
+  const trRedGrad = ctx.createLinearGradient(width, 60, width - 200, 280);
+  trRedGrad.addColorStop(0, '#99001A');
+  trRedGrad.addColorStop(0.5, '#C8102E');
+  trRedGrad.addColorStop(1, '#E61E3F');
+  ctx.fillStyle = trRedGrad;
+  ctx.beginPath();
+  ctx.moveTo(width - 180, 0);
+  ctx.bezierCurveTo(width - 120, 100, width - 45, 200, width, 325);
+  ctx.lineTo(width, 240);
+  ctx.bezierCurveTo(width - 40, 140, width - 100, 65, width - 120, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Dot Matrix Accent near Top-Right
+  drawDotMatrix(ctx, width - 110, 335, 6, 4, 13, '#003366', 0.28, 2);
+
+  // -------------------------------------------------------------------------
+  // 2C. BOTTOM SWEEPING INSTITUTIONAL WAVE CLUSTER (REFINED PROFILE)
+  // -------------------------------------------------------------------------
+  // Deep Akshar Blue baseline wave with refined, elegant height profile
+  const btmBlueGrad = ctx.createLinearGradient(0, height - 160, width, height);
+  btmBlueGrad.addColorStop(0, '#001A33');
+  btmBlueGrad.addColorStop(0.3, '#002B4D');
+  btmBlueGrad.addColorStop(0.7, '#003366');
+  btmBlueGrad.addColorStop(1, '#001A33');
+
+  ctx.fillStyle = btmBlueGrad;
+  ctx.beginPath();
+  ctx.moveTo(0, height);
+  ctx.lineTo(0, height - 150);
+  ctx.bezierCurveTo(340, height - 120, 620, height - 38, 1000, height - 38);
+  ctx.bezierCurveTo(1380, height - 38, 1660, height - 120, width, height - 150);
+  ctx.lineTo(width, height);
+  ctx.closePath();
+  ctx.fill();
+
+  // Vibrant KITS Red flowing wave ribbon
+  const btmRedGrad = ctx.createLinearGradient(0, height - 115, width, height - 80);
+  btmRedGrad.addColorStop(0, '#C8102E');
+  btmRedGrad.addColorStop(0.5, '#E61E3F');
+  btmRedGrad.addColorStop(1, '#C8102E');
+
+  ctx.fillStyle = btmRedGrad;
+  ctx.beginPath();
+  ctx.moveTo(0, height - 115);
+  ctx.bezierCurveTo(360, height - 85, 680, height - 18, 1000, height - 18);
+  ctx.bezierCurveTo(1320, height - 18, 1640, height - 85, width, height - 115);
+  ctx.lineTo(width, height - 75);
+  ctx.bezierCurveTo(1640, height - 50, 1320, height + 10, 1000, height + 10);
+  ctx.bezierCurveTo(680, height + 10, 360, height - 50, 0, height - 75);
+  ctx.closePath();
+  ctx.fill();
+
+  // White ribbon accent dividing stroke
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, height - 115);
+  ctx.bezierCurveTo(360, height - 85, 680, height - 18, 1000, height - 18);
+  ctx.bezierCurveTo(1320, height - 18, 1640, height - 85, width, height - 115);
+  ctx.stroke();
+
+  // Side Dot Matrices near lower region
+  drawDotMatrix(ctx, 160, height - 380, 5, 8, 15, '#003366', 0.22, 2);
+  drawDotMatrix(ctx, width - 235, height - 380, 5, 8, 15, '#003366', 0.22, 2);
+
   ctx.restore();
 
   // =========================================================================
-  // 2. SUBTLE INSTITUTIONAL WATERMARK (ACADEMIC SEAL AESTHETIC)
+  // 3. ARCHITECTURAL INSET BORDER GUIDELINES & STEPPED CORNERS
   // =========================================================================
-  const logo = new Image();
-  logo.crossOrigin = 'anonymous';
-  const logoLoaded = await new Promise<boolean>((resolve) => {
-    logo.onload = () => resolve(true);
-    logo.onerror = () => resolve(false);
-    logo.src = options.logoUrl || '/college_logo.png';
+  // Thin KITS Red outer guideline (2px)
+  ctx.strokeStyle = '#C8102E';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(38, 38, width - 76, height - 76);
+
+  // Thin Akshar Blue inner guideline (1px)
+  ctx.strokeStyle = '#003366';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(46, 46, width - 92, height - 92);
+
+  // Stepped Corner Bracket Ornaments
+  const drawCornerTick = (cx: number, cy: number, dx: number, dy: number) => {
+    ctx.strokeStyle = '#003366';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + dx * 34, cy);
+    ctx.lineTo(cx, cy);
+    ctx.lineTo(cx, cy + dy * 34);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#C8102E';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + dx * 28, cy + dy * 6);
+    ctx.lineTo(cx + dx * 6, cy + dy * 6);
+    ctx.lineTo(cx + dx * 6, cy + dy * 28);
+    ctx.stroke();
+
+    drawDiamond(ctx, cx + dx * 14, cy + dy * 14, 3.5, '#003366', '#C8102E', 1);
+  };
+
+  drawCornerTick(46, 46, 1, 1);
+  drawCornerTick(width - 46, 46, -1, 1);
+  drawCornerTick(46, height - 46, 1, -1);
+  drawCornerTick(width - 46, height - 46, -1, -1);
+
+  // Subtle Repeating Micro-Diamonds along Inset Border Gap
+  [300, 550, 800, 1000, 1200, 1450, 1700].forEach((mx) => {
+    drawDiamond(ctx, mx, 42, 2.5, '#C8102E');
+    drawDiamond(ctx, mx, height - 42, 2.5, '#C8102E');
   });
+
+  // =========================================================================
+  // 4. KITS OFFICIAL LOGO AS SUBTLE BACKGROUND WATERMARK (IMAGE 2)
+  // =========================================================================
+  const kitsLogoUrl = options.logoUrl || '/kits_logo_official.jpg';
+  const kitsLogoImg = await loadImageSafe(kitsLogoUrl);
 
   const wmCenterX = width / 2;
   const wmCenterY = 720;
-  const wmSize = 520;
+  const wmRadius = 290;
 
   ctx.save();
-  if (logoLoaded && logo.naturalHeight !== 0) {
-    ctx.globalAlpha = 0.04; // Extremely subtle, 4% opacity
-    ctx.drawImage(logo, wmCenterX - wmSize / 2, wmCenterY - wmSize / 2, wmSize, wmSize);
+  ctx.globalAlpha = 0.04; // 4% opacity (extremely subtle, behind text)
+
+  if (kitsLogoImg && kitsLogoImg.naturalHeight !== 0) {
+    ctx.beginPath();
+    ctx.arc(wmCenterX, wmCenterY, wmRadius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(kitsLogoImg, wmCenterX - wmRadius, wmCenterY - wmRadius, wmRadius * 2, wmRadius * 2);
   }
 
-  // Concentric Academic Seal Security Rings
-  ctx.globalAlpha = 0.03;
+  ctx.restore();
+
+  // Subtle concentric watermark rings
+  ctx.save();
+  ctx.globalAlpha = 0.035;
   ctx.strokeStyle = '#003366';
-  ctx.lineWidth = 1.2;
-  ctx.setLineDash([5, 5]);
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 6]);
   ctx.beginPath();
-  ctx.arc(wmCenterX, wmCenterY, 290, 0, Math.PI * 2);
+  ctx.arc(wmCenterX, wmCenterY, wmRadius + 18, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.globalAlpha = 0.025;
@@ -284,241 +480,255 @@ export async function renderCertificateToCanvas(options: CertificateRenderOption
   ctx.setLineDash([]);
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(wmCenterX, wmCenterY, 276, 0, Math.PI * 2);
+  ctx.arc(wmCenterX, wmCenterY, wmRadius + 32, 0, Math.PI * 2);
   ctx.stroke();
-
-  // 12-point Academic Seal Micro-Diamonds around seal ring
-  ctx.globalAlpha = 0.035;
-  for (let a = 0; a < 12; a++) {
-    const angle = (a * Math.PI) / 6;
-    const rx = wmCenterX + Math.cos(angle) * 290;
-    const ry = wmCenterY + Math.sin(angle) * 290;
-    drawDiamond(ctx, rx, ry, 2.5, '#003366');
-  }
   ctx.restore();
 
   // =========================================================================
-  // 3. OFFICIAL COLLEGE BANNER & ARCHITECTURAL HEADER
+  // 5. OFFICIAL INSTITUTIONAL HEADER (LARGE PROMINENT CREST & LETTERHEAD)
   // =========================================================================
-  const banner = new Image();
-  banner.crossOrigin = 'anonymous';
-  await new Promise<void>((resolve) => {
-    banner.onload = () => resolve();
-    banner.onerror = () => resolve();
-    banner.src = options.bannerUrl || '/college_banner.png';
-  });
+  // -------------------------------------------------------------------------
+  // 5A. LEFT ZONE — OFFICIAL KITS LOGO (IMAGE 2, SUBSTANTIALLY ENLARGED)
+  // -------------------------------------------------------------------------
+  const logoRadius = 96; // Diameter = 192px (Visually commanding, perfectly legible emblem)
+  const logoCenterX = 430; // Inward balanced placement framing the institutional letterhead
+  const logoCenterY = 160;
 
-  const bannerW = 1540;
-  const bannerH = Math.round(bannerW / 6.1317); // ~251px
-  const bannerX = (width - bannerW) / 2;
-  const bannerY = 62;
+  if (kitsLogoImg && kitsLogoImg.naturalHeight !== 0) {
+    ctx.save();
+    // Clip cleanly to the circular emblem
+    ctx.beginPath();
+    ctx.arc(logoCenterX, logoCenterY, logoRadius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(kitsLogoImg, logoCenterX - logoRadius, logoCenterY - logoRadius, logoRadius * 2, logoRadius * 2);
+    ctx.restore();
 
-  if (banner.complete && banner.naturalHeight !== 0) {
-    ctx.drawImage(banner, bannerX, bannerY, bannerW, bannerH);
+    // Delicate outer gold/navy ring border
+    ctx.save();
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(logoCenterX, logoCenterY, logoRadius + 1, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0, 51, 102, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(logoCenterX, logoCenterY, logoRadius + 3.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 
-  // Architectural Dual-Rule Header Divider
-  const divY = bannerY + bannerH + 15; // ~328px
+  // -------------------------------------------------------------------------
+  // 5B. CENTER ZONE — INSTITUTION INFORMATION (PROMINENT, READABLE, COMMANDING)
+  // -------------------------------------------------------------------------
+  ctx.textAlign = 'center';
 
-  // Primary Akshar Blue Rule
+  // Line 1: KITS AKSHAR (Target ~55-65px: KITS in Red, AKSHAR in Blue)
+  const line1Y = 118;
+  ctx.font = '900 64px "Montserrat", "Plus Jakarta Sans", "Segoe UI", sans-serif';
+
+  const kitsText = 'KITS ';
+  const aksharText = 'AKSHAR';
+  const kitsMetrics = ctx.measureText(kitsText);
+  const aksharMetrics = ctx.measureText(aksharText);
+  const totalLine1Width = kitsMetrics.width + aksharMetrics.width;
+
+  const line1StartX = width / 2 - totalLine1Width / 2;
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#C8102E'; // KITS Red
+  ctx.fillText(kitsText, line1StartX, line1Y);
+
+  ctx.fillStyle = '#003366'; // Akshar Blue
+  ctx.fillText(aksharText, line1StartX + kitsMetrics.width, line1Y);
+
+  // Line 2: INSTITUTE OF TECHNOLOGY (Target ~34-42px: Major institutional heading)
+  ctx.textAlign = 'center';
+  const line2Y = 168;
+  ctx.fillStyle = '#003366';
+  ctx.font = '800 40px "Montserrat", "Plus Jakarta Sans", "Segoe UI", sans-serif';
+  ctx.fillText('INSTITUTE OF TECHNOLOGY', width / 2, line2Y);
+
+  // Line 2 Underline rule with micro-diamond
+  const instWidth = ctx.measureText('INSTITUTE OF TECHNOLOGY').width;
+  ctx.strokeStyle = '#003366';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(width / 2 - instWidth / 2, line2Y + 6);
+  ctx.lineTo(width / 2 + instWidth / 2, line2Y + 6);
+  ctx.stroke();
+
+  // Line 3: AUTONOMOUS (Target ~20-26px: Clearly readable with elegant spacing)
+  const line3Y = 210;
+  ctx.fillStyle = '#003366';
+  ctx.font = '700 24px "Montserrat", "Plus Jakarta Sans", "Segoe UI", sans-serif';
+  ctx.fillText('A   U   T   O   N   O   M   O   U   S', width / 2, line3Y);
+
+  // Line 4: Approved by AICTE, New Delhi | Affiliated to JNTUK, Kakinada (Target ~17-21px)
+  const line4Y = 248;
+  ctx.fillStyle = '#334155';
+  ctx.font = '600 19px "Montserrat", "Plus Jakarta Sans", "Segoe UI", sans-serif';
+  ctx.fillText('Approved by AICTE, New Delhi | Affiliated to JNTUK, Kakinada', width / 2, line4Y);
+
+  // -------------------------------------------------------------------------
+  // 5C. RIGHT ZONE — OFFICIAL NAAC A-GRADE MEDALLION (IMAGE 3, SUBSTANTIALLY ENLARGED)
+  // -------------------------------------------------------------------------
+  const naacUrl = options.naacLogoUrl || '/naac_a_logo.png';
+  const naacImg = await loadImageSafe(naacUrl);
+
+  const naacH = 142; // Target ~120-150px height
+  const naacW = 252; // 142 * 1.774 aspect ratio
+  const naacX = 1425; // Symmetrical placement matching left logo
+  const naacY = 89;   // Center Y = 160, exactly vertically aligned with KITS logoCenterY = 160
+
+  if (naacImg && naacImg.naturalHeight !== 0) {
+    ctx.drawImage(naacImg, naacX, naacY, naacW, naacH);
+  }
+
+  // Dual-Rule Header Divider with Central Diamond
+  const divY = 280;
   ctx.strokeStyle = '#003366';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(160, divY);
-  ctx.lineTo(width - 160, divY);
+  ctx.moveTo(300, divY);
+  ctx.lineTo(width - 300, divY);
   ctx.stroke();
 
-  // Secondary KITS Red Accent Rule
   ctx.strokeStyle = '#C8102E';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(280, divY + 4);
-  ctx.lineTo(width - 280, divY + 4);
+  ctx.moveTo(400, divY + 3.5);
+  ctx.lineTo(width - 400, divY + 3.5);
   ctx.stroke();
 
-  // Central Institutional Diamond Ornament
-  drawDiamond(ctx, width / 2, divY + 2, 7, '#003366', '#C8102E', 1.5);
-  // Symmetrical flanking accent diamonds
-  drawDiamond(ctx, width / 2 - 36, divY + 2, 3, '#C8102E');
-  drawDiamond(ctx, width / 2 + 36, divY + 2, 3, '#C8102E');
+  drawDiamond(ctx, width / 2, divY + 2, 6, '#003366', '#C8102E', 1.5);
+  drawDiamond(ctx, width / 2 - 38, divY + 2, 2.5, '#C8102E');
+  drawDiamond(ctx, width / 2 + 38, divY + 2, 2.5, '#C8102E');
 
   // =========================================================================
-  // 4. DISTINCTIVE EVENT HEADER & CEREMONIAL CERTIFICATE TITLE
+  // 6. MAIN EVENT IDENTITY (PROMINENT DISPLAY TYPOGRAPHY)
   // =========================================================================
   ctx.textAlign = 'center';
-
-  // Event Name with Dynamic Font Scaling (Prevents clipping on long fest names)
   const rawEventName = (options.eventName || 'CENTRAL EVENT OPERATIONS').toUpperCase();
-  let eventFontSize = 48;
-  ctx.font = `900 ${eventFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
-  let measuredEventWidth = ctx.measureText(rawEventName).width;
-  const maxEventWidth = 1540;
+  let eventFontSize = 48; // Target ~42-52px
+  ctx.font = `800 ${eventFontSize}px "Cinzel", "Times New Roman", Georgia, serif`;
+  let measuredEventW = ctx.measureText(rawEventName).width;
+  const maxEventW = 1350;
 
-  if (measuredEventWidth > maxEventWidth) {
-    eventFontSize = Math.max(26, Math.floor(eventFontSize * (maxEventWidth / measuredEventWidth)));
-    ctx.font = `900 ${eventFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
+  if (measuredEventW > maxEventW) {
+    eventFontSize = Math.max(30, Math.floor(eventFontSize * (maxEventW / measuredEventW)));
+    ctx.font = `800 ${eventFontSize}px "Cinzel", "Times New Roman", Georgia, serif`;
+    measuredEventW = ctx.measureText(rawEventName).width;
   }
 
-  const eventY = divY + 54;
+  const eventY = 348;
   ctx.fillStyle = '#003366';
   ctx.fillText(rawEventName, width / 2, eventY);
 
-  // Central Signature Ceremonial Divider below Event Name
-  const sepY = eventY + 22;
-  // Symmetrical Blue rules with Center Red Accent Bar and Layered Diamond
-  ctx.strokeStyle = '#003366';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(width / 2 - 140, sepY);
-  ctx.lineTo(width / 2 - 24, sepY);
-  ctx.moveTo(width / 2 + 24, sepY);
-  ctx.lineTo(width / 2 + 140, sepY);
-  ctx.stroke();
+  // Symmetrical Diamond Wing Dividers flanking Event Name
+  const eventWingSpacing = Math.min(measuredEventW / 2 + 32, 680);
+  const wingY = eventY - 14;
+  drawDiamondWingDivider(ctx, width / 2 - eventWingSpacing - 50, wingY, 48, 4.5, '#C8102E');
+  drawDiamondWingDivider(ctx, width / 2 + eventWingSpacing + 50, wingY, 48, 4.5, '#C8102E');
 
-  // Center Red Segment
-  ctx.strokeStyle = '#C8102E';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(width / 2 - 24, sepY);
-  ctx.lineTo(width / 2 + 24, sepY);
-  ctx.stroke();
-
-  // Center Layered Diamond Node
-  drawDiamond(ctx, width / 2, sepY, 5, '#003366', '#C8102E', 1.5);
-  // Terminal Red Micro-Diamonds
-  drawDiamond(ctx, width / 2 - 140, sepY, 2.5, '#C8102E');
-  drawDiamond(ctx, width / 2 + 140, sepY, 2.5, '#C8102E');
-
-  // Certificate Type Hierarchy (Prestigious Academic Format: CERTIFICATE / OF ...)
+  // =========================================================================
+  // 7. CERTIFICATE TITLE HIERARCHY (STRONG VISUAL PRESENCE IN CINZEL)
+  // =========================================================================
   const isWinner = options.achievement === 'WINNER';
   const isRunner = options.achievement === 'RUNNER';
   const isThird = options.achievement === 'THIRD_PLACE';
   const isPodium = isWinner || isRunner || isThird;
 
-  // Title Line 1: CERTIFICATE (Prestigious Spaced Typography)
-  const titleLine1Y = sepY + 42;
-  ctx.font = '900 38px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
+  // Title Line 1: CERTIFICATE (Target ~70-90px)
+  const titleLine1Y = 440;
+  ctx.font = '700 86px "Cinzel", "Times New Roman", Georgia, serif';
 
-  if (isWinner || isRunner || isThird) {
+  if (isPodium) {
     ctx.fillStyle = '#C8102E';
-    ctx.fillText('C E R T I F I C A T E', width / 2, titleLine1Y);
   } else {
-    ctx.fillStyle = '#003366';
-    ctx.fillText('C E R T I F I C A T E', width / 2, titleLine1Y);
+    ctx.fillStyle = '#002B49';
   }
+  ctx.fillText('CERTIFICATE', width / 2, titleLine1Y);
 
-  // Title Line 2: OF PARTICIPATION / OF EXCELLENCE / OF MERIT
-  const titleLine2Y = titleLine1Y + 34;
+  // Title Line 2: OF PARTICIPATION / OF EXCELLENCE / OF MERIT (Target ~28-36px)
+  const titleLine2Y = titleLine1Y + 50;
+  let podiumBadgeY = 0;
 
   if (isWinner) {
     ctx.fillStyle = '#C8102E';
-    ctx.font = 'bold 24px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 32px "Cinzel", "Montserrat", sans-serif';
     ctx.fillText('OF EXCELLENCE', width / 2, titleLine2Y);
+    drawDiamondWingDivider(ctx, width / 2 - 210, titleLine2Y - 9, 58, 4.5, '#C8102E');
+    drawDiamondWingDivider(ctx, width / 2 + 210, titleLine2Y - 9, 58, 4.5, '#C8102E');
 
-    // Prestigious Winner Badge
-    const badgeY = titleLine2Y + 28;
+    podiumBadgeY = titleLine2Y + 34;
     ctx.fillStyle = '#003366';
-    ctx.font = '900 19px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-    ctx.fillText('1ST PLACE \u2022 WINNER', width / 2, badgeY);
-
-    // Warm metallic accent line
-    ctx.strokeStyle = '#D97706';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(width / 2 - 130, badgeY + 8);
-    ctx.lineTo(width / 2 + 130, badgeY + 8);
-    ctx.stroke();
-    drawDiamond(ctx, width / 2, badgeY + 8, 3, '#D97706');
+    ctx.font = '800 22px "Montserrat", "Plus Jakarta Sans", sans-serif';
+    ctx.fillText('1ST PLACE \u2022 WINNER', width / 2, podiumBadgeY);
   } else if (isRunner) {
     ctx.fillStyle = '#C8102E';
-    ctx.font = 'bold 24px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 32px "Cinzel", "Montserrat", sans-serif';
     ctx.fillText('OF MERIT', width / 2, titleLine2Y);
+    drawDiamondWingDivider(ctx, width / 2 - 170, titleLine2Y - 9, 58, 4.5, '#C8102E');
+    drawDiamondWingDivider(ctx, width / 2 + 170, titleLine2Y - 9, 58, 4.5, '#C8102E');
 
-    const badgeY = titleLine2Y + 28;
+    podiumBadgeY = titleLine2Y + 34;
     ctx.fillStyle = '#003366';
-    ctx.font = '900 19px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-    ctx.fillText('2ND PLACE \u2022 RUNNER-UP', width / 2, badgeY);
-
-    ctx.strokeStyle = '#94A3B8';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(width / 2 - 130, badgeY + 8);
-    ctx.lineTo(width / 2 + 130, badgeY + 8);
-    ctx.stroke();
-    drawDiamond(ctx, width / 2, badgeY + 8, 3, '#94A3B8');
+    ctx.font = '800 22px "Montserrat", "Plus Jakarta Sans", sans-serif';
+    ctx.fillText('2ND PLACE \u2022 RUNNER-UP', width / 2, podiumBadgeY);
   } else if (isThird) {
     ctx.fillStyle = '#C8102E';
-    ctx.font = 'bold 24px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 32px "Cinzel", "Montserrat", sans-serif';
     ctx.fillText('OF MERIT', width / 2, titleLine2Y);
+    drawDiamondWingDivider(ctx, width / 2 - 170, titleLine2Y - 9, 58, 4.5, '#C8102E');
+    drawDiamondWingDivider(ctx, width / 2 + 170, titleLine2Y - 9, 58, 4.5, '#C8102E');
 
-    const badgeY = titleLine2Y + 28;
+    podiumBadgeY = titleLine2Y + 34;
     ctx.fillStyle = '#003366';
-    ctx.font = '900 19px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-    ctx.fillText('3RD PLACE', width / 2, badgeY);
-
-    ctx.strokeStyle = '#D97706';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(width / 2 - 90, badgeY + 8);
-    ctx.lineTo(width / 2 + 90, badgeY + 8);
-    ctx.stroke();
-    drawDiamond(ctx, width / 2, badgeY + 8, 3, '#D97706');
+    ctx.font = '800 22px "Montserrat", "Plus Jakarta Sans", sans-serif';
+    ctx.fillText('3RD PLACE', width / 2, podiumBadgeY);
   } else {
-    // PARTICIPATION — KITS Red secondary subtitle flanked by delicate geometric wings
+    // Default PARTICIPATION
     ctx.fillStyle = '#C8102E';
-    ctx.font = 'bold 22px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 32px "Cinzel", "Montserrat", sans-serif';
     ctx.fillText('OF PARTICIPATION', width / 2, titleLine2Y);
-
-    // Flanking subtle geometric wings
-    const wingW = 70;
-    const wingY = titleLine2Y - 7;
-    ctx.strokeStyle = '#C8102E';
-    ctx.lineWidth = 1;
-    // Left wing
-    ctx.beginPath();
-    ctx.moveTo(width / 2 - 150 - wingW, wingY);
-    ctx.lineTo(width / 2 - 150, wingY);
-    ctx.stroke();
-    drawDiamond(ctx, width / 2 - 150 - wingW, wingY, 2.5, '#C8102E');
-    // Right wing
-    ctx.beginPath();
-    ctx.moveTo(width / 2 + 150, wingY);
-    ctx.lineTo(width / 2 + 150 + wingW, wingY);
-    ctx.stroke();
-    drawDiamond(ctx, width / 2 + 150 + wingW, wingY, 2.5, '#C8102E');
+    drawDiamondWingDivider(ctx, width / 2 - 240, titleLine2Y - 9, 64, 4.5, '#C8102E');
+    drawDiamondWingDivider(ctx, width / 2 + 240, titleLine2Y - 9, 64, 4.5, '#C8102E');
   }
 
   // =========================================================================
-  // 5. CEREMONIAL INTRO & RECIPIENT NAME CENTERPIECE
+  // 8. CEREMONIAL INTRO & PARTICIPANT NAME (PRIMARY FOCAL ELEMENT)
   // =========================================================================
-  const certIntroY = isPodium ? titleLine2Y + 62 : titleLine2Y + 44;
+  // Presented-To Line (Target ~24-30px, elegant ceremonial italic)
+  const certIntroY = isPodium ? podiumBadgeY + 44 : titleLine2Y + 48;
   ctx.fillStyle = '#475569';
-  ctx.font = 'italic 24px Georgia, "Times New Roman", serif';
+  ctx.font = 'italic 600 27px "Cormorant Garamond", Georgia, serif';
   ctx.fillText('This Certificate Is Proudly Presented To', width / 2, certIntroY);
 
-  // Recipient Name with dynamic font scaling
+  // Recipient Name (PRIMARY FOCAL ELEMENT: Target ~55-75px, commanding display)
   const rawName = (options.studentName || '').toUpperCase();
-  let nameFontSize = 74;
-  ctx.font = `900 ${nameFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
+  let nameFontSize = 70;
+  ctx.font = `700 ${nameFontSize}px "Cormorant Garamond", "Cinzel", Georgia, serif`;
   let measuredNameWidth = ctx.measureText(rawName).width;
-  const maxNameWidth = 1540;
+  const maxNameWidth = 1520;
 
   if (measuredNameWidth > maxNameWidth) {
     nameFontSize = Math.max(42, Math.floor(nameFontSize * (maxNameWidth / measuredNameWidth)));
-    ctx.font = `900 ${nameFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
+    ctx.font = `700 ${nameFontSize}px "Cormorant Garamond", "Cinzel", Georgia, serif`;
     measuredNameWidth = ctx.measureText(rawName).width;
   }
 
-  const nameY = certIntroY + 70;
+  const nameY = certIntroY + 76;
   ctx.fillStyle = '#0F172A';
   ctx.fillText(rawName, width / 2, nameY);
 
-  // Recipient Name Underline with Terminal Diamond Nodes
-  const underlinePadding = 48;
-  const underlineWidth = Math.min(measuredNameWidth + underlinePadding * 2, 1600);
+  // Recipient Underline with Terminal Diamonds
+  const underlinePadding = 40;
+  const underlineWidth = Math.min(measuredNameWidth + underlinePadding * 2, 1560);
   const underlineY = nameY + 20;
 
-  // Primary KITS Red Underline (3px)
   ctx.strokeStyle = '#C8102E';
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -526,77 +736,46 @@ export async function renderCertificateToCanvas(options: CertificateRenderOption
   ctx.lineTo((width + underlineWidth) / 2, underlineY);
   ctx.stroke();
 
-  // Terminal Solid Red Diamonds & Centered Node
   drawDiamond(ctx, (width - underlineWidth) / 2, underlineY, 5, '#C8102E');
   drawDiamond(ctx, (width + underlineWidth) / 2, underlineY, 5, '#C8102E');
   drawDiamond(ctx, width / 2, underlineY, 4, '#003366', '#C8102E', 1);
 
-  // Secondary Akshar Blue Structural Guideline below (1px)
-  ctx.strokeStyle = '#003366';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(width / 2 - underlineWidth * 0.38, underlineY + 5);
-  ctx.lineTo(width / 2 + underlineWidth * 0.38, underlineY + 5);
-  ctx.stroke();
-
-  // Subtle Architectural Brackets Framing Recipient Zone
-  const frameX1 = (width - underlineWidth) / 2 - 28;
-  const frameX2 = (width + underlineWidth) / 2 + 28;
-  const frameTopY = nameY - nameFontSize * 0.65;
-  const frameHeight = nameFontSize * 0.85;
-
-  ctx.strokeStyle = '#94A3B8';
-  ctx.lineWidth = 1.5;
-  // Left Bracket: ⌜ with small red diamond node
-  ctx.beginPath();
-  ctx.moveTo(frameX1 + 14, frameTopY);
-  ctx.lineTo(frameX1, frameTopY);
-  ctx.lineTo(frameX1, frameTopY + frameHeight);
-  ctx.stroke();
-  drawDiamond(ctx, frameX1, frameTopY, 2.5, '#C8102E');
-
-  // Right Bracket: ⌝ with small red diamond node
-  ctx.beginPath();
-  ctx.moveTo(frameX2 - 14, frameTopY);
-  ctx.lineTo(frameX2, frameTopY);
-  ctx.lineTo(frameX2, frameTopY + frameHeight);
-  ctx.stroke();
-  drawDiamond(ctx, frameX2, frameTopY, 2.5, '#C8102E');
-
   // =========================================================================
-  // 6. STUDENT METADATA & INSTITUTION
+  // 9. PARTICIPANT METADATA & DYNAMIC STUDENT COLLEGE NAME
   // =========================================================================
+  // Roll Number • Department • Year (Target ~25-31px)
   const rawMeta = `Roll No: ${options.rollNumber}   \u2022   ${options.department} (Year ${options.year})`;
-  let metaFontSize = 26;
-  ctx.font = `bold ${metaFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
+  let metaFontSize = 28;
+  ctx.font = `700 ${metaFontSize}px "Montserrat", "Plus Jakarta Sans", sans-serif`;
   let measuredMetaWidth = ctx.measureText(rawMeta).width;
-  const maxMetaWidth = 1660;
+  const maxMetaWidth = 1650;
 
   if (measuredMetaWidth > maxMetaWidth) {
     metaFontSize = Math.max(20, Math.floor(metaFontSize * (maxMetaWidth / measuredMetaWidth)));
-    ctx.font = `bold ${metaFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
+    ctx.font = `700 ${metaFontSize}px "Montserrat", "Plus Jakarta Sans", sans-serif`;
   }
 
   const metaY = underlineY + 46;
   ctx.fillStyle = '#1E293B';
   ctx.fillText(rawMeta, width / 2, metaY);
 
-  // College Name in Akshar Blue
+  // Dynamic Student College Name (Target ~24-30px, with multi-line wrap if long)
   const collegeName = options.college || 'KITS Akshar Institute of Technology';
-  let collegeFontSize = 22;
-  ctx.font = `bold ${collegeFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
-  let measuredCollegeWidth = ctx.measureText(collegeName).width;
-  if (measuredCollegeWidth > 1650) {
-    collegeFontSize = Math.max(17, Math.floor(collegeFontSize * (1650 / measuredCollegeWidth)));
-    ctx.font = `bold ${collegeFontSize}px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif`;
-  }
+  let collegeFontSize = 27;
+  ctx.font = `800 ${collegeFontSize}px "Montserrat", "Plus Jakarta Sans", sans-serif`;
+  const collegeLines = wrapCanvasText(ctx, collegeName, 1550);
+  const collegeLineHeight = 36;
+  const collegeStartY = metaY + 38;
 
-  const collegeY = metaY + 34;
   ctx.fillStyle = '#003366';
-  ctx.fillText(collegeName, width / 2, collegeY);
+  collegeLines.forEach((cline, cidx) => {
+    ctx.fillText(cline, width / 2, collegeStartY + cidx * collegeLineHeight);
+  });
+
+  const collegeEndY = collegeStartY + (collegeLines.length - 1) * collegeLineHeight;
 
   // =========================================================================
-  // 7. FORMAL TYPOGRAPHIC NARRATIVE STATEMENT
+  // 10. MAIN CERTIFICATE NARRATIVE STATEMENT (MAJOR SIZE INCREASE: ~27-32px)
   // =========================================================================
   const placeText = isWinner
     ? 'secured 1st Place (Winner)'
@@ -608,16 +787,31 @@ export async function renderCertificateToCanvas(options: CertificateRenderOption
 
   let teamClause = '';
   if (options.teamName && options.teamName !== 'Solo Participant') {
-    teamClause = ` as ${options.teamRole || 'Team Leader'} of "${options.teamName}"`;
+    teamClause = ` as ${options.teamRole || 'Team Leader'} of team "${options.teamName}"`;
   }
 
-  const narrativeText = `has ${placeText} in the competition track "${options.subEventName}"${teamClause} during ${options.eventName}.`;
+  // Human-readable date formatting with mandatory year
+  let datePhrase = '';
+  const startDateStr = options.eventStartDate ? formatLongDate(options.eventStartDate) : null;
+  const endDateStr = options.eventEndDate ? formatLongDate(options.eventEndDate) : null;
 
-  ctx.font = '500 31px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
+  if (startDateStr && endDateStr && startDateStr !== endDateStr) {
+    datePhrase = `held from ${startDateStr} to ${endDateStr}`;
+  } else if (startDateStr) {
+    datePhrase = `held on ${startDateStr}`;
+  } else if (options.issuedAt) {
+    datePhrase = `held in ${new Date(options.issuedAt).getFullYear()}`;
+  } else {
+    datePhrase = `held in 2026`;
+  }
+
+  const narrativeText = `has ${placeText}${teamClause} in the event "${options.eventName}" ${datePhrase}, in the sub-event "${options.subEventName}", organized by KITS Akshar Institute of Technology, Yanamadala, Guntur, Andhra Pradesh.`;
+
+  ctx.font = '500 29px "Montserrat", "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#1E293B';
 
-  const narrativeLines = wrapCanvasText(ctx, narrativeText, 1580);
-  const narrativeStartY = collegeY + 48;
+  const narrativeLines = wrapCanvasText(ctx, narrativeText, 1480);
+  const narrativeStartY = collegeEndY + 48;
   const narrativeLineHeight = 44;
 
   narrativeLines.forEach((line, idx) => {
@@ -627,69 +821,104 @@ export async function renderCertificateToCanvas(options: CertificateRenderOption
   const narrativeEndY = narrativeStartY + (narrativeLines.length - 1) * narrativeLineHeight;
 
   // =========================================================================
-  // 8. OFFICIAL DIGITAL VERIFICATION ENCLOSURE (SECURITY CARTOUCHE)
+  // 11. CERTIFICATE NUMBER & ISSUE DATE (OFFICIAL CREDENTIAL METADATA)
   // =========================================================================
-  // System Verification Statement above Cartouche
-  const verifStmtY = narrativeEndY + 40;
-  ctx.fillStyle = '#64748B';
-  ctx.font = 'italic 15px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-  ctx.fillText(
-    'This is an authoritative system-generated certificate digitally verifiable through the KITS-EOS certificate verification system.',
-    width / 2,
-    verifStmtY
-  );
+  const certNumberY = narrativeEndY + 50;
 
-  // Verification Cartouche Container
-  const panelW = 420;
-  const panelH = 214;
-  const panelX = (width - panelW) / 2;
-  const panelY = verifStmtY + 16;
-
-  // Dignified container fill and structural borders
-  ctx.fillStyle = '#F8FAFC';
-  drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 10);
-  ctx.fill();
-
+  // Subtle dividing hairline with center diamond
   ctx.strokeStyle = '#CBD5E1';
-  ctx.lineWidth = 1.5;
-  drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 10);
-  ctx.stroke();
-
-  // Inset hairline security frame
-  ctx.strokeStyle = '#003366';
-  ctx.lineWidth = 0.8;
-  ctx.globalAlpha = 0.3;
-  drawRoundedRect(ctx, panelX + 3, panelY + 3, panelW - 6, panelH - 6, 8);
-  ctx.stroke();
-  ctx.globalAlpha = 1.0;
-
-  // Top Akshar Blue Header Tab
-  ctx.fillStyle = '#003366';
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(panelX + 10, panelY);
-  ctx.lineTo(panelX + panelW - 10, panelY);
-  ctx.quadraticCurveTo(panelX + panelW, panelY, panelX + panelW, panelY + 10);
-  ctx.lineTo(panelX + panelW, panelY + 26);
-  ctx.lineTo(panelX, panelY + 26);
-  ctx.lineTo(panelX, panelY + 10);
-  ctx.quadraticCurveTo(panelX, panelY, panelX + 10, panelY);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(width / 2 - 250, certNumberY - 14);
+  ctx.lineTo(width / 2 + 250, certNumberY - 14);
+  ctx.stroke();
+  drawDiamond(ctx, width / 2, certNumberY - 14, 3.5, '#C8102E');
 
-  // Tab Header Text with Small Diamond Accents
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 11px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('DIGITALLY VERIFIED CREDENTIAL', width / 2, panelY + 18);
-  drawDiamond(ctx, panelX + 24, panelY + 13, 2.5, '#C8102E');
-  drawDiamond(ctx, panelX + panelW - 24, panelY + 13, 2.5, '#C8102E');
+  // Certificate Code Text (Target ~22-26px)
+  ctx.textAlign = 'center';
+  ctx.font = '700 24px "Montserrat", monospace, sans-serif';
+  ctx.fillStyle = '#0F172A';
+  ctx.fillText(`Certificate No: ${options.certificateCode}`, width / 2, certNumberY + 12);
 
-  // QR Code Box inside Cartouche
-  const qrBoxSize = 112;
-  const qrX = (width - qrBoxSize) / 2;
-  const qrY = panelY + 38;
+  // Flanking red micro-diamonds
+  const codeWidth = ctx.measureText(`Certificate No: ${options.certificateCode}`).width;
+  drawDiamond(ctx, width / 2 - codeWidth / 2 - 24, certNumberY + 6, 4, '#C8102E');
+  drawDiamond(ctx, width / 2 + codeWidth / 2 + 24, certNumberY + 6, 4, '#C8102E');
+
+  // Issue Date (Target ~20-24px, with full year)
+  const issueDateFormatted = options.issuedAt ? formatShortDate(options.issuedAt) : '15 Sept 2026';
+  ctx.fillStyle = '#475569';
+  ctx.font = '600 21px "Montserrat", "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(`Issued on: ${issueDateFormatted}`, width / 2, certNumberY + 44);
+
+  // =========================================================================
+  // 12. OFFICIAL SIGNATURES (CHAIRMAN LEFT, PRINCIPAL CENTER-RIGHT)
+  // =========================================================================
+  const chairman = options.chairmanName || 'Sri. K. Subba Rao';
+  const principal = options.principalName || 'Dr. Kalluri Rama Kotaiah';
+  const sigY = 1145;
+  const sigLineWidth = 340;
+
+  // Chairman Signature (Left Zone: Center X = 440)
+  const leftCenter = 440;
+  const leftStartX = leftCenter - sigLineWidth / 2;
+  const leftEndX = leftCenter + sigLineWidth / 2;
+
+  ctx.fillStyle = '#8B0000'; // Deep burgundy formal cursive
+  ctx.font = 'italic bold 36px "Cormorant Garamond", Georgia, serif';
+  ctx.fillText('K. Subba Rao', leftCenter, sigY - 20);
+
+  ctx.strokeStyle = '#003366';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(leftStartX, sigY);
+  ctx.lineTo(leftEndX, sigY);
+  ctx.stroke();
+  drawDiamond(ctx, leftCenter, sigY, 4, '#C8102E');
+
+  ctx.fillStyle = '#0F172A';
+  ctx.font = '900 23px "Montserrat", "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('CHAIRMAN', leftCenter, sigY + 30);
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '600 20px "Montserrat", "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(chairman, leftCenter, sigY + 56);
+
+  // Principal Signature (Center-Right Zone: Center X = 1120)
+  const rightCenter = 1120;
+  const rightStartX = rightCenter - sigLineWidth / 2;
+  const rightEndX = rightCenter + sigLineWidth / 2;
+
+  ctx.fillStyle = '#8B0000';
+  ctx.font = 'italic bold 36px "Cormorant Garamond", Georgia, serif';
+  ctx.fillText('K. Rama Kotaiah', rightCenter, sigY - 20);
+
+  ctx.strokeStyle = '#003366';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(rightStartX, sigY);
+  ctx.lineTo(rightEndX, sigY);
+  ctx.stroke();
+  drawDiamond(ctx, rightCenter, sigY, 4, '#C8102E');
+
+  ctx.fillStyle = '#0F172A';
+  ctx.font = '900 23px "Montserrat", "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('PRINCIPAL', rightCenter, sigY + 30);
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '600 20px "Montserrat", "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(principal, rightCenter, sigY + 56);
+
+  // =========================================================================
+  // 13. STANDALONE SCANNABLE QR CODE (LOWER-RIGHT REGION — 138px, NO BOX)
+  // =========================================================================
+  const qrSize = 138;
+  const qrX = 1730 - qrSize / 2;
+  const qrY = 1055;
 
   let qrDataUrl = options.qrDataUrl;
   let blobUrlToRevoke: string | null = null;
+
   if (!qrDataUrl && options.qrSvgElementId) {
     const qrSvg = document.getElementById(options.qrSvgElementId) as unknown as SVGElement | null;
     if (qrSvg) {
@@ -703,151 +932,36 @@ export async function renderCertificateToCanvas(options: CertificateRenderOption
     }
   }
 
-  // Draw inner QR white container
+  // Draw clean white quiet zone pad for the QR code
   ctx.fillStyle = '#FFFFFF';
-  drawRoundedRect(ctx, qrX, qrY, qrBoxSize, qrBoxSize, 6);
-  ctx.fill();
-  ctx.strokeStyle = '#E2E8F0';
-  ctx.lineWidth = 1;
-  drawRoundedRect(ctx, qrX, qrY, qrBoxSize, qrBoxSize, 6);
-  ctx.stroke();
+  ctx.fillRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
 
   if (qrDataUrl) {
-    const qrImg = new Image();
-    await new Promise<void>((resolve) => {
-      qrImg.onload = () => {
-        // Draw with 4px inner quiet zone padding and crisp module edges
-        const prevSmoothing = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(qrImg, qrX + 4, qrY + 4, qrBoxSize - 8, qrBoxSize - 8);
-        ctx.imageSmoothingEnabled = prevSmoothing;
-        resolve();
-      };
-      qrImg.onerror = () => resolve();
-      qrImg.src = qrDataUrl!;
-    });
+    const qrImg = await loadImageSafe(qrDataUrl);
+    if (qrImg && qrImg.naturalHeight !== 0) {
+      const prevSmoothing = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false; // Crisp module pixels
+      ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+      ctx.imageSmoothingEnabled = prevSmoothing;
+    }
     if (blobUrlToRevoke) {
       URL.revokeObjectURL(blobUrlToRevoke);
     }
   }
 
-  // Certificate Code in Bold Monospace
-  const codeY = qrY + qrBoxSize + 22;
+  // "Scan to Verify" Label below QR (Target ~20-24px)
+  ctx.textAlign = 'center';
   ctx.fillStyle = '#0F172A';
-  ctx.font = 'bold 18px monospace';
-  ctx.fillText(options.certificateCode, width / 2, codeY);
+  ctx.font = '800 22px "Montserrat", "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('Scan to Verify', 1730, qrY + qrSize + 26);
 
-  // Issue Date in Clean Monospace
-  const issueDate = options.issuedAt
-    ? new Date(options.issuedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-    : 'Verified Digital Credential';
-  ctx.fillStyle = '#64748B';
-  ctx.font = '13px monospace';
-  ctx.fillText(`Issued: ${issueDate}`, width / 2, codeY + 19);
-
-  // =========================================================================
-  // 9. OFFICIAL INSTITUTIONAL SIGNATURES (ANCHORED & BALANCED)
-  // =========================================================================
-  const chairman = options.chairmanName || 'Sri. K. Subba Rao';
-  const principal = options.principalName || 'Dr. Kalluri Rama Kotaiah';
-  const sigY = 1245;
-  const sigLineWidth = 360;
-
-  // Horizontal Structural Connecting Line bridging signatures to verification zone
-  ctx.strokeStyle = '#CBD5E1';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
+  // Delicate underline accent below "Scan to Verify"
+  ctx.strokeStyle = '#C8102E';
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(580, sigY);
-  ctx.lineTo(panelX - 16, sigY);
-  ctx.moveTo(panelX + panelW + 16, sigY);
-  ctx.lineTo(1420, sigY);
+  ctx.moveTo(1730 - 40, qrY + qrSize + 34);
+  ctx.lineTo(1730 + 40, qrY + qrSize + 34);
   ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Chairman Signature (Left: center x = 400)
-  const leftCenter = 400;
-  const leftStartX = leftCenter - sigLineWidth / 2;
-  const leftEndX = leftCenter + sigLineWidth / 2;
-
-  // Cursive Signature in deep wine burgundy
-  ctx.fillStyle = '#8B0000';
-  ctx.font = 'italic bold 38px Georgia, "Times New Roman", serif';
-  ctx.fillText('K. Subba Rao', leftCenter, sigY - 20);
-
-  // Signature Rule in Akshar Blue with Center Red Diamond
-  ctx.strokeStyle = '#003366';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(leftStartX, sigY);
-  ctx.lineTo(leftEndX, sigY);
-  ctx.stroke();
-  drawDiamond(ctx, leftCenter, sigY, 4, '#C8102E');
-
-  // Role
-  ctx.fillStyle = '#0F172A';
-  ctx.font = '900 24px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('CHAIRMAN', leftCenter, sigY + 32);
-
-  // Signatory Subtitle
-  ctx.fillStyle = '#64748B';
-  ctx.font = 'bold 20px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-  ctx.fillText(chairman, leftCenter, sigY + 58);
-
-  // Principal Signature (Right: center x = 1600)
-  const rightCenter = width - 400;
-  const rightStartX = rightCenter - sigLineWidth / 2;
-  const rightEndX = rightCenter + sigLineWidth / 2;
-
-  // Cursive Signature in deep wine burgundy
-  ctx.fillStyle = '#8B0000';
-  ctx.font = 'italic bold 38px Georgia, "Times New Roman", serif';
-  ctx.fillText('K. Rama Kotaiah', rightCenter, sigY - 20);
-
-  // Signature Rule in Akshar Blue with Center Red Diamond
-  ctx.strokeStyle = '#003366';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(rightStartX, sigY);
-  ctx.lineTo(rightEndX, sigY);
-  ctx.stroke();
-  drawDiamond(ctx, rightCenter, sigY, 4, '#C8102E');
-
-  // Role
-  ctx.fillStyle = '#0F172A';
-  ctx.font = '900 24px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('PRINCIPAL', rightCenter, sigY + 32);
-
-  // Signatory Subtitle
-  ctx.fillStyle = '#64748B';
-  ctx.font = 'bold 20px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-  ctx.fillText(principal, rightCenter, sigY + 58);
-
-  // =========================================================================
-  // 10. PREMIUM INSTITUTIONAL FOOTER BASELINE
-  // =========================================================================
-  const footerBaselineY = 1336;
-
-  // Structural Baseline Rule
-  ctx.strokeStyle = '#003366';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(100, footerBaselineY);
-  ctx.lineTo(width - 100, footerBaselineY);
-  ctx.stroke();
-
-  // Symmetrical Accent Terminal Nodes
-  drawDiamond(ctx, 100, footerBaselineY, 4, '#C8102E');
-  drawDiamond(ctx, width - 100, footerBaselineY, 4, '#C8102E');
-
-  // Institutional Accreditation Statement
-  ctx.fillStyle = '#64748B';
-  ctx.font = 'bold 13px "Plus Jakarta Sans", "Segoe UI", Roboto, sans-serif';
-  ctx.fillText(
-    'KITS AKSHAR INSTITUTE OF TECHNOLOGY   \u2022   AUTONOMOUS   \u2022   APPROVED BY AICTE   \u2022   AFFILIATED TO JNTUK   \u2022   ACCREDITED BY NAAC WITH "A" GRADE',
-    width / 2,
-    footerBaselineY + 22
-  );
 
   return canvas;
 }

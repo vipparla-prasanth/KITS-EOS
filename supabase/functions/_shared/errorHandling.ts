@@ -8,17 +8,21 @@ export class HttpError extends Error {
   }
 }
 
-export const handleError = (error: unknown) => {
+export const handleError = (error: unknown, corsHeaders?: Record<string, string>) => {
+  const headers = { ...corsHeaders, "Content-Type": "application/json" };
+  
   if (error instanceof HttpError) {
     return new Response(
       JSON.stringify({
         success: false,
+        code: error.code,
+        message: error.message,
         error: {
           code: error.code,
           message: error.message
         }
       }),
-      { status: error.statusCode, headers: { "Content-Type": "application/json" } }
+      { status: error.statusCode, headers }
     );
   }
 
@@ -32,6 +36,6 @@ export const handleError = (error: unknown) => {
         message: "An unexpected error occurred."
       }
     }),
-    { status: 500, headers: { "Content-Type": "application/json" } }
+    { status: 500, headers }
   );
 };

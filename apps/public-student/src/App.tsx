@@ -31,6 +31,7 @@ const StudentFeedback = lazy(() => import('./pages/StudentFeedback').then(m => (
 const StudentComplaints = lazy(() => import('./pages/StudentComplaints').then(m => ({ default: m.StudentComplaints })));
 const StudentNotifications = lazy(() => import('./pages/StudentNotifications').then(m => ({ default: m.StudentNotifications })));
 const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
+const StallsDirectory = lazy(() => import('./pages/Stalls').then(m => ({ default: m.StallsDirectory })));
 
 function StudentPageLoadingFallback() {
   return (
@@ -94,8 +95,9 @@ export default function App() {
               <Route path="/cookies" element={<PrivacyPolicy />} />
               <Route path="/cookie-policy" element={<PrivacyPolicy />} />
 
-              {/* 2. Public Event Hierarchy */}
+              {/* 2. Public Event Hierarchy & Stalls */}
               <Route path="/events" element={<EventsList />} />
+              <Route path="/stalls" element={<StallsDirectory />} />
               <Route path="/events/:eventId" element={<EventDetails />} />
               <Route path="/events/:eventId/categories/:categoryId" element={<CategoryDetails />} />
               <Route path="/events/:eventId/sub-events/:subEventId" element={<SubEventDetails />} />

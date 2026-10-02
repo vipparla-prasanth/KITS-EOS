@@ -2,17 +2,27 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export function AccessDenied() {
-  const { role, status, isLoading, signOut } = useAuth();
+  const { user, role, status, isAllowlisted, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Rescue the user if they are an active admin (e.g. after a manual db promotion or refreshing the route)
-  if (!isLoading && role === 'ADMIN' && status === 'ACTIVE') {
+  // Do not render anything while checking auth state
+  if (isLoading) {
+    return null;
+  }
+
+  // A completely unauthenticated user should not be stuck on Access Denied.
+  if (!user) {
     return <Navigate to="/" replace />;
+  }
+
+  // Rescue the user if they are an active allowlisted admin
+  if (role === 'ADMIN' && status === 'ACTIVE' && isAllowlisted) {
+    return <Navigate to="/admin" replace />;
   }
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/login');
+    navigate('/');
   };
 
   return (
@@ -24,13 +34,15 @@ export function AccessDenied() {
           </svg>
         </div>
         <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Access Denied</h2>
-        <p className="text-sm text-gray-600 mb-6">
-          You do not have the required privileges to access the KITS-EOS Admin Dashboard.
-          If you believe this is an error, please contact the system administrator.
+        <p className="text-sm text-gray-600 mb-2 font-medium">
+          Your Google account ({user?.email || 'authenticated user'}) is not authorized to access the KITS-EOS Administrator Portal.
+        </p>
+        <p className="text-xs text-gray-500 mb-6">
+          Access is strictly restricted to designated KITS-EOS administrators. If you believe this is an error, please contact the institution system administrator.
         </p>
         <button
           onClick={handleSignOut}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-kits-red hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-kits-red transition-colors"
+          className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-kits-red hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-kits-red transition-colors"
         >
           Sign Out & Return to Login
         </button>

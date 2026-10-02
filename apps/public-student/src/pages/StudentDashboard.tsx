@@ -5,16 +5,16 @@ import { formatDateTime12h } from '@kits-eos/shared/src/utils/date';
 import { useAuth } from '../context/AuthContext';
 import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
-import { 
-  ClipboardList, 
-  CheckCircle2, 
-  Trophy, 
-  Award, 
-  MessageSquare, 
-  AlertTriangle, 
-  Bell, 
-  Calendar, 
-  ArrowRight, 
+import {
+  ClipboardList,
+  CheckCircle2,
+  Trophy,
+  Award,
+  MessageSquare,
+  AlertTriangle,
+  Bell,
+  Calendar,
+  ArrowRight,
   MapPin,
   FileSpreadsheet,
   Loader2
@@ -56,14 +56,14 @@ export function StudentDashboard() {
       setIsLoading(true);
       setError(null);
 
-      // 1. Fetch Registrations where user is leader
+      // 1. Concurrently fetch all student dashboard metrics without all-or-nothing failure mode
       const [
-        regRes,
-        attendRes,
-        certsRes,
-        compRes,
-        notifRes
-      ] = await Promise.all([
+        regResult,
+        attendResult,
+        certsResult,
+        compResult,
+        notifResult
+      ] = await Promise.allSettled([
         supabase
           .from('registrations')
           .select(`
@@ -125,42 +125,80 @@ export function StudentDashboard() {
           .eq('is_read', false)
       ]);
 
-      if (regRes.error) throw regRes.error;
-      const regs = regRes.data || [];
-      setRegistrations(regs);
+      // 1. Registrations & Attendance & Results handling
+      if (regResult.status === 'fulfilled') {
+        if (regResult.value.error) {
+          console.error('Failed to load student registrations:', regResult.value.error);
+        } else {
+          const regs = regResult.value.data || [];
+          setRegistrations(regs);
 
-      // Attendance Records count strictly for this student
-      const myMemberIds = new Set<string>();
-      regs.forEach((r: any) => {
-        const team = Array.isArray(r.teams) ? r.teams[0] : r.teams;
-        const members = team?.team_members || [];
-        const myMember = members.find((m: any) => m.user_id === user.id) || members.find((m: any) => m.is_leader) || members[0];
-        if (myMember?.id) {
-          myMemberIds.add(myMember.id);
+          // Attendance Records count strictly for this student
+          if (attendResult.status === 'fulfilled' && !attendResult.value.error) {
+            const myMemberIds = new Set<string>();
+            regs.forEach((r: any) => {
+              const team = Array.isArray(r.teams) ? r.teams[0] : r.teams;
+              const members = team?.team_members || [];
+              const myMember = members.find((m: any) => m.user_id === user.id) || members.find((m: any) => m.is_leader) || members[0];
+              if (myMember?.id) {
+                myMemberIds.add(myMember.id);
+              }
+            });
+
+            const myAttendedCount = (attendResult.value.data || []).filter((a: any) =>
+              a.scanned_member_id && myMemberIds.has(a.scanned_member_id)
+            ).length;
+            setAttendanceCount(myAttendedCount);
+          }
+
+          // Results count
+          const lockedSubEventIds = regs
+            .map((r: any) => (Array.isArray(r.sub_events) ? r.sub_events[0] : r.sub_events))
+            .filter((sub: any) => sub?.results_published || sub?.results_locked)
+            .map((sub: any) => sub?.id);
+          setResultsCount(lockedSubEventIds.length);
         }
-      });
+      } else {
+        console.error('Student registrations fetch rejected:', regResult.reason);
+      }
 
-      const myAttendedCount = (attendRes.data || []).filter((a: any) =>
-        a.scanned_member_id && myMemberIds.has(a.scanned_member_id)
-      ).length;
-      setAttendanceCount(myAttendedCount);
+      // 2. Attendance error logging if failed independently
+      if (attendResult.status === 'rejected' || (attendResult.status === 'fulfilled' && attendResult.value.error)) {
+        console.warn('Student attendance fetch notice:', attendResult.status === 'rejected' ? attendResult.reason : attendResult.value.error);
+      }
 
-      // Certificates count
-      setCertificatesCount(certsRes.data?.length || 0);
+      // 3. Certificates count handling
+      if (certsResult.status === 'fulfilled') {
+        if (!certsResult.value.error) {
+          setCertificatesCount(certsResult.value.data?.length || 0);
+        } else {
+          console.warn('Student certificates fetch notice:', certsResult.value.error);
+        }
+      } else {
+        console.warn('Student certificates fetch rejected:', certsResult.reason);
+      }
 
-      // Results count
-      const lockedSubEventIds = regs
-        .map((r: any) => (Array.isArray(r.sub_events) ? r.sub_events[0] : r.sub_events))
-        .filter((sub: any) => sub?.results_published || sub?.results_locked)
-        .map((sub: any) => sub?.id);
-      setResultsCount(lockedSubEventIds.length);
+      // 4. Open Complaints count handling
+      if (compResult.status === 'fulfilled') {
+        if (!compResult.value.error) {
+          setOpenComplaintsCount(compResult.value.data?.length || 0);
+        } else {
+          console.warn('Student complaints fetch notice:', compResult.value.error);
+        }
+      } else {
+        console.warn('Student complaints fetch rejected:', compResult.reason);
+      }
 
-      // Open Complaints count
-      setOpenComplaintsCount(compRes.data?.length || 0);
-
-      // Unread Notifications count
-      setUnreadNotificationsCount(notifRes.data?.length || 0);
-
+      // 5. Unread Notifications count handling
+      if (notifResult.status === 'fulfilled') {
+        if (!notifResult.value.error) {
+          setUnreadNotificationsCount(notifResult.value.data?.length || 0);
+        } else {
+          console.warn('Student notifications fetch notice:', notifResult.value.error);
+        }
+      } else {
+        console.warn('Student notifications fetch rejected:', notifResult.reason);
+      }
     } catch (err: any) {
       console.error('Failed to load student dashboard:', err);
       setError(err.message || 'Failed to load dashboard.');
@@ -194,7 +232,7 @@ export function StudentDashboard() {
           <div className="space-y-2.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-red-200 border border-white/15 backdrop-blur-md">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>KITS-EOS Student Console • Active Session</span>
+              <span>KITS-EOS Student Console</span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">

@@ -1,6 +1,418 @@
 @import "tailwindcss";
+@import "../../../packages/shared/src/styles/button-animations.css";
+@import "../../../packages/shared/src/styles/header-glass.css";
 
-/* Disable all gradients in the application */
-* {
-  background-image: none !important;
+@theme {
+  --color-kits-red: #C8102E;
+  --color-kits-blue: #003366;
+  --color-akshar-blue: #003366;
 }
+
+/* =========================================================================
+   1. GLOBAL BASE & COLOR SCHEME
+   ========================================================================= */
+:root {
+  color-scheme: light;
+}
+
+html {
+  /* Route transitions require instant scroll restoration to avoid clamping to footers */
+  scroll-behavior: auto;
+}
+
+body {
+  margin: 0;
+  background-color: #F8FAFC;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(200, 16, 46, 0.035) 0%, transparent 35%),
+    radial-gradient(circle at 85% 85%, rgba(0, 51, 102, 0.04) 0%, transparent 40%);
+  background-attachment: fixed;
+  color: #0F172A;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =========================================================================
+   INSTITUTIONAL GLASSMORPHISM (Imported from shared/styles/header-glass.css)
+   ========================================================================= */
+
+/* =========================================================================
+   2. GLOBAL BUTTON & INTERACTIVE MICRO-INTERACTIONS
+   ========================================================================= */
+button, 
+[role="button"],
+a[role="button"],
+.btn-interactive,
+.btn-tactile {
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Tactile Active / Pointer Down Click Response */
+button:active:not(:disabled), 
+[role="button"]:active:not([aria-disabled="true"]),
+a[role="button"]:active,
+.btn-interactive:active:not(:disabled),
+.btn-tactile:active:not(:disabled) {
+  transform: scale(0.975) translateY(0.5px) !important;
+}
+
+/* Accessible High-Contrast Focus Ring */
+button:focus-visible, 
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #003366;
+}
+
+/* Guard Disabled Buttons */
+button:disabled, 
+button[disabled],
+[aria-disabled="true"],
+button:disabled:hover,
+button:disabled:active {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+
+/* Icon Buttons Hover Micro-Scale */
+.btn-icon:hover svg,
+button:hover > svg.icon-hover {
+  transform: scale(1.06);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* =========================================================================
+   3. FORM INPUT INTERACTIONS
+   ========================================================================= */
+input, 
+select, 
+textarea {
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+input:focus, 
+select:focus, 
+textarea:focus {
+  border-color: #003366 !important;
+  box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.14) !important;
+  outline: none !important;
+}
+
+/* =========================================================================
+   4. PAGE TRANSITIONS & KEYFRAMES (Clean Opacity - No Residual Layer Isolation)
+   ========================================================================= */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 250ms ease-out;
+}
+
+/* Staggered entrance helpers */
+.stagger-1 {
+  animation: fadeSlideUp 350ms cubic-bezier(0.16, 1, 0.3, 1) 30ms backwards;
+}
+.stagger-2 {
+  animation: fadeSlideUp 380ms cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards;
+}
+.stagger-3 {
+  animation: fadeSlideUp 400ms cubic-bezier(0.16, 1, 0.3, 1) 90ms backwards;
+}
+.stagger-4 {
+  animation: fadeSlideUp 420ms cubic-bezier(0.16, 1, 0.3, 1) 120ms backwards;
+}
+
+/* =========================================================================
+   5. FLOATING GLASS HEADER ENTRANCE (Clean Fade - Preserves Backdrop Blur)
+   ========================================================================= */
+@keyframes headerSlideDown {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.header-enter {
+  animation: headerSlideDown 250ms ease-out;
+}
+
+/* =========================================================================
+   6. MODAL & OVERLAY ANIMATIONS
+   ========================================================================= */
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.965) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-overlay-animate {
+  animation: overlayFadeIn 200ms ease-out forwards;
+}
+
+.modal-dialog-animate {
+  animation: modalPopIn 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+/* =========================================================================
+   7. DROPDOWNS, POPOVERS & TOASTS
+   ========================================================================= */
+@keyframes dropdownSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dropdown-animate {
+  animation: dropdownSlideDown 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-animate {
+  animation: toastSlideIn 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* =========================================================================
+   8. CARD HOVER ELEVATION
+   ========================================================================= */
+.card-hover-interactive {
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
+}
+
+.card-hover-interactive:hover {
+  transform: translateY(-2.5px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+}
+
+/* =========================================================================
+   9. SKELETON SHIMMER
+   ========================================================================= */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* =========================================================================
+   10. CUSTOM INSTITUTIONAL SCROLLBAR SYSTEM
+   ========================================================================= */
+/* Standard Firefox */
+html, body, * {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+/* WebKit (Chrome, Edge, Safari, Opera) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 200ms ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94A3B8;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #C8102E;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Custom In-Element Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94A3B8;
+}
+
+/* Utility to hide scrollbars when needed */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* =========================================================================
+   11. ACCESSIBILITY: PREFERS-REDUCED-MOTION
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
+}
+
+/* =========================================================================
+   12. RESPONSIVE HARDENING & SAFE AREA SYSTEM
+   ========================================================================= */
+.table-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-dialog-responsive {
+  max-width: calc(100vw - 1.5rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+
+.safe-pb {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.touch-target-min {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* =========================================================================
+   13. PREMIUM FILE TRANSFER ANIMATION SYSTEM
+   ========================================================================= */
+@keyframes transferShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-transfer-shimmer {
+  animation: transferShimmer 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes uploadArrowBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.animate-upload-bounce {
+  animation: uploadArrowBounce 1.2s ease-in-out infinite;
+}
+
+@keyframes downloadArrowBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+.animate-download-bounce {
+  animation: downloadArrowBounce 1.2s ease-in-out infinite;
+}
+
+@keyframes popSuccess {
+  0% { transform: scale(0.85); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-pop-success {
+  animation: popSuccess 360ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

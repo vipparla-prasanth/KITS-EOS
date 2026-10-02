@@ -53,8 +53,12 @@ export interface StudentCertificateItem {
   isTeam: boolean;
   teamName: string;
   teamRole?: string;
+  teamMemberId?: string;
+  isLeader?: boolean;
   attendanceVerified: boolean;
   registrationId?: string;
+  eventStartDate?: string | null;
+  eventEndDate?: string | null;
 }
 
 const CHAIRMAN_NAME = 'Sri. K. Subba Rao';
@@ -185,22 +189,18 @@ export function StudentCertificates() {
         registrationId?: string;
       }>();
 
-      // Process leader registrations
+      // Process leader registrations (leader has authorized access to all team members)
       (regData || []).forEach((reg: any) => {
         const team = Array.isArray(reg.teams) ? reg.teams[0] : reg.teams;
         const members = team?.team_members || [];
-        const studentMember = members.find((m: any) => m.user_id === user.id) || 
-                              members.find((m: any) => m.is_leader) || 
-                              members[0];
-
-        if (studentMember) {
-          memberContextMap.set(studentMember.id, {
+        members.forEach((m: any) => {
+          memberContextMap.set(m.id, {
             subEvent: reg.sub_events,
             team,
-            member: studentMember,
+            member: m,
             registrationId: reg.id,
           });
-        }
+        });
       });
 
       // Process non-leader member registrations
@@ -234,14 +234,18 @@ export function StudentCertificates() {
             results_published,
             events (
               id,
-              name
+              name,
+              start_date,
+              end_date
             ),
             categories (
               id,
               name,
               events (
                 id,
-                name
+                name,
+                start_date,
+                end_date
               )
             )
           ),
@@ -277,6 +281,8 @@ export function StudentCertificates() {
 
         const isTeam = team?.team_name && team.team_name !== 'Solo Participant';
         const teamRole = isTeam ? (member?.is_leader ? 'Team Leader' : 'Team Member') : 'Solo Participant';
+        const eventStartDate = sub?.events?.start_date || sub?.categories?.events?.start_date || null;
+        const eventEndDate = sub?.events?.end_date || sub?.categories?.events?.end_date || null;
 
         mappedItems.push({
           id: cert.id,
@@ -296,8 +302,12 @@ export function StudentCertificates() {
           isTeam: Boolean(isTeam),
           teamName: team?.team_name || 'Solo Participant',
           teamRole,
+          teamMemberId: cert.team_member_id || member?.id,
+          isLeader: Boolean(member?.is_leader),
           attendanceVerified: true,
           registrationId: ctx?.registrationId || team?.registration_id,
+          eventStartDate,
+          eventEndDate,
         });
       });
 
@@ -356,6 +366,10 @@ export function StudentCertificates() {
       issuedAt: cert.issuedAt,
       chairmanName: CHAIRMAN_NAME,
       principalName: PRINCIPAL_NAME,
+      eventStartDate: cert.eventStartDate,
+      eventEndDate: cert.eventEndDate,
+      logoUrl: '/kits_logo_official.jpg',
+      naacLogoUrl: '/naac_a_logo.png',
     });
   };
 
@@ -379,6 +393,10 @@ export function StudentCertificates() {
         issuedAt: cert.issuedAt,
         chairmanName: CHAIRMAN_NAME,
         principalName: PRINCIPAL_NAME,
+        eventStartDate: cert.eventStartDate,
+        eventEndDate: cert.eventEndDate,
+        logoUrl: '/kits_logo_official.jpg',
+        naacLogoUrl: '/naac_a_logo.png',
       });
     } catch (err) {
       console.error('Failed to download certificate image:', err);
@@ -397,8 +415,78 @@ export function StudentCertificates() {
   }, [certificates]);
 
   const achievementCertificates = useMemo(() => {
-    return certificates.filter((c) => c.type === 'WINNER' || c.type === 'RUNNER' || c.type === 'THIRD_PLACE');
+    return certificates.filter(
+      (c) => (c.type === 'WINNER' || c.type === 'RUNNER' || c.type === 'THIRD_PLACE') && c.status === 'UNLOCKED'
+    );
   }, [certificates]);
+
+  const groupedParticipation = useMemo(() => {
+    const groups: {
+      key: string;
+      isTeam: boolean;
+      teamName: string;
+      subEventName: string;
+      eventName: string;
+      certificates: StudentCertificateItem[];
+    }[] = [];
+
+    const map = new Map<string, (typeof groups)[0]>();
+
+    participationCertificates.forEach((cert) => {
+      const key = cert.isTeam
+        ? `team-${cert.registrationId || cert.teamName}-${cert.subEventId}`
+        : `solo-${cert.id}`;
+      if (!map.has(key)) {
+        const group = {
+          key,
+          isTeam: cert.isTeam,
+          teamName: cert.teamName,
+          subEventName: cert.subEventName,
+          eventName: cert.eventName,
+          certificates: [],
+        };
+        map.set(key, group);
+        groups.push(group);
+      }
+      map.get(key)!.certificates.push(cert);
+    });
+
+    return groups;
+  }, [participationCertificates]);
+
+  const groupedAchievements = useMemo(() => {
+    const groups: {
+      key: string;
+      isTeam: boolean;
+      teamName: string;
+      subEventName: string;
+      eventName: string;
+      certificates: StudentCertificateItem[];
+    }[] = [];
+
+    const map = new Map<string, (typeof groups)[0]>();
+
+    achievementCertificates.forEach((cert) => {
+      const key = cert.isTeam
+        ? `team-${cert.registrationId || cert.teamName}-${cert.subEventId}`
+        : `solo-${cert.id}`;
+      if (!map.has(key)) {
+        const group = {
+          key,
+          isTeam: cert.isTeam,
+          teamName: cert.teamName,
+          subEventName: cert.subEventName,
+          eventName: cert.eventName,
+          certificates: [],
+        };
+        map.set(key, group);
+        groups.push(group);
+      }
+      map.get(key)!.certificates.push(cert);
+    });
+
+    return groups;
+  }, [achievementCertificates]);
 
   if (isLoading) return <LoadingState message="Loading your official credentials..." />;
   if (error) return <ErrorState message={error} onRetry={fetchStudentCertificates} />;
@@ -580,18 +668,59 @@ export function StudentCertificates() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {participationCertificates.map((cert) => (
-                <CertificateCard
-                  key={cert.id}
-                  cert={cert}
-                  onView={() => handleViewCertificate(cert)}
-                  onDownloadPdf={() => handleDownloadPdf(cert)}
-                  onDownloadImage={() => handleDownloadImage(cert)}
-                  copiedCode={copiedCode}
-                  onCopyCode={handleCopyCode}
-                />
-              ))}
+            <div className="space-y-6">
+              {groupedParticipation.map((group) => {
+                if (group.isTeam && group.certificates.length > 1) {
+                  return (
+                    <div key={group.key} className="p-5 sm:p-6 bg-slate-50/80 rounded-3xl border border-slate-200 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-xl bg-kits-blue text-white shadow-2xs">
+                            <Users className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-black text-gray-900 tracking-tight">
+                              {group.teamName} • {group.subEventName}
+                            </h3>
+                            <span className="text-[11px] font-bold text-gray-500">
+                              {group.eventName} • {group.certificates.length} Team Participants
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {group.certificates.map((cert) => (
+                          <CertificateCard
+                            key={cert.id}
+                            cert={cert}
+                            onView={() => handleViewCertificate(cert)}
+                            onDownloadPdf={() => handleDownloadPdf(cert)}
+                            onDownloadImage={() => handleDownloadImage(cert)}
+                            copiedCode={copiedCode}
+                            onCopyCode={handleCopyCode}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={group.key} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {group.certificates.map((cert) => (
+                      <CertificateCard
+                        key={cert.id}
+                        cert={cert}
+                        onView={() => handleViewCertificate(cert)}
+                        onDownloadPdf={() => handleDownloadPdf(cert)}
+                        onDownloadImage={() => handleDownloadImage(cert)}
+                        copiedCode={copiedCode}
+                        onCopyCode={handleCopyCode}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -637,18 +766,59 @@ export function StudentCertificates() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {achievementCertificates.map((cert) => (
-                <CertificateCard
-                  key={cert.id}
-                  cert={cert}
-                  onView={() => handleViewCertificate(cert)}
-                  onDownloadPdf={() => handleDownloadPdf(cert)}
-                  onDownloadImage={() => handleDownloadImage(cert)}
-                  copiedCode={copiedCode}
-                  onCopyCode={handleCopyCode}
-                />
-              ))}
+            <div className="space-y-6">
+              {groupedAchievements.map((group) => {
+                if (group.isTeam && group.certificates.length > 1) {
+                  return (
+                    <div key={group.key} className="p-5 sm:p-6 bg-amber-50/50 rounded-3xl border border-amber-200/80 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 rounded-xl bg-amber-500 text-white shadow-2xs">
+                            <Trophy className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-black text-gray-900 tracking-tight">
+                              {group.teamName} • {group.subEventName}
+                            </h3>
+                            <span className="text-[11px] font-bold text-gray-500">
+                              {group.eventName} • {group.certificates.length} Team Participants
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {group.certificates.map((cert) => (
+                          <CertificateCard
+                            key={cert.id}
+                            cert={cert}
+                            onView={() => handleViewCertificate(cert)}
+                            onDownloadPdf={() => handleDownloadPdf(cert)}
+                            onDownloadImage={() => handleDownloadImage(cert)}
+                            copiedCode={copiedCode}
+                            onCopyCode={handleCopyCode}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={group.key} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {group.certificates.map((cert) => (
+                      <CertificateCard
+                        key={cert.id}
+                        cert={cert}
+                        onView={() => handleViewCertificate(cert)}
+                        onDownloadPdf={() => handleDownloadPdf(cert)}
+                        onDownloadImage={() => handleDownloadImage(cert)}
+                        copiedCode={copiedCode}
+                        onCopyCode={handleCopyCode}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -732,177 +902,211 @@ export function StudentCertificates() {
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-5 min-h-0 bg-slate-100/70">
               <div 
                 id="student-certificate-canvas" 
-                className="relative bg-white text-center p-4 sm:p-7 md:p-8 rounded-2xl shadow-xl max-w-full overflow-hidden border-[3.5px] sm:border-[4.5px] border-[#C8102E] outline outline-2 outline-[#003366] -outline-offset-[6px] sm:-outline-offset-[8px]"
+                className="relative bg-white text-center p-4 sm:p-7 md:p-8 rounded-2xl shadow-xl max-w-full overflow-hidden border-[3px] sm:border-[4px] border-[#C8102E] outline outline-1 outline-[#003366] -outline-offset-[6px] sm:-outline-offset-[8px]"
               >
-                {/* Subtle Inner Drafting Frame */}
-                <div className="absolute inset-[10px] sm:inset-[14px] border border-[#CBD5E1] pointer-events-none rounded-lg"></div>
+                {/* Inset Hairline Technical Frame */}
+                <div className="absolute inset-[8px] sm:inset-[12px] border border-[#CBD5E1] pointer-events-none rounded-lg"></div>
 
-                {/* Precision Geometric Corner Brackets */}
-                {/* Top-Left Bracket */}
-                <div className="absolute top-[10px] left-[10px] sm:top-[14px] sm:left-[14px] w-6 h-6 sm:w-10 sm:h-10 pointer-events-none">
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-[#003366]"></div>
-                  <div className="absolute top-0 left-0 w-[2px] h-full bg-[#003366]"></div>
-                  <div className="absolute top-[3px] left-[3px] sm:top-[4px] sm:left-[4px] w-[60%] h-[1.5px] bg-[#C8102E]"></div>
-                  <div className="absolute top-[3px] left-[3px] sm:top-[4px] sm:left-[4px] w-[1.5px] h-[60%] bg-[#C8102E]"></div>
-                  <div className="absolute top-[8px] left-[8px] sm:top-[12px] sm:left-[12px] w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#003366] rotate-45 border border-[#C8102E]"></div>
-                </div>
+                {/* Corner Decorative Waves (SVG-based Institutional Borders) */}
+                {/* Top-Left Decorative Wave */}
+                <svg className="absolute top-0 left-0 w-36 sm:w-56 md:w-64 h-36 sm:h-56 md:h-64 pointer-events-none" viewBox="0 0 200 200" fill="none">
+                  <path d="M0 0 L180 0 C140 35 60 90 0 170 Z" fill="#003366" />
+                  <path d="M140 0 C100 60 40 120 0 190 L0 150 C35 90 85 45 105 0 Z" fill="#C8102E" />
+                  <path d="M150 0 C110 55 50 110 0 180" stroke="#FFFFFF" strokeWidth="2" />
+                </svg>
 
-                {/* Top-Right Bracket */}
-                <div className="absolute top-[10px] right-[10px] sm:top-[14px] sm:right-[14px] w-6 h-6 sm:w-10 sm:h-10 pointer-events-none">
-                  <div className="absolute top-0 right-0 w-full h-[2px] bg-[#003366]"></div>
-                  <div className="absolute top-0 right-0 w-[2px] h-full bg-[#003366]"></div>
-                  <div className="absolute top-[3px] right-[3px] sm:top-[4px] sm:right-[4px] w-[60%] h-[1.5px] bg-[#C8102E]"></div>
-                  <div className="absolute top-[3px] right-[3px] sm:top-[4px] sm:right-[4px] w-[1.5px] h-[60%] bg-[#C8102E]"></div>
-                  <div className="absolute top-[8px] right-[8px] sm:top-[12px] sm:right-[12px] w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#003366] rotate-45 border border-[#C8102E]"></div>
-                </div>
+                {/* Top-Right Decorative Wave */}
+                <svg className="absolute top-0 right-0 w-36 sm:w-56 md:w-64 h-36 sm:h-56 md:h-64 pointer-events-none" viewBox="0 0 200 200" fill="none">
+                  <path d="M200 0 L20 0 C60 35 140 90 200 170 Z" fill="#003366" />
+                  <path d="M60 0 C100 60 160 120 200 190 L200 150 C165 90 115 45 95 0 Z" fill="#C8102E" />
+                  <path d="M50 0 C90 55 150 110 200 180" stroke="#FFFFFF" strokeWidth="2" />
+                </svg>
 
-                {/* Bottom-Left Bracket */}
-                <div className="absolute bottom-[10px] left-[10px] sm:bottom-[14px] sm:left-[14px] w-6 h-6 sm:w-10 sm:h-10 pointer-events-none">
-                  <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#003366]"></div>
-                  <div className="absolute bottom-0 left-0 w-[2px] h-full bg-[#003366]"></div>
-                  <div className="absolute bottom-[3px] left-[3px] sm:bottom-[4px] sm:left-[4px] w-[60%] h-[1.5px] bg-[#C8102E]"></div>
-                  <div className="absolute bottom-[3px] left-[3px] sm:bottom-[4px] sm:left-[4px] w-[1.5px] h-[60%] bg-[#C8102E]"></div>
-                  <div className="absolute bottom-[8px] left-[8px] sm:bottom-[12px] sm:left-[12px] w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#003366] rotate-45 border border-[#C8102E]"></div>
-                </div>
+                {/* Bottom Sweeping Institutional Wave (Refined Lower Profile) */}
+                <svg className="absolute bottom-0 left-0 right-0 w-full h-12 sm:h-16 md:h-20 pointer-events-none" viewBox="0 0 1000 80" preserveAspectRatio="none" fill="none">
+                  <path d="M0 80 L0 25 C180 35 340 60 500 60 C660 60 820 35 1000 25 L1000 80 Z" fill="#003366" />
+                  <path d="M0 45 C180 52 340 70 500 70 C660 70 820 52 1000 45 L1000 62 C820 68 660 78 500 78 C340 78 180 68 0 62 Z" fill="#C8102E" />
+                  <path d="M0 45 C180 52 340 70 500 70 C660 70 820 52 1000 45" stroke="#FFFFFF" strokeWidth="1.5" />
+                </svg>
 
-                {/* Bottom-Right Bracket */}
-                <div className="absolute bottom-[10px] right-[10px] sm:bottom-[14px] sm:right-[14px] w-6 h-6 sm:w-10 sm:h-10 pointer-events-none">
-                  <div className="absolute bottom-0 right-0 w-full h-[2px] bg-[#003366]"></div>
-                  <div className="absolute bottom-0 right-0 w-[2px] h-full bg-[#003366]"></div>
-                  <div className="absolute bottom-[3px] right-[3px] sm:bottom-[4px] sm:right-[4px] w-[60%] h-[1.5px] bg-[#C8102E]"></div>
-                  <div className="absolute bottom-[3px] right-[3px] sm:bottom-[4px] sm:right-[4px] w-[1.5px] h-[60%] bg-[#C8102E]"></div>
-                  <div className="absolute bottom-[8px] right-[8px] sm:bottom-[12px] sm:right-[12px] w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#003366] rotate-45 border border-[#C8102E]"></div>
-                </div>
-
-                {/* Subtle Background Watermark with Concentric Drafting Rings */}
+                {/* Subtle Centered Background Watermark (Official KITS Emblem) */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-                  <div className="relative w-64 h-64 sm:w-96 sm:h-96 md:w-[480px] md:h-[480px]">
+                  <div className="relative w-48 h-48 sm:w-72 sm:h-72 md:w-96 md:h-96 rounded-full overflow-hidden">
                     <img
-                      src="/college_logo.png"
+                      src="/kits_logo_official.jpg"
                       alt=""
                       aria-hidden="true"
-                      className="w-full h-full object-contain opacity-[0.04]"
+                      className="w-full h-full object-cover opacity-[0.04]"
                     />
                     <div className="absolute inset-0 rounded-full border border-[#003366] border-dashed opacity-[0.035]"></div>
-                    <div className="absolute -inset-3 rounded-full border border-[#C8102E] opacity-[0.025]"></div>
+                    <div className="absolute -inset-2 rounded-full border border-[#C8102E] opacity-[0.025]"></div>
                   </div>
                 </div>
 
                 {/* Content Container */}
-                <div className="relative z-10 space-y-3 sm:space-y-5">
-                  {/* Official College Banner Header */}
-                  <div className="w-full flex flex-col items-center">
-                    <img
-                      src="/college_banner.png"
-                      alt="KITS Akshar Institute of Technology"
-                      className="w-full max-w-xl md:max-w-2xl h-auto object-contain"
-                    />
+                <div className="relative z-10 space-y-3 sm:space-y-4">
+                  {/* Institutional Header (Large Prominent Crest & Letterhead) */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 md:gap-8 px-2 sm:px-4 pt-1">
+                    {/* Left: Official KITS Logo (Substantially Enlarged & Balanced) */}
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-amber-400 shadow-2xs shrink-0 flex items-center justify-center bg-white">
+                      <img
+                        src="/kits_logo_official.jpg"
+                        alt="KITS Logo"
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    </div>
 
-                    {/* Architectural Dual-Rule Header Divider with Central Diamond */}
-                    <div className="w-full mt-2 sm:mt-3 relative flex items-center justify-center">
-                      <div className="w-full h-[1.5px] bg-[#003366]"></div>
-                      <div className="absolute top-[3px] w-[90%] h-[1px] bg-[#C8102E]"></div>
-                      <div className="absolute w-3 h-3 bg-[#003366] border border-[#C8102E] rotate-45 flex items-center justify-center shadow-2xs">
-                        <div className="w-1 h-1 bg-[#C8102E]"></div>
+                    {/* Center: Institutional Letterhead (Prominent & Commanding) */}
+                    <div className="text-center space-y-0.5 sm:space-y-1 font-['Montserrat']">
+                      <div className="tracking-tight leading-none">
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-black text-[#C8102E]">KITS </span>
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-black text-[#003366]">AKSHAR</span>
                       </div>
+                      <div className="inline-block border-b-2 border-[#003366] pb-0.5">
+                        <span className="text-sm sm:text-base md:text-lg font-extrabold uppercase tracking-wide text-[#003366] block">
+                          INSTITUTE OF TECHNOLOGY
+                        </span>
+                      </div>
+                      <span className="text-[11px] sm:text-xs md:text-sm font-bold uppercase tracking-[0.3em] text-[#003366] block">
+                        AUTONOMOUS
+                      </span>
+                      <span className="text-[9.5px] sm:text-xs md:text-[13px] font-semibold text-slate-600 block">
+                        Approved by AICTE, New Delhi | Affiliated to JNTUK, Kakinada
+                      </span>
+                    </div>
+
+                    {/* Right: Official NAAC A-Grade Logo (Substantially Enlarged & Balanced) */}
+                    <div className="shrink-0 flex items-center justify-center">
+                      <img
+                        src="/naac_a_logo.png"
+                        alt="NAAC Accredited Grade A"
+                        className="w-24 sm:w-32 md:w-36 h-auto object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Header Dual-Rule Divider with Central Diamond */}
+                  <div className="w-full max-w-2xl mx-auto relative flex items-center justify-center py-1">
+                    <div className="w-full h-[1.5px] bg-[#003366]"></div>
+                    <div className="absolute top-[5px] w-[85%] h-[1px] bg-[#C8102E]"></div>
+                    <div className="absolute w-2.5 h-2.5 bg-[#003366] border border-[#C8102E] rotate-45 flex items-center justify-center shadow-2xs">
+                      <div className="w-1 h-1 bg-[#C8102E]"></div>
                     </div>
                   </div>
 
                   {/* Institutional Event Header & Certificate Title */}
-                  <div className="space-y-1 pt-1">
-                    <span className="text-lg sm:text-2xl md:text-3xl font-black uppercase tracking-wider text-[#003366] block">
-                      {selectedCert.eventName}
-                    </span>
-
-                    {/* Refined Section Divider */}
-                    <div className="flex items-center justify-center gap-2 py-0.5">
-                      <div className="w-12 sm:w-16 h-[1.5px] bg-[#C8102E]"></div>
-                      <div className="w-1.5 h-1.5 bg-[#C8102E] rotate-45"></div>
-                      <div className="w-12 sm:w-16 h-[1.5px] bg-[#C8102E]"></div>
+                  <div className="space-y-1 pt-0.5">
+                    {/* Event Name with Symmetrical Diamond Dividers */}
+                    <div className="flex items-center justify-center gap-2 sm:gap-3">
+                      <div className="w-8 sm:w-16 h-[1.5px] bg-[#C8102E] relative flex items-center justify-end">
+                        <div className="w-1.5 h-1.5 bg-[#C8102E] rotate-45 -mr-1"></div>
+                      </div>
+                      <span className="text-base sm:text-xl md:text-2xl font-black uppercase tracking-wider text-[#003366] font-['Cinzel']">
+                        {selectedCert.eventName}
+                      </span>
+                      <div className="w-8 sm:w-16 h-[1.5px] bg-[#C8102E] relative flex items-center justify-start">
+                        <div className="w-1.5 h-1.5 bg-[#C8102E] rotate-45 -ml-1"></div>
+                      </div>
                     </div>
 
                     {/* Certificate Title Hierarchy */}
                     {selectedCert.type === 'WINNER' ? (
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-xl font-black uppercase tracking-[0.2em] text-[#C8102E] block">
+                      <div className="space-y-0.5 pt-0.5">
+                        <span className="text-xl sm:text-3xl md:text-4xl font-bold uppercase tracking-[0.15em] text-[#C8102E] block font-['Cinzel']">
                           CERTIFICATE
                         </span>
-                        <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block">
-                          OF EXCELLENCE
-                        </span>
-                        <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#003366] block pt-0.5">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-6 sm:w-10 h-[1.5px] bg-[#C8102E]"></div>
+                          <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block font-['Cinzel']">
+                            OF EXCELLENCE
+                          </span>
+                          <div className="w-6 sm:w-10 h-[1.5px] bg-[#C8102E]"></div>
+                        </div>
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#003366] block pt-0.5 font-['Montserrat']">
                           1ST PLACE • WINNER
                         </span>
                       </div>
                     ) : selectedCert.type === 'RUNNER' ? (
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-xl font-black uppercase tracking-[0.2em] text-[#C8102E] block">
+                      <div className="space-y-0.5 pt-0.5">
+                        <span className="text-xl sm:text-3xl md:text-4xl font-bold uppercase tracking-[0.15em] text-[#C8102E] block font-['Cinzel']">
                           CERTIFICATE
                         </span>
-                        <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block">
-                          OF MERIT
-                        </span>
-                        <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#003366] block pt-0.5">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-6 sm:w-10 h-[1.5px] bg-[#C8102E]"></div>
+                          <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block font-['Cinzel']">
+                            OF MERIT
+                          </span>
+                          <div className="w-6 sm:w-10 h-[1.5px] bg-[#C8102E]"></div>
+                        </div>
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#003366] block pt-0.5 font-['Montserrat']">
                           2ND PLACE • RUNNER-UP
                         </span>
                       </div>
                     ) : selectedCert.type === 'THIRD_PLACE' ? (
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-xl font-black uppercase tracking-[0.2em] text-[#C8102E] block">
+                      <div className="space-y-0.5 pt-0.5">
+                        <span className="text-xl sm:text-3xl md:text-4xl font-bold uppercase tracking-[0.15em] text-[#C8102E] block font-['Cinzel']">
                           CERTIFICATE
                         </span>
-                        <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block">
-                          OF MERIT
-                        </span>
-                        <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#003366] block pt-0.5">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-6 sm:w-10 h-[1.5px] bg-[#C8102E]"></div>
+                          <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block font-['Cinzel']">
+                            OF MERIT
+                          </span>
+                          <div className="w-6 sm:w-10 h-[1.5px] bg-[#C8102E]"></div>
+                        </div>
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#003366] block pt-0.5 font-['Montserrat']">
                           3RD PLACE
                         </span>
                       </div>
                     ) : (
-                      <div className="space-y-0.5">
-                        <span className="text-sm sm:text-xl font-black uppercase tracking-[0.2em] text-[#003366] block">
+                      <div className="space-y-0.5 pt-0.5">
+                        <span className="text-xl sm:text-3xl md:text-4xl font-bold uppercase tracking-[0.15em] text-[#002B49] block font-['Cinzel']">
                           CERTIFICATE
                         </span>
-                        <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block">
-                          OF PARTICIPATION
-                        </span>
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-6 sm:w-12 h-[1.5px] bg-[#C8102E]"></div>
+                          <span className="text-xs sm:text-base font-bold uppercase tracking-widest text-[#C8102E] block font-['Cinzel']">
+                            OF PARTICIPATION
+                          </span>
+                          <div className="w-6 sm:w-12 h-[1.5px] bg-[#C8102E]"></div>
+                        </div>
                       </div>
                     )}
 
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium italic font-serif pt-1">
+                    <p className="text-xs sm:text-sm md:text-base text-slate-500 font-semibold italic font-['Cormorant_Garamond'] pt-1">
                       This Certificate Is Proudly Presented To
                     </p>
                   </div>
 
-                  {/* Student Full Name & Institutional Credentials Centerpiece */}
-                  <div className="space-y-1.5 sm:space-y-2">
+                  {/* Student Full Name Centerpiece */}
+                  <div className="space-y-1">
                     <div className="relative inline-block max-w-[95%]">
-                      {/* Recipient Framing Tick Brackets */}
                       <span className="hidden sm:inline-block absolute -left-4 top-1 text-slate-300 font-mono text-xl select-none">[</span>
-                      <h3 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 px-4 sm:px-6 uppercase tracking-tight break-words">
+                      <h3 className="text-2xl sm:text-4xl md:text-5xl font-bold text-slate-900 px-4 sm:px-6 uppercase tracking-tight break-words font-['Cormorant_Garamond']">
                         {selectedCert.studentName}
                       </h3>
                       <span className="hidden sm:inline-block absolute -right-4 top-1 text-slate-300 font-mono text-xl select-none">]</span>
 
                       {/* Recipient Underline with Terminal Diamond Nodes */}
                       <div className="relative mx-auto mt-1 w-full flex items-center justify-center">
-                        <div className="w-full h-[3px] bg-[#C8102E]"></div>
+                        <div className="w-full h-[2.5px] bg-[#C8102E]"></div>
                         <div className="absolute -left-1 w-2 h-2 bg-[#C8102E] rotate-45"></div>
                         <div className="absolute -right-1 w-2 h-2 bg-[#C8102E] rotate-45"></div>
+                        <div className="absolute w-1.5 h-1.5 bg-[#003366] border border-[#C8102E] rotate-45"></div>
                       </div>
                       <div className="w-2/3 h-[1px] bg-[#003366] mx-auto mt-0.5"></div>
                     </div>
 
-                    <p className="text-xs sm:text-sm md:text-base font-bold text-slate-800 pt-0.5">
+                    <p className="text-xs sm:text-sm md:text-base font-bold text-slate-800 pt-0.5 font-['Montserrat']">
                       Roll No: {selectedCert.rollNumber}   •   {selectedCert.department} (Year {selectedCert.year})
                     </p>
-                    <p className="text-[11px] sm:text-xs md:text-sm text-[#003366] font-bold">
+                    <p className="text-xs sm:text-sm md:text-base text-[#003366] font-extrabold font-['Montserrat']">
                       {selectedCert.college}
                     </p>
                   </div>
 
-                  {/* Typographic Event Description Narrative */}
-                  <p className="text-xs sm:text-sm md:text-base text-slate-800 max-w-2xl mx-auto leading-relaxed font-medium px-2">
+                  {/* Typographic Event Description Narrative (Comfortable Reading Width & Increased Scale) */}
+                  <p className="text-xs sm:text-sm md:text-base text-slate-800 max-w-2xl mx-auto leading-relaxed font-medium px-2 font-['Montserrat']">
                     has {selectedCert.type === 'WINNER'
                       ? 'secured 1st Place (Winner)'
                       : selectedCert.type === 'RUNNER'
@@ -916,54 +1120,39 @@ export function StudentCertificates() {
                         <strong className="text-[#003366]">{selectedCert.teamName}</strong>{' '}
                       </>
                     )}
-                    in the competition track{' '}
-                    <strong className="text-[#003366] font-bold">"{selectedCert.subEventName}"</strong> during{' '}
-                    <strong className="text-slate-900 font-black">{selectedCert.eventName}</strong>.
+                    in the event <strong className="text-slate-900 font-black">"{selectedCert.eventName}"</strong>{' '}
+                    {selectedCert.eventStartDate && selectedCert.eventEndDate && selectedCert.eventStartDate !== selectedCert.eventEndDate
+                      ? `held from ${new Date(selectedCert.eventStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} to ${new Date(selectedCert.eventEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                      : selectedCert.eventStartDate
+                      ? `held on ${new Date(selectedCert.eventStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                      : selectedCert.issuedAt
+                      ? `held in ${new Date(selectedCert.issuedAt).getFullYear()}`
+                      : 'held in 2026'
+                    }, in the sub-event <strong className="text-[#C8102E] font-bold">"{selectedCert.subEventName}"</strong>, organized by KITS Akshar Institute of Technology, Yanamadala, Guntur, Andhra Pradesh.
                   </p>
 
-                  {/* System-Generated Verification Statement */}
-                  <p className="text-[10px] sm:text-xs text-slate-500 italic max-w-lg mx-auto">
-                    This is an authoritative system-generated certificate digitally verifiable through the KITS-EOS certificate verification system.
-                  </p>
-
-                  {/* Dedicated Digital Verification Cartouche */}
-                  <div className="max-w-xs mx-auto bg-slate-50/90 border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                    {/* Header Tab */}
-                    <div className="bg-[#003366] text-white text-[9px] sm:text-[10px] font-bold tracking-widest uppercase py-1 px-3 text-center">
-                      DIGITALLY VERIFIED CREDENTIAL
-                    </div>
-
-                    {/* QR Code & Information */}
-                    <div className="p-2.5 flex flex-col items-center justify-center space-y-1">
-                      <div className="p-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs inline-block">
-                        <QRCodeSVG
-                          id={`cert-qr-${selectedCert.certificateCode}`}
-                          value={`${window.location.origin}/verify/${selectedCert.certificateCode}`}
-                          size={84}
-                          level="H"
-                          marginSize={1}
-                        />
-                      </div>
-                      <span className="font-mono text-xs sm:text-sm font-black text-slate-900 select-all">
-                        {selectedCert.certificateCode}
+                  {/* Certificate Number & Issue Date in Middle-to-Lower Central Region */}
+                  <div className="flex flex-col items-center justify-center pt-1 space-y-1 font-['Montserrat']">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-[#C8102E] rotate-45"></div>
+                      <span className="font-mono text-xs sm:text-sm font-bold text-slate-900 select-all">
+                        Certificate No: {selectedCert.certificateCode}
                       </span>
-                      <span className="font-mono text-[9px] sm:text-[11px] text-slate-500 font-semibold">
-                        Issued: {selectedCert.issuedAt ? new Date(selectedCert.issuedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Verified Digital Credential'}
-                      </span>
+                      <div className="w-1.5 h-1.5 bg-[#C8102E] rotate-45"></div>
                     </div>
+                    <span className="text-[10px] sm:text-xs text-slate-500 font-semibold">
+                      Issued on: {selectedCert.issuedAt ? new Date(selectedCert.issuedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '15 Sept 2026'}
+                    </span>
                   </div>
 
-                  {/* Official Institutional Signatures Block */}
-                  <div className="pt-4 sm:pt-6 border-t border-slate-200 flex items-end justify-between px-4 sm:px-14 text-center relative">
-                    {/* Horizontal connecting structural line */}
-                    <div className="absolute top-0 left-8 right-8 h-[1px] bg-slate-200 border-t border-dashed border-slate-300 pointer-events-none"></div>
-
-                    {/* Chairman */}
+                  {/* Lower Section: Signatures (Left & Center-Right) + QR Code (Lower-Right) */}
+                  <div className="pt-4 sm:pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 px-2 sm:px-8 text-center relative font-['Montserrat']">
+                    {/* Chairman (Left) */}
                     <div className="space-y-1 text-center min-w-0">
-                      <div className="font-serif italic font-bold text-base sm:text-xl text-[#8B0000] truncate">
+                      <div className="font-['Cormorant_Garamond'] italic font-bold text-lg sm:text-2xl text-[#8B0000] truncate">
                         K. Subba Rao
                       </div>
-                      <div className="relative w-28 sm:w-44 mx-auto">
+                      <div className="relative w-28 sm:w-40 mx-auto">
                         <div className="border-t-2 border-[#003366]"></div>
                         <div className="absolute top-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#C8102E] rotate-45"></div>
                       </div>
@@ -975,12 +1164,12 @@ export function StudentCertificates() {
                       </span>
                     </div>
 
-                    {/* Principal */}
+                    {/* Principal (Center-Right) */}
                     <div className="space-y-1 text-center min-w-0">
-                      <div className="font-serif italic font-bold text-base sm:text-xl text-[#8B0000] truncate">
+                      <div className="font-['Cormorant_Garamond'] italic font-bold text-lg sm:text-2xl text-[#8B0000] truncate">
                         K. Rama Kotaiah
                       </div>
-                      <div className="relative w-28 sm:w-44 mx-auto">
+                      <div className="relative w-28 sm:w-40 mx-auto">
                         <div className="border-t-2 border-[#003366]"></div>
                         <div className="absolute top-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#C8102E] rotate-45"></div>
                       </div>
@@ -991,13 +1180,23 @@ export function StudentCertificates() {
                         {PRINCIPAL_NAME}
                       </span>
                     </div>
-                  </div>
 
-                  {/* Institutional Accreditation Footer Baseline */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[7px] sm:text-[9px] font-bold text-slate-400 tracking-wider uppercase px-2">
-                    <span className="truncate">KITS AKSHAR INSTITUTE OF TECHNOLOGY • AUTONOMOUS</span>
-                    <span className="hidden sm:inline-block">•</span>
-                    <span className="truncate">ACCREDITED BY NAAC 'A' GRADE • AICTE APPROVED</span>
+                    {/* Standalone Scannable QR Code (Lower-Right — NO surrounding card/box) */}
+                    <div className="flex flex-col items-center justify-center shrink-0">
+                      <div className="p-1.5 bg-white rounded-md shadow-2xs border border-slate-200 inline-block">
+                        <QRCodeSVG
+                          id={`cert-qr-${selectedCert.certificateCode}`}
+                          value={`${window.location.origin}/verify/${selectedCert.certificateCode}`}
+                          size={84}
+                          level="H"
+                          marginSize={1}
+                        />
+                      </div>
+                      <span className="text-[11px] sm:text-xs font-black text-slate-900 mt-1 block">
+                        Scan to Verify
+                      </span>
+                      <div className="w-8 h-[1.5px] bg-[#C8102E] mt-0.5"></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1119,6 +1318,9 @@ function CertificateCard({
             <span className="font-bold text-gray-800">
               {cert.studentName} ({cert.rollNumber})
             </span>
+            <div className="text-[11px] text-gray-500 font-medium">
+              {[cert.college, cert.department, cert.year ? `Year ${cert.year}` : null].filter(Boolean).join(' • ')}
+            </div>
           </div>
 
           <div className="text-right space-y-0.5">

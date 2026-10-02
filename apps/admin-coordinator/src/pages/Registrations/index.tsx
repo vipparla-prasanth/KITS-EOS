@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { supabase } from '@kits-eos/shared/src/api/client';
+import { supabase, invokeAdminEdgeFunction } from '@kits-eos/shared';
 import { formatDateTime12h } from '@kits-eos/shared/src/utils/date';
 import type { Registration, Event, SubEvent, TeamMember } from '@kits-eos/shared/src/types/models';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -43,36 +43,10 @@ import { DownloadButton } from '../../components/ui/DownloadButton';
 import { 
   exportToExcel, 
   sortParticipantsCollegeAndAlphabetical, 
-  REGISTRATION_ROSTER_HEADERS, 
+  REGISTRATION_ROSTER_HEADERS,
+  REGISTRATION_REPORT_HEADERS,
   getRegistrationExportFilename 
 } from '@kits-eos/shared/src/utils/export';
-
-const REGISTRATION_REPORT_HEADERS = [
-  'S.No',
-  'Registration ID',
-  'Registration Date/Time',
-  'Student / Team Leader',
-  'Roll Number',
-  'Department',
-  'Year of Study',
-  'College / Institution',
-  'Contact Number',
-  'Email',
-  'Main Event',
-  'Category',
-  'Sub-Event',
-  'Registration Mode',
-  'Team Name',
-  'Team Size',
-  'Team Members (Roster)',
-  'Registration Status',
-  'Payment Status',
-  'Payment Amount (INR)',
-  'Attendance Status',
-  'Attendance Date/Time',
-  'Verification Method',
-  'Manual Token',
-];
 
 export function RegistrationsList() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -295,12 +269,8 @@ export function RegistrationsList() {
   const handleDocumentAction = async (doc: any, mode: 'view' | 'download') => {
     try {
       setDownloadingDocId(doc.id);
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
-      const { data, error: fnErr } = await supabase.functions.invoke('admin-download-document', {
+      const { data, error: fnErr } = await invokeAdminEdgeFunction('admin-download-document', {
         body: { document_id: doc.id, mode },
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       if (fnErr || !data?.signed_url) {
@@ -337,15 +307,16 @@ export function RegistrationsList() {
   };
 
   const resolveMemberDetails = (member: any, reg: any) => {
+    const isLeader = Boolean(member?.is_leader);
     const profile = (member?.user_id && profilesMap[member.user_id]) ||
-                    (reg?.leader_id && profilesMap[reg.leader_id]) ||
+                    (isLeader && reg?.leader_id && profilesMap[reg.leader_id]) ||
                     null;
 
     const name = member?.snapshot_name || profile?.full_name || 'Participant';
     const rollNumber = member?.snapshot_roll_number || profile?.roll_number || 'Not provided';
     const department = member?.snapshot_department || profile?.department || 'Not provided';
     const year = member?.snapshot_year || profile?.year_of_study || 1;
-    const college = member?.snapshot_college || profile?.college || 'KITS Akshar Institute of Technology';
+    const college = member?.snapshot_college || (isLeader ? profile?.college : null) || 'KITS Akshar Institute of Technology';
     const manualToken = member?.manual_token || 'Not assigned';
     const qrIdentity = member?.qr_identity || null;
     const phone = profile?.phone || 'Not provided';
@@ -583,7 +554,7 @@ export function RegistrationsList() {
   };
 
   // Handler for exporting filtered registrations to Excel (College-wise & Alphabetical)
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredRegistrations.length === 0) {
       alert('No registrations match the selected filters to export.');
       return;
@@ -642,13 +613,14 @@ export function RegistrationsList() {
 
     const rows = sortedParticipants.map((p, idx) => [
       idx + 1,
-      p.college || 'KITS Akshar Institute of Technology',
       p.name || '—',
       p.rollNumber || '—',
       p.dept || '—',
       p.year ? `Year ${p.year}` : '—',
-      p.phone || '—',
+      p.college || 'KITS Akshar Institute of Technology',
+      p.regCreatedAt ? formatDateTime12h(p.regCreatedAt) : '—',
       p.email || '—',
+      p.phone || '—',
       p.eventName || '—',
       p.categoryName || '—',
       p.subEventName || '—',
@@ -659,11 +631,10 @@ export function RegistrationsList() {
       p.paymentStatus || '—',
       p.paymentAmount !== undefined ? p.paymentAmount : 0,
       p.isAttended ? 'ATTENDED' : 'NOT ATTENDED',
-      p.attendanceTime || '—',
-      p.verificationMethod || '—',
+      p.attendanceTime ? formatDateTime12h(p.attendanceTime) : (p.isAttended ? 'VERIFIED' : '—'),
+      p.verificationMethod || (p.isAttended ? 'VERIFIED' : '—'),
       p.manualToken || '—',
       p.regId || '—',
-      p.regCreatedAt || '—',
     ]);
 
     const activeEvent = eventFilter !== 'ALL' ? events.find(e => e.id === eventFilter)?.name : undefined;
@@ -688,7 +659,7 @@ export function RegistrationsList() {
       ? `Filters: [${filterNotes.join(', ')}] | Records: ${sortedParticipants.length} (College-wise & Alphabetical)`
       : `Scope: All Registrations | Records: ${sortedParticipants.length} (College-wise & Alphabetical)`;
 
-    exportToExcel({
+    await exportToExcel({
       filename,
       title: 'KITS-EOS STUDENT REGISTRATION ROSTER',
       subtitle,
@@ -788,14 +759,15 @@ export function RegistrationsList() {
       const leaderMember = members.find(m => m.is_leader) || members[0];
 
       const resolveDetails = (member: any) => {
+        const isLeader = Boolean(member?.is_leader);
         const profile = (member?.user_id && profMap[member.user_id]) ||
-                        (reg?.leader_id && profMap[reg.leader_id]) ||
+                        (isLeader && reg?.leader_id && profMap[reg.leader_id]) ||
                         null;
         const name = member?.snapshot_name || profile?.full_name || 'Participant';
         const rollNumber = member?.snapshot_roll_number || profile?.roll_number || 'Not provided';
         const department = member?.snapshot_department || profile?.department || 'Not provided';
         const year = member?.snapshot_year || profile?.year_of_study || 1;
-        const college = member?.snapshot_college || profile?.college || 'KITS Akshar Institute of Technology';
+        const college = member?.snapshot_college || (isLeader ? profile?.college : null) || 'KITS Akshar Institute of Technology';
         const manualToken = member?.manual_token || 'Not assigned';
         const phone = profile?.phone || 'Not provided';
         const email = profile?.users?.email || 'Not provided';
@@ -816,21 +788,21 @@ export function RegistrationsList() {
           const roleLabel = m.is_leader ? 'Leader' : `Member ${i + 1}`;
           const rollPart = d.rollNumber !== 'Not provided' ? d.rollNumber : 'No Roll';
           const deptPart = d.department !== 'Not provided' ? `, ${d.department}` : '';
-          return `[${roleLabel}] ${d.name} (${rollPart}${deptPart})`;
+          const collegePart = d.college ? `, ${d.college}` : '';
+          return `[${roleLabel}] ${d.name} (${rollPart}${deptPart}${collegePart})`;
         }).join('; ');
       }
 
       return [
         idx + 1,
-        reg.id,
-        reg.created_at ? formatDateTime12h(reg.created_at) : '—',
         leaderDetails.name,
         leaderDetails.rollNumber,
         leaderDetails.department,
         leaderDetails.year ? `Year ${leaderDetails.year}` : '—',
         leaderDetails.college,
-        leaderDetails.phone,
+        reg.created_at ? formatDateTime12h(reg.created_at) : '—',
         leaderDetails.email,
+        leaderDetails.phone,
         sub?.events?.name || (sub?.categories as any)?.events?.name || '—',
         (sub?.categories as any)?.name || '—',
         sub?.name || '—',
@@ -845,6 +817,7 @@ export function RegistrationsList() {
         attRecord?.check_in_time ? formatDateTime12h(attRecord.check_in_time) : (isAttended ? 'VERIFIED' : '—'),
         attRecord ? 'VERIFIED' : '—',
         leaderDetails.manualToken,
+        reg.id,
       ];
     });
   };
@@ -1002,7 +975,7 @@ export function RegistrationsList() {
       const filename = `KITS-EOS_Registrations_${dateFilter}.xlsx`;
       const subtitle = `Registrations on ${formatDisplayDate(dateFilter)} | Total Matching Registrations: ${dataset.regs.length} (1 Registration = 1 Row)`;
 
-      exportToExcel({
+      await exportToExcel({
         filename,
         title: 'KITS-EOS DATE-WISE REGISTRATION REPORT',
         subtitle,
@@ -1040,7 +1013,7 @@ export function RegistrationsList() {
       const filename = `KITS-EOS_${evPart}_${subPart}_Registrations.xlsx`;
       const subtitle = `Sub-Event: ${activeSub?.name || 'Sub-Event'} (${activeEv?.name || 'Main Event'})${dateFilter ? ` | Date: ${formatDisplayDate(dateFilter)}` : ''} | Total Matching Registrations: ${dataset.regs.length} (1 Registration = 1 Row)`;
 
-      exportToExcel({
+      await exportToExcel({
         filename,
         title: 'KITS-EOS SUB-EVENT REGISTRATION REPORT',
         subtitle,
@@ -2135,6 +2108,7 @@ export function RegistrationsList() {
                 department: d.department,
                 year: d.year,
                 rollNumber: d.rollNumber,
+                college: d.college,
                 isLeader: Boolean(tm.is_leader),
               };
             })

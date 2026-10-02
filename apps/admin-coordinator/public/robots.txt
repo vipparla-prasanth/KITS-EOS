@@ -1,0 +1,4 @@
+# KITS-EOS Administration & Coordinator Console
+# Private administrative interface — search indexing disallowed
+User-agent: *
+Disallow: /

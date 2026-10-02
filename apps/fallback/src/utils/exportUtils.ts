@@ -1,4 +1,5 @@
 import type { ParticipantRecord } from '../types';
+import { exportToExcel } from '@kits-eos/shared';
 
 /**
  * Normalizes participant data into flat export rows.
@@ -94,58 +95,21 @@ export function exportParticipantsToCSV(eventName: string, subEventName: string,
 }
 
 /**
- * Downloads participant roster as an authentic Excel (.xlsx) file.
- * Loads the xlsx library dynamically on-demand to keep initial bundles lean.
+ * Downloads participant roster as an authentic Excel (.xlsx) file
+ * using the global institutional KITS-EOS styling engine.
  */
 export async function exportParticipantsToExcel(eventName: string, subEventName: string, participants: ParticipantRecord[]): Promise<void> {
-  let XLSX: typeof import('xlsx');
-  try {
-    XLSX = await import('xlsx');
-  } catch (err) {
-    console.error('Failed to load xlsx library dynamically:', err);
-    throw err;
-  }
-
   const rows = buildExportRows(participants);
-
-  const timestamp = new Date().toLocaleString('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-
-  const sheetData: (string | number)[][] = [
-    ['KITS-EOS — CENTRAL EVENT OPERATIONS SYSTEM (STANDBY NODE)'],
-    ['KITS Akshar Institute of Technology'],
-    [`Event: ${eventName.toUpperCase()} | Sub-Event: ${subEventName.toUpperCase()}`],
-    [`Generated On: ${timestamp} IST | Official Operational Record (Read-Only)`],
-    [],
-    EXPORT_HEADERS,
-    ...rows,
-  ];
-
-  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-
-  // Column auto-sizing
-  worksheet['!cols'] = [
-    { wch: 8 },  // S.No
-    { wch: 32 }, // College
-    { wch: 26 }, // Name
-    { wch: 18 }, // Roll Number
-    { wch: 18 }, // Department
-    { wch: 14 }, // Year
-    { wch: 18 }, // Mode
-    { wch: 22 }, // Team Name
-    { wch: 16 }, // Role
-    { wch: 18 }, // Status
-    { wch: 16 }, // Date
-  ];
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Participants');
-
   const sanitizedEvent = eventName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const sanitizedSub = subEventName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const dateStr = new Date().toISOString().slice(0, 10);
 
-  XLSX.writeFile(workbook, `KITS_EOS_${sanitizedEvent}_${sanitizedSub}_Participants_${dateStr}.xlsx`);
+  await exportToExcel({
+    filename: `KITS_EOS_${sanitizedEvent}_${sanitizedSub}_Participants_${dateStr}.xlsx`,
+    title: `${eventName.toUpperCase()} — ${subEventName.toUpperCase()}`,
+    subtitle: `Participant Roster • Standby Node | Records: ${rows.length}`,
+    sheetName: 'Participants',
+    headers: EXPORT_HEADERS,
+    rows,
+  });
 }
