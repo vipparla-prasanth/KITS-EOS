@@ -1,5 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { 
+  Award,
   Building2, 
   Calendar, 
   CheckCircle2, 
@@ -13,7 +14,8 @@ import {
   Printer, 
   Signal, 
   User, 
-  UserCheck 
+  UserCheck,
+  Users 
 } from 'lucide-react';
 import { 
   downloadIdCardAsPdf, 
@@ -160,16 +162,20 @@ export function DigitalIdCard(props: IdCardProps) {
               </div>
               <div className="text-[7.5px] sm:text-[8px] font-extrabold space-y-0.5 text-blue-100/90 tracking-wide uppercase">
                 <div className="flex items-center gap-1">
-                  <span>📅</span> <span>EVENTS</span>
+                  <Calendar className="h-2.5 w-2.5 text-sky-300 shrink-0" />
+                  <span>EVENTS</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span>👥</span> <span>PARTICIPATION</span>
+                  <Users className="h-2.5 w-2.5 text-sky-300 shrink-0" />
+                  <span>PARTICIPATION</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span>✔</span> <span>ATTENDANCE</span>
+                  <CheckCircle2 className="h-2.5 w-2.5 text-emerald-300 shrink-0" />
+                  <span>ATTENDANCE</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span>📜</span> <span>CERTIFICATES</span>
+                  <Award className="h-2.5 w-2.5 text-amber-300 shrink-0" />
+                  <span>CERTIFICATES</span>
                 </div>
               </div>
             </div>
@@ -349,20 +355,32 @@ export function DigitalIdCard(props: IdCardProps) {
               style={{ clipPath: 'polygon(20% 35%, 100% 15%, 95% 75%, 0 95%)' }}
             />
 
-            {/* White Rounded QR Container */}
-            <div className="relative z-10 bg-white p-3.5 rounded-3xl border-2 border-slate-200 shadow-xl text-center flex flex-col items-center">
+            {/* White Rounded QR & Connected Manual Verification Area */}
+            <div className="relative z-10 bg-white p-3 sm:p-3.5 rounded-3xl border-2 border-slate-200 shadow-xl text-center flex flex-col items-center w-full max-w-[320px] mx-auto">
               <div className="p-1 bg-white rounded-2xl">
                 <QRCodeSVG
                   id={qrSvgId}
                   value={encodedQrValue}
-                  size={155}
+                  size={145}
                   level="H"
                   includeMargin={false}
                 />
               </div>
 
-              <div className="text-xs font-black uppercase tracking-wider text-slate-900 mt-2">
+              <div className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-800 mt-1.5">
                 INDIVIDUAL QR CODE
+              </div>
+
+              {/* MANUAL VERIFICATION TOKEN - DIRECTLY UNDER QR CODE */}
+              <div className="w-full mt-2 pt-2 border-t border-slate-100 flex flex-col items-center">
+                <span className="text-[8.5px] sm:text-[9px] font-extrabold uppercase tracking-widest text-slate-500 block mb-1">
+                  MANUAL VERIFICATION TOKEN
+                </span>
+                <div className="w-full bg-[#002B49] text-white py-2 px-2.5 sm:px-3 rounded-xl border border-[#003865] shadow-xs flex items-center justify-center text-center">
+                  <span className="w-full font-mono text-xs sm:text-sm font-black tracking-tight sm:tracking-normal text-amber-300 select-all break-all [overflow-wrap:anywhere] [word-break:break-word] leading-snug text-center">
+                    {manualToken}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -372,34 +390,22 @@ export function DigitalIdCard(props: IdCardProps) {
           </div>
 
           {/* =========================================================================
-              7. IDENTIFIERS ROW (3 Rounded Cards)
+              7. IDENTIFIERS ROW (2 Rounded Cards)
               ========================================================================= */}
-          <div className="grid grid-cols-3 gap-1.5 pt-1">
-            {/* Card 1: Participant ID */}
-            <div className="p-2 bg-red-50/90 rounded-xl border border-red-200 text-left space-y-0.5">
-              <div className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-[#C8102E]">
-                <User className="h-2.5 w-2.5" />
-                <span>PARTICIPANT ID</span>
-              </div>
-              <div className="text-[8.5px] font-black text-slate-900">TOKEN</div>
-              <div className="font-mono text-[9px] font-black text-slate-800 truncate" title={manualToken}>
-                {manualToken}
-              </div>
-            </div>
-
-            {/* Card 2: Registration ID */}
-            <div className="p-2 bg-sky-50/90 rounded-xl border border-sky-200 text-left space-y-0.5">
-              <div className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-sky-700">
-                <FileCheck className="h-2.5 w-2.5" />
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {/* Card 1: Registration ID */}
+            <div className="p-2 sm:p-2.5 bg-sky-50/90 rounded-xl border border-sky-200 text-left space-y-0.5">
+              <div className="flex items-center gap-1 text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider text-sky-700">
+                <FileCheck className="h-3 w-3" />
                 <span>REGISTRATION ID</span>
               </div>
-              <div className="font-mono text-[8.5px] font-bold text-slate-800 break-all leading-tight">
-                {registrationId.slice(0, 16)}...
+              <div className="font-mono text-[9px] sm:text-[9.5px] font-bold text-slate-800 break-all leading-tight">
+                {registrationId}
               </div>
             </div>
 
-            {/* Card 3: Verified Badge */}
-            <div className="p-2 bg-emerald-50/90 rounded-xl border border-emerald-200 text-left flex items-center gap-1.5">
+            {/* Card 2: Verified Badge */}
+            <div className="p-2 sm:p-2.5 bg-emerald-50/90 rounded-xl border border-emerald-200 text-left flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
               <div className="text-[7.5px] sm:text-[8px] font-black uppercase text-emerald-800 leading-tight">
                 <div>VERIFIED</div>

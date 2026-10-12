@@ -110,9 +110,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin static assets: Network-first with cache fallback
+  // 1. Hashed, immutable bundle assets in /assets/: Cache-first for instant repeat delivery
+  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const contentType = networkResponse.headers.get('content-type') || '';
+            // Do NOT cache HTML responses for JS/CSS assets (SPA rewrite fallback on 404)
+            if (!contentType.includes('text/html')) {
+              const responseClone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, responseClone);
+              });
+            }
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // 2. Other same-origin static assets: Network-first with cache fallback
   const isStaticAsset =
-    url.pathname.startsWith('/assets/') ||
     /\.(?:js|css|png|jpg|jpeg|svg|ico|webp|webmanifest|woff|woff2|ttf|eot)$/i.test(url.pathname) ||
     ['script', 'style', 'image', 'font'].includes(event.request.destination);
 

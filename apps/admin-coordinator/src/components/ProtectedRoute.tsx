@@ -6,8 +6,8 @@ export function ProtectedRoute() {
   const { user, role, status, isAllowlisted, authState, profileState, error } = useAuth();
 
   // 1. While auth session or profile resolution is in-flight: ALWAYS show loading
-  // NEVER redirect during INITIALIZING or LOADING
-  if (authState === 'INITIALIZING' || profileState === 'LOADING') {
+  // NEVER redirect during INITIALIZING, LOADING, or while authenticated with profile resolution pending (IDLE)
+  if (authState === 'INITIALIZING' || profileState === 'LOADING' || (authState === 'AUTHENTICATED' && profileState === 'IDLE')) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-kits-red mb-4"></div>

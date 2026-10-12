@@ -108,6 +108,65 @@ function drawFittedText(
   return size;
 }
 
+function drawTokenBadgeText(
+  ctx: CanvasRenderingContext2D,
+  token: string,
+  centerX: number,
+  badgeY: number,
+  badgeW: number,
+  badgeH: number
+): void {
+  if (!token) return;
+
+  ctx.save();
+  ctx.fillStyle = '#FCD34D'; // Amber 300
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const maxW = badgeW - 24;
+  let fontSize = 21;
+  ctx.font = `900 ${fontSize}px monospace`;
+
+  // Scale down if needed to fit on 1 line
+  while (ctx.measureText(token).width > maxW && fontSize > 13) {
+    fontSize -= 1;
+    ctx.font = `900 ${fontSize}px monospace`;
+  }
+
+  // If fits on 1 line with size >= 13, draw single line centered
+  if (ctx.measureText(token).width <= maxW) {
+    ctx.fillText(token, centerX, badgeY + badgeH / 2);
+    ctx.restore();
+    return;
+  }
+
+  // Otherwise, wrap onto 2 lines cleanly without ANY ellipsis or clipping
+  const mid = Math.floor(token.length / 2);
+  let splitIndex = token.lastIndexOf('-', mid);
+  if (splitIndex < Math.floor(token.length * 0.28)) {
+    splitIndex = token.indexOf('-', mid);
+  }
+  if (splitIndex === -1 || splitIndex < Math.floor(token.length * 0.2) || splitIndex > Math.floor(token.length * 0.8)) {
+    splitIndex = mid;
+  } else {
+    splitIndex += 1;
+  }
+
+  const line1 = token.slice(0, splitIndex);
+  const line2 = token.slice(splitIndex);
+
+  let lineFontSize = 13;
+  ctx.font = `900 ${lineFontSize}px monospace`;
+  while ((ctx.measureText(line1).width > maxW || ctx.measureText(line2).width > maxW) && lineFontSize > 8) {
+    lineFontSize -= 1;
+    ctx.font = `900 ${lineFontSize}px monospace`;
+  }
+
+  ctx.fillText(line1, centerX, badgeY + badgeH / 2 - (lineFontSize * 0.65));
+  ctx.fillText(line2, centerX, badgeY + badgeH / 2 + (lineFontSize * 0.65));
+  ctx.restore();
+}
+
 async function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -476,6 +535,49 @@ function drawLocationPinIcon(ctx: CanvasRenderingContext2D, x: number, y: number
   ctx.restore();
 }
 
+function drawCheckmarkIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string): void {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size * 0.14;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x + size * 0.2, y + size * 0.52);
+  ctx.lineTo(x + size * 0.44, y + size * 0.76);
+  ctx.lineTo(x + size * 0.82, y + size * 0.26);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawAwardIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string): void {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = size * 0.1;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const cx = x + size / 2;
+  const cy = y + size * 0.38;
+  const r = size * 0.28;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.5, cy + r * 0.8);
+  ctx.lineTo(cx - r * 0.8, y + size * 0.95);
+  ctx.lineTo(cx - r * 0.2, y + size * 0.82);
+  ctx.lineTo(cx, y + size * 0.95);
+  ctx.lineTo(cx + r * 0.2, y + size * 0.82);
+  ctx.lineTo(cx + r * 0.8, y + size * 0.95);
+  ctx.lineTo(cx + r * 0.5, cy + r * 0.8);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 // ============================================================================
 // CORE CANVASES RENDERER (1080 x 1920 Base • 9:16 Aspect Ratio)
 // ============================================================================
@@ -616,10 +718,14 @@ export async function renderTeamIdCardToCanvas(
   ctx.fillStyle = '#E2E8F0';
   ctx.font = '800 12px Montserrat, "Segoe UI", sans-serif';
   const navX = 810;
-  ctx.fillText('📅  EVENTS', navX, 95);
-  ctx.fillText('👥  PARTICIPATION', navX, 125);
-  ctx.fillText('✔  ATTENDANCE', navX, 155);
-  ctx.fillText('📜  CERTIFICATES', navX, 185);
+  drawCalendarIcon(ctx, navX, 81, 15, '#93C5FD');
+  ctx.fillText('EVENTS', navX + 24, 94);
+  drawUsersIcon(ctx, navX, 111, 15, '#93C5FD');
+  ctx.fillText('PARTICIPATION', navX + 24, 124);
+  drawCheckmarkIcon(ctx, navX, 141, 15, '#86EFAC');
+  ctx.fillText('ATTENDANCE', navX + 24, 154);
+  drawAwardIcon(ctx, navX, 171, 15, '#FDE047');
+  ctx.fillText('CERTIFICATES', navX + 24, 184);
 
   // 3. CARD TYPE RIBBON (Centered "TEAM PASS")
   const ribbonY = 280;
@@ -1217,10 +1323,14 @@ export async function renderSoloIdCardToCanvas(
   ctx.fillStyle = '#E2E8F0';
   ctx.font = '800 12px Montserrat, "Segoe UI", sans-serif';
   const navX = 810;
-  ctx.fillText('📅  EVENTS', navX, 95);
-  ctx.fillText('👥  PARTICIPATION', navX, 125);
-  ctx.fillText('✔  ATTENDANCE', navX, 155);
-  ctx.fillText('📜  CERTIFICATES', navX, 185);
+  drawCalendarIcon(ctx, navX, 81, 15, '#93C5FD');
+  ctx.fillText('EVENTS', navX + 24, 94);
+  drawUsersIcon(ctx, navX, 111, 15, '#93C5FD');
+  ctx.fillText('PARTICIPATION', navX + 24, 124);
+  drawCheckmarkIcon(ctx, navX, 141, 15, '#86EFAC');
+  ctx.fillText('ATTENDANCE', navX + 24, 154);
+  drawAwardIcon(ctx, navX, 171, 15, '#FDE047');
+  ctx.fillText('CERTIFICATES', navX + 24, 184);
 
   // 3. CARD TYPE RIBBON (Centered "INDIVIDUAL EVENT PASS")
   const ribbonY = 280;
@@ -1447,10 +1557,10 @@ export async function renderSoloIdCardToCanvas(
   ctx.fill();
   ctx.restore();
 
-  const qrBoxW = 390;
-  const qrBoxH = 430;
+  const qrBoxW = 420;
+  const qrBoxH = 460;
   const qrBoxX = (BASE_WIDTH - qrBoxW) / 2;
-  const qrBoxY = qrSectionCenterY - qrBoxH / 2;
+  const qrBoxY = qrSectionCenterY - qrBoxH / 2 - 25;
 
   ctx.save();
   ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
@@ -1465,9 +1575,9 @@ export async function renderSoloIdCardToCanvas(
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  const qrImgSize = 270;
+  const qrImgSize = 250;
   const qrImgX = (BASE_WIDTH - qrImgSize) / 2;
-  const qrImgY = qrBoxY + 30;
+  const qrImgY = qrBoxY + 22;
 
   const qrImg = await getQrImage(options.qrSvgElementId, options.registrationId);
   if (qrImg) {
@@ -1484,89 +1594,83 @@ export async function renderSoloIdCardToCanvas(
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#0F172A';
-  ctx.font = '900 18px Montserrat, sans-serif';
-  ctx.fillText('INDIVIDUAL QR CODE', BASE_WIDTH / 2, qrBoxY + 350);
+  ctx.font = '900 16px Montserrat, sans-serif';
+  ctx.fillText('INDIVIDUAL QR CODE', BASE_WIDTH / 2, qrBoxY + 300);
 
-  ctx.fillStyle = '#64748B';
-  ctx.font = '700 14px Montserrat, sans-serif';
-  ctx.fillText('Scan by Coordinator for individual participant attendance', BASE_WIDTH / 2, qrBoxY + 410);
-
-  // 8. IDENTIFIERS ROW
-  const idRowY = 1495;
-  const idCardW = 310;
-  const idCardH = 110;
-  const idGap = 25;
-
-  // Card 1: PARTICIPANT IDENTIFIER
-  const id1X = 50;
-  ctx.fillStyle = '#FEF2F2';
-  drawRoundedRect(ctx, id1X, idRowY, idCardW, idCardH, 14);
-  ctx.fill();
-  ctx.strokeStyle = '#FECACA';
+  // Divider inside QR box
+  ctx.strokeStyle = '#F1F5F9';
   ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(qrBoxX + 20, qrBoxY + 318);
+  ctx.lineTo(qrBoxX + qrBoxW - 20, qrBoxY + 318);
   ctx.stroke();
 
-  ctx.fillStyle = '#FEE2E2';
-  drawRoundedRect(ctx, id1X + 16, idRowY + 16, 44, 44, 10);
-  ctx.fill();
-  drawUserIcon(ctx, id1X + 22, idRowY + 22, 32, '#C8102E');
-
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#C8102E';
-  ctx.font = '900 11px Montserrat, sans-serif';
-  ctx.fillText('PARTICIPANT ID', id1X + 70, idRowY + 32);
-
-  ctx.fillStyle = '#0F172A';
+  // MANUAL VERIFICATION TOKEN - DIRECTLY UNDER QR CODE
+  ctx.fillStyle = '#64748B';
   ctx.font = '800 12px Montserrat, sans-serif';
-  ctx.fillText('TOKEN', id1X + 70, idRowY + 50);
+  ctx.fillText('MANUAL VERIFICATION TOKEN', BASE_WIDTH / 2, qrBoxY + 340);
 
-  ctx.fillStyle = '#0F172A';
-  drawFittedText(ctx, options.manualToken || options.rollNumber, id1X + 16, idRowY + 86, idCardW - 32, 13, 10, '900', 'monospace');
+  // Akshar Blue token badge
+  const tokenBadgeW = 380;
+  const tokenBadgeH = 54;
+  const tokenBadgeX = (BASE_WIDTH - tokenBadgeW) / 2;
+  const tokenBadgeY = qrBoxY + 353;
+  ctx.fillStyle = '#002B49';
+  drawRoundedRect(ctx, tokenBadgeX, tokenBadgeY, tokenBadgeW, tokenBadgeH, 12);
+  ctx.fill();
 
-  // Card 2: REGISTRATION ID
-  const id2X = id1X + idCardW + idGap;
+  drawTokenBadgeText(ctx, options.manualToken || '', BASE_WIDTH / 2, tokenBadgeY, tokenBadgeW, tokenBadgeH);
+
+  // Below QR Box subtitle
+  ctx.fillStyle = '#64748B';
+  ctx.font = '700 14px Montserrat, sans-serif';
+  ctx.fillText('Scan by Coordinator for individual participant attendance', BASE_WIDTH / 2, qrBoxY + qrBoxH + 30);
+
+  // 8. IDENTIFIERS ROW (2 Rounded Cards: Registration ID & Verified Digital Credential)
+  const idRowY = 1485;
+  const idCardW = 475;
+  const idCardH = 110;
+  const idGap = 30;
+  const id1X = (BASE_WIDTH - (idCardW * 2 + idGap)) / 2;
+
+  // Card 1: REGISTRATION ID
   ctx.fillStyle = '#F0F9FF';
-  drawRoundedRect(ctx, id2X, idRowY, idCardW, idCardH, 14);
+  drawRoundedRect(ctx, id1X, idRowY, idCardW, idCardH, 14);
   ctx.fill();
   ctx.strokeStyle = '#BAE6FD';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
   ctx.fillStyle = '#E0F2FE';
-  drawRoundedRect(ctx, id2X + 16, idRowY + 16, 44, 44, 10);
+  drawRoundedRect(ctx, id1X + 16, idRowY + 16, 44, 44, 10);
   ctx.fill();
-  drawIdBadgeIcon(ctx, id2X + 22, idRowY + 22, 32, '#0284C7');
+  drawIdBadgeIcon(ctx, id1X + 22, idRowY + 22, 32, '#0284C7');
 
+  ctx.textAlign = 'left';
   ctx.fillStyle = '#0284C7';
-  ctx.font = '900 11px Montserrat, sans-serif';
-  ctx.fillText('REGISTRATION ID', id2X + 70, idRowY + 35);
+  ctx.font = '900 12px Montserrat, sans-serif';
+  ctx.fillText('REGISTRATION ID', id1X + 70, idRowY + 35);
 
   ctx.fillStyle = '#0F172A';
   const regIdStr = options.registrationId || '';
-  if (regIdStr.length > 20) {
-    drawFittedText(ctx, regIdStr.slice(0, 20), id2X + 16, idRowY + 68, idCardW - 32, 12, 10, '800', 'monospace');
-    drawFittedText(ctx, regIdStr.slice(20), id2X + 16, idRowY + 88, idCardW - 32, 12, 10, '800', 'monospace');
-  } else {
-    drawFittedText(ctx, regIdStr, id2X + 16, idRowY + 76, idCardW - 32, 13, 10, '800', 'monospace');
-  }
+  drawFittedText(ctx, regIdStr, id1X + 70, idRowY + 68, idCardW - 85, 14, 11, '800', 'monospace');
 
-  // Card 3: VERIFIED BADGE
-  const id3X = id2X + idCardW + idGap;
+  // Card 2: VERIFIED BADGE
+  const id2X = id1X + idCardW + idGap;
   ctx.fillStyle = '#F0FDF4';
-  drawRoundedRect(ctx, id3X, idRowY, idCardW, idCardH, 14);
+  drawRoundedRect(ctx, id2X, idRowY, idCardW, idCardH, 14);
   ctx.fill();
   ctx.strokeStyle = '#BBF7D0';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  drawCheckBadgeIcon(ctx, id3X + 18, idRowY + 18, 42, '#16A34A');
+  drawCheckBadgeIcon(ctx, id2X + 18, idRowY + 18, 42, '#16A34A');
 
+  ctx.textAlign = 'left';
   ctx.fillStyle = '#047857';
   ctx.font = '900 12px Montserrat, sans-serif';
-  ctx.fillText('VERIFIED', id3X + 70, idRowY + 32);
-  ctx.fillText('INSTITUTIONAL', id3X + 70, idRowY + 50);
-  ctx.fillText('DIGITAL CREDENTIAL', id3X + 70, idRowY + 68);
-  ctx.fillText('• KITS-EOS', id3X + 70, idRowY + 86);
+  ctx.fillText('VERIFIED INSTITUTIONAL', id2X + 70, idRowY + 40);
+  ctx.fillText('DIGITAL CREDENTIAL • KITS-EOS', id2X + 70, idRowY + 64);
 
   // 9. CAMPUS SILHOUETTE & FOOTER BANNER
   const campusImg = await loadImage('/college_banner.png');
@@ -1714,76 +1818,54 @@ function printCanvasAs916(imageDataUrl: string, title: string): void {
     return;
   }
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          @page {
-            size: 108mm 192mm;
-            margin: 0;
-          }
-          *, *::before, *::after {
-            box-sizing: border-box;
-          }
-          html, body {
-            margin: 0;
-            padding: 0;
-            width: 108mm;
-            height: 192mm;
-            background: #ffffff;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .card-print-img {
-            width: 108mm;
-            height: 192mm;
-            object-fit: cover;
-            display: block;
-          }
-          @media print {
-            html, body {
-              width: 108mm;
-              height: 192mm;
-            }
-            .card-print-img {
-              width: 108mm;
-              height: 192mm;
-              page-break-after: avoid;
-              page-break-inside: avoid;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <img src="${imageDataUrl}" class="card-print-img" alt="${title}" />
-        <script>
-          function printWhenReady() {
-            setTimeout(function() {
-              window.print();
-              window.close();
-            }, 300);
-          }
-          if (document.images[0] && document.images[0].complete) {
-            printWhenReady();
-          } else if (document.images[0]) {
-            document.images[0].onload = printWhenReady;
-          } else {
-            window.addEventListener('load', printWhenReady);
-          }
-        </script>
-      </body>
-    </html>
-  `;
+  printWindow.document.title = title || 'KITS-EOS Digital Credential';
 
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
+  const style = printWindow.document.createElement('style');
+  style.textContent = `
+    @page { size: 108mm 192mm; margin: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 108mm; height: 192mm;
+      background: #ffffff; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .card-print-img {
+      width: 108mm; height: 192mm; object-fit: cover; display: block;
+    }
+    @media print {
+      html, body { width: 108mm; height: 192mm; }
+      .card-print-img {
+        width: 108mm; height: 192mm;
+        page-break-after: avoid; page-break-inside: avoid;
+      }
+    }
+  `;
+  printWindow.document.head.appendChild(style);
+
+  const img = printWindow.document.createElement('img');
+  img.src = imageDataUrl;
+  img.className = 'card-print-img';
+  img.alt = title || 'Digital Credential';
+
+  const printWhenReady = () => {
+    setTimeout(() => {
+      try {
+        printWindow.print();
+        printWindow.close();
+      } catch {}
+    }, 300);
+  };
+
+  if (img.complete) {
+    printWhenReady();
+  } else {
+    img.onload = printWhenReady;
+    img.onerror = printWhenReady;
+  }
+
+  printWindow.document.body.appendChild(img);
 }
 
 export function printDocument(elementId: string): void {
@@ -1799,52 +1881,35 @@ export function printDocument(elementId: string): void {
     return;
   }
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>KITS-EOS Digital Credential</title>
-        <style>
-          @page {
-            size: 108mm 192mm;
-            margin: 0;
-          }
-          *, *::before, *::after { box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #ffffff;
-            margin: 0;
-            padding: 0;
-            color: #0f172a;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          }
-          @media print {
-            body { padding: 0; margin: 0; }
-            button { display: none !important; }
-          }
-        </style>
-      </head>
-      <body>
-        ${elem.outerHTML}
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-              window.close();
-            }, 300);
-          };
-        </script>
-      </body>
-    </html>
-  `;
+  printWindow.document.title = 'KITS-EOS Digital Credential';
 
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
+  const style = printWindow.document.createElement('style');
+  style.textContent = `
+    @page { size: 108mm 192mm; margin: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #ffffff; margin: 0; padding: 0; color: #0f172a;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      display: flex; justify-content: center; align-items: center;
+    }
+    @media print {
+      body { padding: 0; margin: 0; }
+      button { display: none !important; }
+    }
+  `;
+  printWindow.document.head.appendChild(style);
+
+  const cloned = elem.cloneNode(true);
+  printWindow.document.body.appendChild(cloned);
+
+  setTimeout(() => {
+    try {
+      printWindow.print();
+      printWindow.close();
+    } catch {}
+  }, 300);
 }
 
 export function downloadSvgAsPng(
@@ -1870,7 +1935,8 @@ export function downloadSvgAsPng(
     const headerHeight = title ? 60 : 0;
     const footerHeight = subtitle ? 40 : 0;
 
-    canvas.width = (img.width || 300) + padding * 2;
+    const estimatedSubW = subtitle ? subtitle.length * 9 + 40 : 0;
+    canvas.width = Math.max((img.width || 300) + padding * 2, estimatedSubW, 360);
     canvas.height = (img.height || 300) + padding * 2 + headerHeight + footerHeight;
 
     const ctx = canvas.getContext('2d');
@@ -1893,13 +1959,20 @@ export function downloadSvgAsPng(
       yOffset += headerHeight;
     }
 
-    ctx.drawImage(img, padding, yOffset, img.width || 300, img.height || 300);
+    const imgX = (canvas.width - (img.width || 300)) / 2;
+    ctx.drawImage(img, imgX, yOffset, img.width || 300, img.height || 300);
     yOffset += img.height || 300;
 
     if (subtitle) {
       ctx.fillStyle = '#475569';
-      ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'center';
+      let subFontSize = 12;
+      const maxSubW = canvas.width - 24;
+      ctx.font = `bold ${subFontSize}px monospace`;
+      while (ctx.measureText(subtitle).width > maxSubW && subFontSize > 8) {
+        subFontSize -= 1;
+        ctx.font = `bold ${subFontSize}px monospace`;
+      }
       ctx.fillText(subtitle, canvas.width / 2, yOffset + 25);
     }
 

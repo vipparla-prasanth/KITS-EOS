@@ -35,6 +35,9 @@ export async function resolveIdentity(
   const { data: { user }, error: authError } = await serviceClient.auth.getUser(token);
   
   if (authError || !user || !user.email) {
+    if (authError) {
+      console.warn('[auth] getUser verification failed:', authError.message);
+    }
     return null;
   }
 
@@ -47,6 +50,9 @@ export async function resolveIdentity(
     .single();
 
   if (dbError || !appUser) {
+    if (dbError) {
+      console.warn('[auth] public.users lookup failed:', dbError.message);
+    }
     return null;
   }
 
@@ -185,7 +191,7 @@ export async function resolveCoordinatorOrAdmin(
   // 2. Fallback check for Admin Supabase JWT (e.g. administrator monitoring/inspecting)
   if (authHeader) {
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (token && !token.startsWith("ctk_") && token !== (Deno.env.get("SUPABASE_ANON_KEY") ?? "")) {
+    if (token && !token.startsWith("ctk_") && !token.startsWith("sb_publishable_") && token !== (Deno.env.get("SUPABASE_ANON_KEY") ?? "")) {
       const { data: { user } } = await serviceClient.auth.getUser(token);
       if (user) {
         const { data: appUser } = await serviceClient

@@ -4,10 +4,10 @@ import { isSessionValid } from '@kits-eos/shared';
 import { AccountSuspendedScreen } from './AccountSuspendedScreen';
 
 export function ProtectedRoute() {
-  const { user, suspendedInfo, isLoading } = useAuth();
+  const { user, profile, suspendedInfo, isLoading, isAuthTransitioning } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
+  if (isLoading || isAuthTransitioning) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kits-red"></div>
@@ -22,6 +22,11 @@ export function ProtectedRoute() {
 
   if (suspendedInfo) {
     return <AccountSuspendedScreen />;
+  }
+
+  // If student profile has not been completed, enforce completion before entering protected student features
+  if (!profile) {
+    return <Navigate to="/complete-profile" replace />;
   }
 
   return <Outlet />;

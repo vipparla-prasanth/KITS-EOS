@@ -1,5 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { 
+  Award,
   Building2, 
   Calendar, 
   CheckCircle2, 
@@ -163,16 +164,20 @@ export function TeamDigitalIdCard(props: TeamDigitalIdCardProps) {
               </div>
               <div className="text-[7.5px] sm:text-[8px] font-extrabold space-y-0.5 text-blue-100/90 tracking-wide uppercase">
                 <div className="flex items-center gap-1">
-                  <span>📅</span> <span>EVENTS</span>
+                  <Calendar className="h-2.5 w-2.5 text-sky-300 shrink-0" />
+                  <span>EVENTS</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span>👥</span> <span>PARTICIPATION</span>
+                  <Users className="h-2.5 w-2.5 text-sky-300 shrink-0" />
+                  <span>PARTICIPATION</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span>✔</span> <span>ATTENDANCE</span>
+                  <CheckCircle2 className="h-2.5 w-2.5 text-emerald-300 shrink-0" />
+                  <span>ATTENDANCE</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span>📜</span> <span>CERTIFICATES</span>
+                  <Award className="h-2.5 w-2.5 text-amber-300 shrink-0" />
+                  <span>CERTIFICATES</span>
                 </div>
               </div>
             </div>
@@ -375,7 +380,7 @@ export function TeamDigitalIdCard(props: TeamDigitalIdCardProps) {
                 <span>TEAM IDENTIFIER</span>
               </div>
               <div className="text-[8.5px] font-black text-slate-900">TEAM ID</div>
-              <div className="font-mono text-[9px] font-black text-slate-800 truncate" title={formattedTeamId}>
+              <div className="font-mono text-[8.5px] sm:text-[9px] font-black text-slate-800 break-all [overflow-wrap:anywhere] [word-break:break-word] leading-tight select-all" title={formattedTeamId}>
                 {manualToken}
               </div>
             </div>

@@ -2,6 +2,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { hashPassword } from "../_shared/password.ts";
 
 class HttpError extends Error {
   constructor(public statusCode: number, public code: string, message: string) {
@@ -10,24 +12,19 @@ class HttpError extends Error {
   }
 }
 
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin');
-  return {
-    'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'OPTIONS, POST',
-  };
-}
-
-function handleError(error: unknown, corsHeaders: Record<string, string>) {
-  const headers = { ...corsHeaders, "Content-Type": "application/json" };
+function handleError(error: unknown, corsHeaders: Record<string, string>, extraHeaders?: Record<string, string>) {
+  const headers = { ...corsHeaders, ...extraHeaders, "Content-Type": "application/json" };
   if (error instanceof HttpError) {
     return new Response(
       JSON.stringify({
         success: false,
         code: error.code,
         message: error.message,
-        error: { code: error.code, message: error.message }
+        error: { code: error.code, message: error.message },
+        ...(extraHeaders ? {
+          usedModernKey: extraHeaders['x-used-modern-key'] === 'true',
+          source: extraHeaders['x-key-source'],
+        } : {})
       }),
       { status: error.statusCode, headers }
     );
@@ -36,7 +33,9 @@ function handleError(error: unknown, corsHeaders: Record<string, string>) {
   return new Response(
     JSON.stringify({
       success: false,
-      error: { code: "INTERNAL_SERVER_ERROR", message: (error as any)?.message || "An unexpected error occurred." }
+      code: "INTERNAL_SERVER_ERROR",
+      message: "An unexpected error occurred.",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." }
     }),
     { status: 500, headers }
   );
@@ -44,12 +43,64 @@ function handleError(error: unknown, corsHeaders: Record<string, string>) {
 
 declare const Deno: any;
 
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+interface PrivilegedKeyResolution {
+  key: string;
+  source: 'SUPABASE_SECRET_KEYS' | 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK' | 'NONE';
+  isModern: boolean;
+}
+
+function resolvePrivilegedKey(): PrivilegedKeyResolution {
+  // 1. Primary: Modern SUPABASE_SECRET_KEYS JSON dictionary ({ "default": "sb_secret_..." })
+  const modernKeysRaw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (modernKeysRaw && typeof modernKeysRaw === 'string') {
+    try {
+      const parsed = JSON.parse(modernKeysRaw);
+      let candidate = '';
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          candidate = parsed.default.trim();
+        } else {
+          const candidateVal = Object.values(parsed).find(
+            (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_secret_')
+          );
+          if (candidateVal) {
+            candidate = candidateVal.trim();
+          }
+        }
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        candidate = parsed.trim();
+      }
+
+      if (candidate) {
+        return {
+          key: candidate,
+          source: 'SUPABASE_SECRET_KEYS',
+          isModern: true,
+        };
+      }
+    } catch {
+      // JSON parse error handling: fall through to temporary fallback
+    }
+  }
+
+  // 2. TEMPORARY FALLBACK (Phase 5B Controlled Migration Only):
+  // Retained temporarily to prevent an outage if modern secret resolution fails.
+  // Location: resolvePrivilegedKey() fallback branch in admin-manage-account/index.ts.
+  // Warning: Must NOT become permanent architecture; will be removed once modern secret resolution is verified.
+  const fallbackKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (fallbackKey && typeof fallbackKey === 'string' && fallbackKey.trim().length > 0) {
+    return {
+      key: fallbackKey.trim(),
+      source: 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK',
+      isModern: false,
+    };
+  }
+
+  return {
+    key: '',
+    source: 'NONE',
+    isModern: false,
+  };
 }
 
 serve(async (req: Request) => {
@@ -59,14 +110,27 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const resolution = resolvePrivilegedKey();
+  const isModern = resolution.isModern;
+  const modernResponseHeaders = {
+    ...corsHeaders,
+    'x-secret-resolution': isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
+    'x-used-modern-key': isModern ? 'true' : 'false',
+    'x-key-source': resolution.source,
+  };
+
   try {
     if (req.method !== 'POST') {
       throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
     }
 
+    if (!resolution.key) {
+      throw new HttpError(500, 'CONFIGURATION_ERROR', 'Server configuration error: missing privileged credentials.');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      resolution.key,
       { auth: { persistSession: false } }
     );
 
@@ -128,7 +192,7 @@ serve(async (req: Request) => {
 
         if (updateErr) {
           console.error('Password reset error:', updateErr);
-          throw new HttpError(500, 'AUTH_ERROR', updateErr.message || 'Failed to update student password');
+          throw new HttpError(500, 'AUTH_ERROR', 'Failed to update student password.');
         }
 
         // Audit Log (Never log passwords)
@@ -147,8 +211,11 @@ serve(async (req: Request) => {
           JSON.stringify({
             success: true,
             message: `Password successfully reset for student ${targetUser.email}`,
+            usedModernKey: isModern,
+            source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+            legacyFallbackUsed: !isModern,
           }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 200, headers: modernResponseHeaders }
         );
       }
 
@@ -162,7 +229,6 @@ serve(async (req: Request) => {
           throw new HttpError(400, 'OPERATION_DENIED', 'Cannot delete your own active administrator account');
         }
 
-        // Verify target student exists
         const { data: targetUser, error: fetchErr } = await supabaseClient
           .from('users')
           .select('id, email, role')
@@ -173,18 +239,15 @@ serve(async (req: Request) => {
           throw new HttpError(404, 'NOT_FOUND', 'Target student user not found');
         }
 
-        // Fetch student profile for audit records
         const { data: profile } = await supabaseClient
           .from('student_profiles')
           .select('roll_number, full_name')
           .eq('user_id', user_id)
           .maybeSingle();
 
-        // 1. Delete feedback & complaints submitted by student
         await supabaseClient.from('feedback').delete().eq('user_id', user_id);
         await supabaseClient.from('complaints').delete().eq('user_id', user_id);
 
-        // 2. Find all registrations where user is leader
         const { data: leadRegistrations } = await supabaseClient
           .from('registrations')
           .select('id')
@@ -192,11 +255,8 @@ serve(async (req: Request) => {
 
         if (leadRegistrations && leadRegistrations.length > 0) {
           const regIds = leadRegistrations.map((r: { id: string }) => r.id);
-          
-          // Delete payments
           await supabaseClient.from('payments').delete().in('registration_id', regIds);
 
-          // Find teams
           const { data: teams } = await supabaseClient
             .from('teams')
             .select('id')
@@ -204,34 +264,23 @@ serve(async (req: Request) => {
 
           if (teams && teams.length > 0) {
             const teamIds = teams.map((t: { id: string }) => t.id);
-            // Delete attendance records
             await supabaseClient.from('attendance').delete().in('team_id', teamIds);
-            // Delete team members
             await supabaseClient.from('team_members').delete().in('team_id', teamIds);
-            // Delete teams
             await supabaseClient.from('teams').delete().in('id', teamIds);
           }
 
-          // Delete registrations
           await supabaseClient.from('registrations').delete().in('id', regIds);
         }
 
-        // 3. Delete non-leader team membership entries
         await supabaseClient.from('team_members').delete().eq('user_id', user_id);
-
-        // 4. Delete student profile
         await supabaseClient.from('student_profiles').delete().eq('user_id', user_id);
-
-        // 5. Delete public.users record
         await supabaseClient.from('users').delete().eq('id', user_id);
 
-        // 6. Delete auth.users record
         const { error: authDelErr } = await supabaseClient.auth.admin.deleteUser(user_id);
         if (authDelErr) {
           console.error('Error deleting auth.users row:', authDelErr);
         }
 
-        // Audit Log
         await supabaseClient.from('audit_logs').insert({
           actor_id: identity.userId,
           action: 'DELETE_STUDENT_ACCOUNT',
@@ -249,8 +298,11 @@ serve(async (req: Request) => {
           JSON.stringify({
             success: true,
             message: `Student account ${targetUser.email} has been permanently deleted.`,
+            usedModernKey: isModern,
+            source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+            legacyFallbackUsed: !isModern,
           }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 200, headers: modernResponseHeaders }
         );
       }
 
@@ -284,13 +336,11 @@ serve(async (req: Request) => {
           throw new HttpError(500, 'DATABASE_ERROR', 'Failed to update coordinator password');
         }
 
-        // Invalidate any active coordinator sessions upon password reset (Security requirement)
         await supabaseClient
           .from('coordinator_sessions')
           .delete()
           .eq('coordinator_id', coordinator_id);
 
-        // Audit Log (Never log passwords)
         await supabaseClient.from('audit_logs').insert({
           actor_id: identity.userId,
           action: 'RESET_COORDINATOR_PASSWORD',
@@ -307,8 +357,11 @@ serve(async (req: Request) => {
           JSON.stringify({
             success: true,
             message: `Password successfully updated for coordinator "${coord.display_name}" (${coord.username})`,
+            usedModernKey: isModern,
+            source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+            legacyFallbackUsed: !isModern,
           }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 200, headers: modernResponseHeaders }
         );
       }
 
@@ -328,13 +381,11 @@ serve(async (req: Request) => {
           throw new HttpError(404, 'NOT_FOUND', 'Coordinator record not found');
         }
 
-        // Remove all coordinator assignments
         await supabaseClient
           .from('coordinator_assignments')
           .delete()
           .eq('coordinator_id', coordinator_id);
 
-        // Delete coordinator record
         const { error: delCoordErr } = await supabaseClient
           .from('coordinators')
           .delete()
@@ -344,7 +395,6 @@ serve(async (req: Request) => {
           throw new HttpError(500, 'DATABASE_ERROR', 'Failed to delete coordinator');
         }
 
-        // Audit Log
         await supabaseClient.from('audit_logs').insert({
           actor_id: identity.userId,
           action: 'DELETE_COORDINATOR',
@@ -361,8 +411,11 @@ serve(async (req: Request) => {
           JSON.stringify({
             success: true,
             message: `Coordinator "${coord.display_name}" and associated assignments have been permanently deleted.`,
+            usedModernKey: isModern,
+            source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+            legacyFallbackUsed: !isModern,
           }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 200, headers: modernResponseHeaders }
         );
       }
 
@@ -370,6 +423,6 @@ serve(async (req: Request) => {
         throw new HttpError(400, 'INVALID_ACTION', `Action "${action}" is not recognized.`);
     }
   } catch (error) {
-    return handleError(error, corsHeaders);
+    return handleError(error, corsHeaders, modernResponseHeaders);
   }
 });

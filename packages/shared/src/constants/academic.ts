@@ -9,6 +9,7 @@
 
 export const DEPARTMENTS = [
   'Computer Science and Engineering',
+  'Data Science',
   'Artificial Intelligence and Data Science',
   'Artificial Intelligence & Machine Learning',
   'Information Technology',

@@ -1,9 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@kits-eos/shared/src/api/client';
 import { formatDateTime12h } from '@kits-eos/shared/src/utils/date';
 import { useAuth } from '../context/AuthContext';
-import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
 import {
   ClipboardList,
@@ -20,12 +18,15 @@ import {
   Loader2
 } from 'lucide-react';
 import { downloadEventDirectoryExcel } from '../services/eventDirectoryService';
+import { getCachedDashboardData, fetchStudentDashboardData } from '../services/dashboardDataService';
 
 
 export function StudentDashboard() {
   const { user, profile } = useAuth();
 
-  const [isLoading, setIsLoading] = useState(true);
+  const cached = user ? getCachedDashboardData(user.id) : null;
+
+  const [isLoading, setIsLoading] = useState(() => !cached);
   const [error, setError] = useState<string | null>(null);
   const [isDownloadingDirectory, setIsDownloadingDirectory] = useState(false);
 
@@ -42,162 +43,30 @@ export function StudentDashboard() {
   };
 
   // Authoritative database states
-  const [registrations, setRegistrations] = useState<any[]>([]);
-  const [attendanceCount, setAttendanceCount] = useState(0);
-  const [resultsCount, setResultsCount] = useState(0);
-  const [certificatesCount, setCertificatesCount] = useState(0);
-  const [openComplaintsCount, setOpenComplaintsCount] = useState(0);
-  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [registrations, setRegistrations] = useState<any[]>(() => cached?.registrations || []);
+  const [attendanceCount, setAttendanceCount] = useState(() => cached?.attendanceCount || 0);
+  const [resultsCount, setResultsCount] = useState(() => cached?.resultsCount || 0);
+  const [certificatesCount, setCertificatesCount] = useState(() => cached?.certificatesCount || 0);
+  const [openComplaintsCount, setOpenComplaintsCount] = useState(() => cached?.openComplaintsCount || 0);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(() => cached?.unreadNotificationsCount || 0);
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(async (showLoading = true) => {
     if (!user) return;
 
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       setError(null);
 
-      // 1. Concurrently fetch all student dashboard metrics without all-or-nothing failure mode
-      const [
-        regResult,
-        attendResult,
-        certsResult,
-        compResult,
-        notifResult
-      ] = await Promise.allSettled([
-        supabase
-          .from('registrations')
-          .select(`
-            id,
-            status,
-            created_at,
-            sub_events (
-              id,
-              name,
-              start_time,
-              end_time,
-              venue,
-              results_locked,
-              results_published,
-              events (
-                id,
-                name
-              ),
-              categories (
-                id,
-                name,
-                events (
-                  id,
-                  name
-                )
-              )
-            ),
-            teams (
-              id,
-              team_name,
-              team_members (
-                id,
-                user_id,
-                manual_token,
-                qr_identity,
-                is_leader
-              )
-            )
-          `)
-          .eq('leader_id', user.id)
-          .neq('status', 'CANCELLED')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('attendance_records')
-          .select('scanned_member_id'),
-        supabase
-          .from('certificates')
-          .select('id, type, status')
-          .eq('status', 'UNLOCKED'),
-        supabase
-          .from('complaints')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('status', 'OPEN'),
-        supabase
-          .from('notifications')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('is_read', false)
-      ]);
-
-      // 1. Registrations & Attendance & Results handling
-      if (regResult.status === 'fulfilled') {
-        if (regResult.value.error) {
-          console.error('Failed to load student registrations:', regResult.value.error);
-        } else {
-          const regs = regResult.value.data || [];
-          setRegistrations(regs);
-
-          // Attendance Records count strictly for this student
-          if (attendResult.status === 'fulfilled' && !attendResult.value.error) {
-            const myMemberIds = new Set<string>();
-            regs.forEach((r: any) => {
-              const team = Array.isArray(r.teams) ? r.teams[0] : r.teams;
-              const members = team?.team_members || [];
-              const myMember = members.find((m: any) => m.user_id === user.id) || members.find((m: any) => m.is_leader) || members[0];
-              if (myMember?.id) {
-                myMemberIds.add(myMember.id);
-              }
-            });
-
-            const myAttendedCount = (attendResult.value.data || []).filter((a: any) =>
-              a.scanned_member_id && myMemberIds.has(a.scanned_member_id)
-            ).length;
-            setAttendanceCount(myAttendedCount);
-          }
-
-          // Results count
-          const lockedSubEventIds = regs
-            .map((r: any) => (Array.isArray(r.sub_events) ? r.sub_events[0] : r.sub_events))
-            .filter((sub: any) => sub?.results_published || sub?.results_locked)
-            .map((sub: any) => sub?.id);
-          setResultsCount(lockedSubEventIds.length);
-        }
+      const data = await fetchStudentDashboardData(user.id);
+      if (data) {
+        setRegistrations(data.registrations);
+        setAttendanceCount(data.attendanceCount);
+        setResultsCount(data.resultsCount);
+        setCertificatesCount(data.certificatesCount);
+        setOpenComplaintsCount(data.openComplaintsCount);
+        setUnreadNotificationsCount(data.unreadNotificationsCount);
       } else {
-        console.error('Student registrations fetch rejected:', regResult.reason);
-      }
-
-      // 2. Attendance error logging if failed independently
-      if (attendResult.status === 'rejected' || (attendResult.status === 'fulfilled' && attendResult.value.error)) {
-        console.warn('Student attendance fetch notice:', attendResult.status === 'rejected' ? attendResult.reason : attendResult.value.error);
-      }
-
-      // 3. Certificates count handling
-      if (certsResult.status === 'fulfilled') {
-        if (!certsResult.value.error) {
-          setCertificatesCount(certsResult.value.data?.length || 0);
-        } else {
-          console.warn('Student certificates fetch notice:', certsResult.value.error);
-        }
-      } else {
-        console.warn('Student certificates fetch rejected:', certsResult.reason);
-      }
-
-      // 4. Open Complaints count handling
-      if (compResult.status === 'fulfilled') {
-        if (!compResult.value.error) {
-          setOpenComplaintsCount(compResult.value.data?.length || 0);
-        } else {
-          console.warn('Student complaints fetch notice:', compResult.value.error);
-        }
-      } else {
-        console.warn('Student complaints fetch rejected:', compResult.reason);
-      }
-
-      // 5. Unread Notifications count handling
-      if (notifResult.status === 'fulfilled') {
-        if (!notifResult.value.error) {
-          setUnreadNotificationsCount(notifResult.value.data?.length || 0);
-        } else {
-          console.warn('Student notifications fetch notice:', notifResult.value.error);
-        }
-      } else {
-        console.warn('Student notifications fetch rejected:', notifResult.reason);
+        throw new Error('Failed to load dashboard data.');
       }
     } catch (err: any) {
       console.error('Failed to load student dashboard:', err);
@@ -208,14 +77,48 @@ export function StudentDashboard() {
   }, [user]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    if (!cached) {
+      fetchDashboardData(true);
+    }
+  }, [fetchDashboardData, cached]);
 
   const confirmedRegistrations = useMemo(() => {
     return registrations.filter((r) => r.status === 'CONFIRMED');
   }, [registrations]);
 
-  if (isLoading) return <LoadingState message="Loading your student control center..." />;
+  if (isLoading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto pb-16 font-sans animate-pulse" aria-busy="true" aria-label="Loading student control center">
+        <div className="rounded-3xl bg-slate-800 p-6 sm:p-8 min-h-[180px] flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="h-5 w-40 bg-slate-700 rounded-full"></div>
+            <div className="h-8 w-64 bg-slate-700 rounded-lg"></div>
+            <div className="h-4 w-48 bg-slate-700 rounded"></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-white p-4 rounded-2xl border border-gray-100 space-y-3 h-28 flex flex-col justify-between">
+              <div className="h-8 w-8 bg-gray-100 rounded-xl"></div>
+              <div className="space-y-1">
+                <div className="h-2.5 w-16 bg-gray-100 rounded"></div>
+                <div className="h-5 w-8 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 space-y-4">
+          <div className="h-6 w-48 bg-gray-200 rounded"></div>
+          <div className="space-y-3">
+            <div className="h-16 w-full bg-gray-50 rounded-2xl"></div>
+            <div className="h-16 w-full bg-gray-50 rounded-2xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (error) return <ErrorState message={error} onRetry={fetchDashboardData} />;
 
   return (

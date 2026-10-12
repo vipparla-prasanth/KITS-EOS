@@ -14,15 +14,16 @@ import {
   Layers, 
   FileText,
   Clock,
-  Compass
+  Compass,
+  KeyRound
 } from 'lucide-react';
 import { RevealOnScroll } from '../components/motion/RevealOnScroll';
 import { EventBannerImage } from '../components/ui/EventBannerImage';
 import { 
   resolveEffectiveEventStatus, 
-  getLifecycleBadgeTheme,
-  type EventLifecycleStatus 
-} from '@kits-eos/shared';
+  getLifecycleBadgeTheme 
+} from '@kits-eos/shared/src/utils/eventLifecycle';
+import type { EventLifecycleStatus } from '@kits-eos/shared/src/types/models';
 
 interface EventSummary {
   id: string;
@@ -83,35 +84,36 @@ export function Home() {
         <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-80 h-80 bg-gradient-to-tr from-red-50 to-blue-50 rounded-full blur-3xl opacity-60 pointer-events-none" />
 
         <div className="relative z-10 max-w-4xl space-y-6">
-          {/* Stagger 1: Institutional Badge */}
-          <div className="stagger-1">
+          {/* Institutional Badge */}
+          <div>
             <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-gray-100/90 text-gray-800 border border-gray-200 shadow-2xs">
-              <img src="/college_logo.png" alt="KITS Logo" className="h-4 w-4 object-contain" />
+              <img src="/college_logo.png" alt="KITS Logo" width={16} height={16} className="h-4 w-4 object-contain" />
               <span>KITS Akshar Institute of Technology</span>
               <span className="text-gray-300">•</span>
               <span className="text-kits-red font-black tracking-wide">KITS-EOS</span>
             </div>
           </div>
 
-          {/* Stagger 2: Hero Title H1 */}
-          <div className="stagger-2 space-y-2">
+          {/* Hero Title H1 */}
+          <div className="space-y-2">
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-gray-900 tracking-tight leading-[1.1]">
               Centralized <span className="text-kits-red">Event Operations</span> &{' '}
               <span className="text-kits-blue">Student Ecosystem</span>
             </h1>
           </div>
 
-          {/* Stagger 3: Subtitle Description */}
-          <div className="stagger-3">
+          {/* Subtitle Description */}
+          <div>
             <p className="text-sm sm:text-base text-gray-600 leading-relaxed max-w-3xl font-medium pt-1">
               Welcome to the authoritative Event Operations System (KITS-EOS) of KITS Akshar Institute of Technology. 
-              Discover campus symposiums, register individually or in teams, obtain verified QR passes, track real-time attendance, 
-              and download tamper-proof digital certificates.
+              Built for students, faculty coordinators, and institutional administration to discover campus symposiums, 
+              register solo or in teams, obtain dynamic QR passes, track real-time venue attendance, 
+              and download cryptographically verifiable digital certificates.
             </p>
           </div>
 
-          {/* Stagger 4: Primary Call-to-Actions */}
-          <div className="stagger-4 flex flex-wrap items-center gap-3.5 pt-2">
+          {/* Primary Call-to-Actions */}
+          <div className="flex flex-wrap items-center gap-3.5 pt-2">
             <Link
               to="/events"
               className="btn-liquid btn-primary-red px-6 py-3.5 text-xs font-black uppercase tracking-wider shadow-2xs group"
@@ -230,8 +232,34 @@ export function Home() {
           </div>
 
           {loading ? (
-            <div className="py-12 text-center text-xs text-gray-400 font-bold">
-              Loading active events from KITS-EOS database...
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading active events">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-2xl border border-gray-200 p-5 shadow-2xs flex flex-col justify-between min-h-[360px]"
+                >
+                  <div className="space-y-3">
+                    <div className="w-full h-44 sm:h-48 rounded-xl bg-gray-100 animate-pulse overflow-hidden relative">
+                      <div className="absolute top-2.5 right-2.5 h-6 w-28 rounded-full bg-gray-200" />
+                    </div>
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
+                        <div className="h-4 w-28 rounded bg-gray-100 animate-pulse" />
+                      </div>
+                      <div className="h-6 w-3/4 rounded bg-gray-200 animate-pulse" />
+                      <div className="space-y-1.5 pt-1">
+                        <div className="h-3.5 w-full rounded bg-gray-100 animate-pulse" />
+                        <div className="h-3.5 w-4/5 rounded bg-gray-100 animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between">
+                    <div className="h-4 w-36 rounded bg-gray-200 animate-pulse" />
+                    <div className="h-4 w-4 rounded-full bg-gray-200 animate-pulse" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : events.length === 0 ? (
             <div className="p-8 text-center bg-white rounded-2xl border border-gray-200">
@@ -261,6 +289,7 @@ export function Home() {
                         <EventBannerImage
                           bannerPath={ev.banner_path}
                           eventName={ev.name}
+                          priority={false}
                           className={`w-full h-44 sm:h-48 rounded-xl shadow-2xs overflow-hidden ${
                             isCompleted ? 'grayscale contrast-90' : ''
                           }`}
@@ -326,7 +355,79 @@ export function Home() {
       </RevealOnScroll>
 
       {/* =========================================================================
-          4. CORE SYSTEM PILLARS (Scroll Reveal)
+          4. STUDENT PARTICIPATION JOURNEY (Scroll Reveal)
+          ========================================================================= */}
+      <RevealOnScroll delay={60}>
+        <section className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-10 shadow-2xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-gray-100 pb-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-kits-red block">
+                How It Works for Students
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                Your 5-Step Participation Journey
+              </h2>
+            </div>
+            <p className="text-xs text-gray-500 font-medium">
+              A transparent, self-service pathway from registration to credential issuance.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              {
+                step: '01',
+                title: 'Discover & Explore',
+                desc: 'Browse flagship symposiums, categories, sub-event rules, prize pools, and schedule details.'
+              },
+              {
+                step: '02',
+                title: 'Register & Form Teams',
+                desc: 'Register solo or assemble teams with automatic teammate validation, auto-saved drafts, and document uploads.'
+              },
+              {
+                step: '03',
+                title: 'Get Digital Passes & ID',
+                desc: 'Instantly access your dynamic QR pass, 10-digit manual token, student Digital ID Card, and transaction receipts.'
+              },
+              {
+                step: '04',
+                title: 'Venue Check-In',
+                desc: 'Present your QR code or 10-digit token at the hall entrance to authorized event coordinators.'
+              },
+              {
+                step: '05',
+                title: 'Feedback & Certificates',
+                desc: 'Submit quick post-event feedback to unlock official verified participation and merit certificates.'
+              }
+            ].map((journey) => (
+              <div
+                key={journey.step}
+                className="p-4 rounded-2xl bg-gray-50/70 border border-gray-200/80 space-y-2 card-hover-interactive flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <span className="font-mono text-xs font-black text-kits-blue bg-blue-50 px-2 py-0.5 rounded border border-blue-100 inline-block">
+                    Step {journey.step}
+                  </span>
+                  <h3 className="text-xs font-black text-gray-900 uppercase tracking-tight">
+                    {journey.title}
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-normal leading-relaxed">
+                    {journey.desc}
+                  </p>
+                </div>
+                <div className="pt-2 flex items-center text-[10px] font-bold text-gray-400 gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  <span>Verified Step</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </RevealOnScroll>
+
+      {/* =========================================================================
+          5. CORE SYSTEM PILLARS (Scroll Reveal)
           ========================================================================= */}
       <RevealOnScroll delay={60}>
         <section className="bg-white rounded-3xl border border-gray-200 p-8 shadow-2xs space-y-6">
@@ -351,7 +452,7 @@ export function Home() {
                 Centralized Control
               </h3>
               <p className="text-[11px] text-gray-500 font-normal leading-relaxed">
-                Eliminates fragmented spreadsheets and isolated paper records into a unified institutional system.
+                Consolidates multiple department symposiums, track categories, and registrations into a single institutional portal.
               </p>
             </div>
 
@@ -360,10 +461,10 @@ export function Home() {
                 <QrCode className="h-4 w-4" />
               </div>
               <h3 className="text-xs font-black text-gray-900 uppercase tracking-tight">
-                Tamper-Proof QR & Token
+                Dynamic QR & Secure Token
               </h3>
               <p className="text-[11px] text-gray-500 font-normal leading-relaxed">
-                Unique encrypted QR passes and 10-digit manual tokens prevent duplicate registrations and unauthorized entry.
+                Unique encrypted QR passes and 10-digit manual tokens enable quick check-in and prevent duplicate entries.
               </p>
             </div>
 
@@ -375,7 +476,7 @@ export function Home() {
                 Accountable Check-in
               </h3>
               <p className="text-[11px] text-gray-500 font-normal leading-relaxed">
-                Multi-event faculty and student coordinators perform real-time check-ins with instant server-side validation.
+                Faculty and student coordinators perform real-time venue check-ins with instant server validation and duplicate prevention.
               </p>
             </div>
 
@@ -387,7 +488,7 @@ export function Home() {
                 Verifiable Certificates
               </h3>
               <p className="text-[11px] text-gray-500 font-normal leading-relaxed">
-                Official participation and award certificates verifiable by any third-party employer or academic body.
+                Official participation and merit certificates equipped with unique IDs, verifiable publicly by employers and universities.
               </p>
             </div>
           </div>
@@ -395,7 +496,44 @@ export function Home() {
       </RevealOnScroll>
 
       {/* =========================================================================
-          5. QUICK ACCESS ACTION GRID (Scroll Reveal)
+          6. ACCOUNT RECOVERY & SUPPORT NOTICE (Scroll Reveal)
+          ========================================================================= */}
+      <RevealOnScroll delay={60}>
+        <section className="bg-gradient-to-r from-blue-50/80 via-white to-red-50/60 rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="space-y-1.5 max-w-2xl text-center md:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100/70 text-kits-blue border border-blue-200">
+              <KeyRound className="h-3 w-3" />
+              <span>Student Account Security & Self-Service</span>
+            </div>
+            <h3 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">
+              Forgot Your Password or Need Help?
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-normal">
+              Students can reset forgotten passwords anytime via the secure password-recovery flow. For registration, pass retrieval, or campus queries, our technical support desk is available 24/7.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+            <Link
+              to="/forgot-password"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-gray-300 text-gray-800 text-xs font-bold hover:bg-gray-50 shadow-2xs transition"
+            >
+              <KeyRound className="h-3.5 w-3.5 text-kits-red" />
+              <span>Reset Password</span>
+            </Link>
+            <Link
+              to="/tech-support"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-kits-blue text-white text-xs font-bold hover:bg-blue-700 shadow-2xs transition"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span>Tech Support & FAQs</span>
+            </Link>
+          </div>
+        </section>
+      </RevealOnScroll>
+
+      {/* =========================================================================
+          7. QUICK ACCESS ACTION GRID (Scroll Reveal)
           ========================================================================= */}
       <RevealOnScroll delay={60}>
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

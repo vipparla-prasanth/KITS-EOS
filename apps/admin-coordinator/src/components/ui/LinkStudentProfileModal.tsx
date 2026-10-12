@@ -9,14 +9,13 @@ import {
   Building, 
   Calendar, 
   Phone, 
-  Eye, 
-  EyeOff, 
   CheckCircle2, 
   AlertCircle, 
   Loader2 
 } from 'lucide-react';
 
 import { DEPARTMENTS, DEFAULT_COLLEGE, CollegeSelect } from '@kits-eos/shared';
+import { PasswordInput } from './PasswordInput';
 
 interface Props {
   isOpen: boolean;
@@ -42,7 +41,6 @@ export function LinkStudentProfileModal({
   const [college, setCollege] = useState(DEFAULT_COLLEGE);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -324,43 +322,32 @@ export function LinkStudentProfileModal({
                 <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Student Portal Password
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 6 characters"
-                    className="w-full pl-9 pr-9 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:border-kits-blue focus:ring-1 focus:ring-kits-blue"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
+                <PasswordInput
+                  required
+                  minLength={6}
+                  leftIcon={<Lock className="w-3.5 h-3.5" />}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min. 6 characters"
+                  autoComplete="new-password"
+                  className="w-full py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:border-kits-blue focus:ring-1 focus:ring-kits-blue"
+                />
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
                   Confirm Password
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    minLength={6}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:border-kits-blue focus:ring-1 focus:ring-kits-blue"
-                  />
-                </div>
+                <PasswordInput
+                  required
+                  minLength={6}
+                  leftIcon={<Lock className="w-3.5 h-3.5" />}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter password"
+                  autoComplete="new-password"
+                  className="w-full py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-900 focus:outline-none focus:border-kits-blue focus:ring-1 focus:ring-kits-blue"
+                />
               </div>
             </div>
 

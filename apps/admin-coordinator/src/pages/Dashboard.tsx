@@ -48,57 +48,29 @@ export function Dashboard() {
         setIsLoading(true);
         setError(null);
 
-        // Fetch counts in parallel from Postgres
-        const [
-          eventsRes,
-          catsRes,
-          subEventsRes,
-          activeCoordsRes,
-          regsRes,
-          confirmedRegsRes,
-          paymentsRes,
-          attendRes,
-          certsRes,
-          feedbackRes,
-          complaintsRes,
-          logsRes
-        ] = await Promise.all([
-          supabase.from('events').select('*', { count: 'exact', head: true }).neq('status', 'PERMANENTLY_DELETED'),
-          supabase.from('categories').select('*', { count: 'exact', head: true }).neq('status', 'PERMANENTLY_DELETED'),
-          supabase.from('sub_events').select('*', { count: 'exact', head: true }).neq('status', 'PERMANENTLY_DELETED'),
-          supabase.rpc('get_active_coordinators_count'),
-          supabase.from('registrations').select('*', { count: 'exact', head: true }),
-          supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('status', 'CONFIRMED'),
-          supabase.from('payments').select('amount').eq('status', 'SUCCESS'),
-          supabase.from('attendance_records').select('*', { count: 'exact', head: true }),
-          supabase.from('certificates').select('*', { count: 'exact', head: true }),
-          supabase.from('feedback_responses').select('*', { count: 'exact', head: true }),
-          supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('status', 'OPEN'),
-          supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(6)
-        ]);
+        // Fetch metrics authoritatively via canonical server-side RPC
+        const { data, error: rpcErr } = await supabase.rpc('admin_get_dashboard_metrics');
 
-        if (activeCoordsRes.error) {
-          console.error('Failed to load active coordinators count:', activeCoordsRes.error);
-        }
+        if (rpcErr) throw rpcErr;
 
-        const totalRev = paymentsRes.data?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
+        if (data) {
+          setMetrics({
+            totalEvents: data.totalEvents || 0,
+            totalCategories: data.totalCategories || 0,
+            totalSubEvents: data.totalSubEvents || 0,
+            totalCoordinators: data.totalCoordinators ?? 0,
+            totalRegistrations: data.totalRegistrations || 0,
+            confirmedRegistrations: data.confirmedRegistrations || 0,
+            totalRevenue: Number(data.totalRevenue) || 0,
+            totalAttendance: data.totalAttendance || 0,
+            totalCertificates: data.totalCertificates || 0,
+            totalFeedback: data.totalFeedback || 0,
+            openComplaints: data.openComplaints || 0,
+          });
 
-        setMetrics({
-          totalEvents: eventsRes.count || 0,
-          totalCategories: catsRes.count || 0,
-          totalSubEvents: subEventsRes.count || 0,
-          totalCoordinators: activeCoordsRes.error ? null : (activeCoordsRes.data ?? 0),
-          totalRegistrations: regsRes.count || 0,
-          confirmedRegistrations: confirmedRegsRes.count || 0,
-          totalRevenue: totalRev,
-          totalAttendance: attendRes.count || 0,
-          totalCertificates: certsRes.count || 0,
-          totalFeedback: feedbackRes.count || 0,
-          openComplaints: complaintsRes.count || 0,
-        });
-
-        if (logsRes.data) {
-          setRecentLogs(logsRes.data as AuditLog[]);
+          if (data.recentLogs) {
+            setRecentLogs(data.recentLogs as AuditLog[]);
+          }
         }
       } catch (err: any) {
         console.error('Failed to load admin dashboard:', err);

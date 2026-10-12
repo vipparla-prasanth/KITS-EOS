@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@kits-eos/shared/src/api/client';
 import { useAuth } from '../../context/AuthContext';
+import { isSessionValid } from '@kits-eos/shared';
 import { 
   Calendar, 
   ClipboardList, 
@@ -23,18 +23,24 @@ import {
   MapPin,
   Sparkles
 } from 'lucide-react';
-import { LogoutConfirmationModal } from '../ui/LogoutConfirmationModal';
-import { CampusLocationModal } from '../ui/CampusLocationModal';
-import { NotificationCenter } from '@kits-eos/shared';
+const LogoutConfirmationModal = lazy(() => import('../ui/LogoutConfirmationModal').then(m => ({ default: m.LogoutConfirmationModal })));
+const CampusLocationModal = lazy(() => import('../ui/CampusLocationModal').then(m => ({ default: m.CampusLocationModal })));
+const NotificationCenter = lazy(() => import('@kits-eos/shared/src/components/NotificationCenter').then(m => ({ default: m.NotificationCenter })));
 
 export function StudentNavbar() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isStudentAuthenticated = Boolean(
+    user && 
+    isSessionValid() && 
+    location.pathname !== '/reset-password' && 
+    location.pathname !== '/login' && 
+    location.pathname !== '/signup'
+  );
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const servicesDropdownRef = useRef<HTMLDivElement>(null);
@@ -55,35 +61,6 @@ export function StudentNavbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch unread notifications count for authenticated student
-  useEffect(() => {
-    if (!user) {
-      setUnreadCount(0);
-      return;
-    }
-
-    async function fetchUnreadCount() {
-      try {
-        const { count, error } = await supabase
-          .from('notifications')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user!.id)
-          .eq('is_read', false);
-
-        if (!error && count !== null) {
-          setUnreadCount(count);
-        }
-      } catch (e) {
-        console.error('Failed to fetch unread notification count:', e);
-      }
-    }
-
-    fetchUnreadCount();
-
-    // Re-check periodically (30s)
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
 
   // Close mobile menu & dropdowns on route change
   useEffect(() => {
@@ -110,10 +87,12 @@ export function StudentNavbar() {
         <div className="max-w-7xl mx-auto glass-header-floating rounded-2xl sm:rounded-3xl pointer-events-auto transition-all duration-300">
           <div className="px-2 sm:px-4 lg:px-6 flex items-center justify-between min-h-14 sm:min-h-[70px] py-1.5 sm:py-2">
             {/* Brand Logo & Name */}
-            <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2.5 group shrink-0">
+            <Link to={isStudentAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2.5 group shrink-0">
               <img
                 src="/college_logo.png"
                 alt="KITS Logo"
+                width={40}
+                height={40}
                 className="h-9 w-9 sm:h-10 sm:w-10 object-contain shrink-0 group-hover:scale-105 transition"
               />
               <div className="flex flex-col">
@@ -136,7 +115,7 @@ export function StudentNavbar() {
 
             {/* Desktop Navigation Links */}
             <nav className="hidden lg:flex items-center gap-1.5 2xl:gap-2 text-xs font-bold shrink min-w-0">
-              {user ? (
+              {isStudentAuthenticated ? (
                 <>
                   <NavLink
                     to="/dashboard"
@@ -444,10 +423,12 @@ export function StudentNavbar() {
 
             {/* User Auth Section & Mobile Hamburger */}
             <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink min-w-0">
-              {user ? (
+              {isStudentAuthenticated ? (
                 <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                   {/* Notification Center Dropdown with Auto Read-on-Open */}
-                  <NotificationCenter portal="STUDENT" onNavigate={navigate} />
+                  <Suspense fallback={<div className="h-8 w-8 rounded-full bg-gray-100/50 shrink-0" />}>
+                    <NotificationCenter portal="STUDENT" onNavigate={navigate} />
+                  </Suspense>
 
                   <Link
                     to="/profile"
@@ -462,7 +443,7 @@ export function StudentNavbar() {
                         className="text-[11px] lg:text-xs font-bold text-gray-900 leading-[1.25] break-words select-text"
                         style={{ overflowWrap: 'anywhere', wordBreak: 'normal' }}
                       >
-                        {profile?.full_name || user.email?.split('@')[0]}
+                        {profile?.full_name || user?.email?.split('@')[0]}
                       </div>
                       <div className="text-[10px] font-mono text-gray-500 mt-0.5 leading-tight truncate">
                         {profile?.roll_number || 'Student'}
@@ -520,7 +501,7 @@ export function StudentNavbar() {
           {/* Mobile Navigation Dropdown */}
           {mobileMenuOpen && (
             <div className="lg:hidden px-3 py-3 border-t border-gray-200/80 space-y-1 dropdown-animate">
-              {user ? (
+              {isStudentAuthenticated ? (
                 <>
                   {/* Student Identity Card in Mobile Drawer */}
                   <Link
@@ -536,7 +517,7 @@ export function StudentNavbar() {
                         className="text-xs font-bold text-gray-900 leading-snug break-words select-text"
                         style={{ overflowWrap: 'anywhere', wordBreak: 'normal' }}
                       >
-                        {profile?.full_name || user.email?.split('@')[0]}
+                        {profile?.full_name || user?.email?.split('@')[0]}
                       </div>
                       <div className="text-[10px] font-mono text-gray-500 mt-0.5 leading-tight">
                         {profile?.roll_number || 'Student'}
@@ -608,11 +589,6 @@ export function StudentNavbar() {
                       <Bell className="h-4 w-4 text-gray-600" />
                       <span>Notifications</span>
                     </div>
-                    {unreadCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-kits-red text-white text-[10px] font-black">
-                        {unreadCount}
-                      </span>
-                    )}
                   </NavLink>
 
                   <NavLink
@@ -771,17 +747,25 @@ export function StudentNavbar() {
       </header>
 
       {/* Logout Confirmation Modal */}
-      <LogoutConfirmationModal
-        isOpen={isLogoutModalOpen}
-        onClose={() => setIsLogoutModalOpen(false)}
-        onConfirm={handleConfirmSignOut}
-      />
+      {isLogoutModalOpen && (
+        <Suspense fallback={null}>
+          <LogoutConfirmationModal
+            isOpen={isLogoutModalOpen}
+            onClose={() => setIsLogoutModalOpen(false)}
+            onConfirm={handleConfirmSignOut}
+          />
+        </Suspense>
+      )}
 
       {/* Campus Location Map Modal */}
-      <CampusLocationModal
-        isOpen={isMapModalOpen}
-        onClose={() => setIsMapModalOpen(false)}
-      />
+      {isMapModalOpen && (
+        <Suspense fallback={null}>
+          <CampusLocationModal
+            isOpen={isMapModalOpen}
+            onClose={() => setIsMapModalOpen(false)}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

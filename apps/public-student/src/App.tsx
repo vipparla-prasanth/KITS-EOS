@@ -3,10 +3,12 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { StudentLayout } from './components/layout/StudentLayout';
-import { forceResetScrollLock, initScrollRestoration, scrollToPageTop, handleHashScroll } from '@kits-eos/shared';
+import { forceResetScrollLock } from '@kits-eos/shared/src/utils/scrollLock';
+import { initScrollRestoration, scrollToPageTop, handleHashScroll } from '@kits-eos/shared/src/utils/scrollRestoration';
 
-// Eagerly loaded critical landing page
+// Eagerly loaded critical landing and auth recovery pages
 import { Home } from './pages/Home';
+import { ResetPassword } from './pages/ResetPassword';
 
 // Route-level code-split pages
 const AboutKeos = lazy(() => import('./pages/AboutKeos').then(m => ({ default: m.AboutKeos })));
@@ -22,6 +24,8 @@ const EventDetails = lazy(() => import('./pages/EventDetails').then(m => ({ defa
 const CategoryDetails = lazy(() => import('./pages/CategoryDetails').then(m => ({ default: m.CategoryDetails })));
 const SubEventDetails = lazy(() => import('./pages/SubEventDetails').then(m => ({ default: m.SubEventDetails })));
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
+const CompleteProfile = lazy(() => import('./pages/CompleteProfile').then(m => ({ default: m.CompleteProfile })));
 const SubEventRegister = lazy(() => import('./pages/SubEventRegister').then(m => ({ default: m.SubEventRegister })));
 const MyRegistrations = lazy(() => import('./pages/MyRegistrations').then(m => ({ default: m.MyRegistrations })));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard').then(m => ({ default: m.StudentDashboard })));
@@ -33,18 +37,7 @@ const StudentNotifications = lazy(() => import('./pages/StudentNotifications').t
 const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
 const StallsDirectory = lazy(() => import('./pages/Stalls').then(m => ({ default: m.StallsDirectory })));
 
-function StudentPageLoadingFallback() {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-      <div className="flex flex-col items-center space-y-4">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-kits-red border-t-transparent"></div>
-        <p className="text-xs font-semibold text-gray-500 tracking-wider uppercase">
-          Loading KITS Student Portal...
-        </p>
-      </div>
-    </div>
-  );
-}
+import { StudentPageLoadingFallback } from './components/ui/StudentPageLoadingFallback';
 
 function ScrollManager() {
   const location = useLocation();
@@ -109,9 +102,12 @@ export default function App() {
               <Route path="/verify-certificate" element={<PublicCertificateVerification />} />
               <Route path="/verify-certificate/:certId" element={<PublicCertificateVerification />} />
 
-              {/* 4. Student Authentication */}
+              {/* 4. Student Authentication & Onboarding */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/complete-profile" element={<CompleteProfile />} />
               <Route path="/student" element={<Navigate to="/dashboard" replace />} />
 
               {/* 5. Protected Student Operations */}

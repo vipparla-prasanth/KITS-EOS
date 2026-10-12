@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 declare const Deno: any;
 
@@ -10,15 +11,6 @@ export class HttpError extends Error {
     super(message);
     this.name = "HttpError";
   }
-}
-
-export function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin');
-  return {
-    'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-coordinator-token',
-    'Access-Control-Allow-Methods': 'OPTIONS, POST',
-  };
 }
 
 export function handleError(error: unknown, corsHeaders: Record<string, string>) {
@@ -43,10 +35,10 @@ export function handleError(error: unknown, corsHeaders: Record<string, string>)
     JSON.stringify({
       success: false,
       code: "INTERNAL_SERVER_ERROR",
-      message: (error as any)?.message || "An unexpected error occurred.",
+      message: "An unexpected error occurred.",
       error: {
         code: "INTERNAL_SERVER_ERROR",
-        message: (error as any)?.message || "An unexpected error occurred.",
+        message: "An unexpected error occurred.",
       },
     }),
     { status: 500, headers }
@@ -62,6 +54,66 @@ export const ADMIN_ALLOWLIST: readonly string[] = Object.freeze([
   'qa.admin@kitsakshar.ac.in',
   'jnvsravankumar@gmail.com',
 ]);
+
+interface PrivilegedKeyResolution {
+  key: string;
+  source: 'SUPABASE_SECRET_KEYS' | 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK' | 'NONE';
+  isModern: boolean;
+}
+
+function resolvePrivilegedKey(): PrivilegedKeyResolution {
+  // 1. Primary: Modern SUPABASE_SECRET_KEYS JSON dictionary ({ "default": "sb_secret_..." })
+  const modernKeysRaw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (modernKeysRaw && typeof modernKeysRaw === 'string') {
+    try {
+      const parsed = JSON.parse(modernKeysRaw);
+      let candidate = '';
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          candidate = parsed.default.trim();
+        } else {
+          const candidateVal = Object.values(parsed).find(
+            (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_secret_')
+          );
+          if (candidateVal) {
+            candidate = candidateVal.trim();
+          }
+        }
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        candidate = parsed.trim();
+      }
+
+      if (candidate) {
+        return {
+          key: candidate,
+          source: 'SUPABASE_SECRET_KEYS',
+          isModern: true,
+        };
+      }
+    } catch {
+      // JSON parse error handling: fall through to temporary fallback
+    }
+  }
+
+  // 2. TEMPORARY FALLBACK (Phase 3 Controlled Migration Only):
+  // Retained temporarily to prevent an outage if modern secret resolution fails.
+  // Location: resolvePrivilegedKey() fallback branch in admin-login-notification/index.ts.
+  // Warning: Must NOT become permanent architecture; will be removed once modern secret resolution is verified.
+  const fallbackKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (fallbackKey && typeof fallbackKey === 'string' && fallbackKey.trim().length > 0) {
+    return {
+      key: fallbackKey.trim(),
+      source: 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK',
+      isModern: false,
+    };
+  }
+
+  return {
+    key: '',
+    source: 'NONE',
+    isModern: false,
+  };
+}
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -79,13 +131,13 @@ serve(async (req: Request) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const { key: elevatedKey, isModern } = resolvePrivilegedKey();
 
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !elevatedKey) {
       throw new HttpError(500, 'CONFIGURATION_ERROR', 'Supabase environment configuration missing.');
     }
 
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+    const supabaseClient = createClient(supabaseUrl, elevatedKey, {
       auth: { persistSession: false },
     });
 
@@ -162,7 +214,11 @@ serve(async (req: Request) => {
 
       if (existingLogs && existingLogs.length > 0) {
         return new Response(
-          JSON.stringify({ success: true, message: 'Already notified for this session.' }),
+          JSON.stringify({ 
+            success: true, 
+            message: 'Already notified for this session.',
+            secret_resolution: isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
+          }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
@@ -195,7 +251,8 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Admin login notification recorded.' 
+        message: 'Admin login notification recorded.',
+        secret_resolution: isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

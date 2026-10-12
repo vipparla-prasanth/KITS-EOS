@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 declare const Deno: any;
 
@@ -10,24 +11,6 @@ class HttpError extends Error {
     super(message);
     this.name = "HttpError";
   }
-}
-
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin');
-  const defaultOrigins = 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5177,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5177';
-  const allowedOriginsEnv = Deno.env.get('ALLOWED_ORIGINS') || defaultOrigins;
-  const allowedOrigins = allowedOriginsEnv.split(',').map((o: string) => o.trim());
-  
-  let allowOrigin = origin || '*';
-  if (origin && (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
-    allowOrigin = origin;
-  }
-
-  return {
-    'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'OPTIONS, POST',
-  };
 }
 
 function handleError(error: unknown, corsHeaders: Record<string, string>) {
@@ -133,14 +116,35 @@ serve(async (req: Request) => {
       }
     }
 
+function resolvePublishableKey(): string {
+  const raw = Deno.env.get('SUPABASE_PUBLISHABLE_KEYS');
+  if (raw && typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          return parsed.default.trim();
+        }
+        const candidate = Object.values(parsed).find(
+          (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_publishable_')
+        );
+        if (candidate) return candidate.trim();
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        return parsed.trim();
+      }
+    } catch {}
+  }
+  return Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+}
+
     // 3. Forward Student JWT to PostgreSQL User-Context Client
     // This allows PostgreSQL to cryptographically resolve auth.uid() natively
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const clientApiKey = resolvePublishableKey();
 
     const userClient = createClient(
       supabaseUrl,
-      supabaseAnonKey,
+      clientApiKey,
       {
         global: {
           headers: { Authorization: `Bearer ${token}` },

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kits-eos-admin-v4';
+const CACHE_NAME = 'kits-eos-admin-v5';
 
 const PRECACHE_ASSETS = [
   '/',

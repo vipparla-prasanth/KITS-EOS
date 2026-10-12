@@ -9,7 +9,7 @@
           "kits-akshar-eos"
         ],
         "admin-coordinator": [
-          "kits-akshar-eos-admin"
+          "kitsakshar-eos-central"
         ],
         "fallback": [
           "kits-akshar-eos-fallback"

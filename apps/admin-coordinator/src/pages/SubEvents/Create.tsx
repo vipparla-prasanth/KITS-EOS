@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { supabase } from '@kits-eos/shared/src/api/client';
+import { supabase, invokeAdminEdgeFunction } from '@kits-eos/shared/src/api/client';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { ImageUpload } from '../../components/ui/ImageUpload';
 import { DateTimePicker } from '../../components/ui/DateTimePicker';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 import { 
   ArrowLeft, 
   Save, 
@@ -285,11 +286,33 @@ export function CreateSubEvent() {
         end_time: endTime ? new Date(endTime).toISOString() : null,
         venue: venue.trim() || null,
         status,
-        faculty_coordinator: facultyCoordinator.username.trim() ? facultyCoordinator : null,
-        student_coordinator: studentCoordinator.username.trim() ? studentCoordinator : null,
+        faculty_coordinator: facultyCoordinator.username.trim() ? {
+          name: facultyCoordinator.name.trim(),
+          mobile: facultyCoordinator.mobile.trim(),
+          username: facultyCoordinator.username.trim(),
+          password: facultyCoordinator.password ? facultyCoordinator.password.trim() : ''
+        } : null,
+        student_coordinator: studentCoordinator.username.trim() ? {
+          name: studentCoordinator.name.trim(),
+          mobile: studentCoordinator.mobile.trim(),
+          username: studentCoordinator.username.trim(),
+          password: studentCoordinator.password ? studentCoordinator.password.trim() : ''
+        } : null,
+        facultyCoordinator: facultyCoordinator.username.trim() ? {
+          name: facultyCoordinator.name.trim(),
+          mobile: facultyCoordinator.mobile.trim(),
+          username: facultyCoordinator.username.trim(),
+          password: facultyCoordinator.password ? facultyCoordinator.password.trim() : ''
+        } : null,
+        studentCoordinator: studentCoordinator.username.trim() ? {
+          name: studentCoordinator.name.trim(),
+          mobile: studentCoordinator.mobile.trim(),
+          username: studentCoordinator.username.trim(),
+          password: studentCoordinator.password ? studentCoordinator.password.trim() : ''
+        } : null,
       };
 
-      const { data, error: functionError } = await supabase.functions.invoke('admin-create-sub-event', {
+      const { data, error: functionError } = await invokeAdminEdgeFunction('admin-create-sub-event', {
         body: payload
       });
 
@@ -927,11 +950,11 @@ export function CreateSubEvent() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-600 uppercase">Password</label>
-                    <input
-                      type="password"
+                    <PasswordInput
                       value={facultyCoordinator.password}
                       onChange={(e) => setFacultyCoordinator({ ...facultyCoordinator, password: e.target.value })}
                       placeholder="••••••••"
+                      autoComplete="new-password"
                       className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 shadow-sm focus:border-kits-red focus:ring-1 focus:ring-kits-red"
                     />
                   </div>
@@ -980,11 +1003,11 @@ export function CreateSubEvent() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-600 uppercase">Password</label>
-                    <input
-                      type="password"
+                    <PasswordInput
                       value={studentCoordinator.password}
                       onChange={(e) => setStudentCoordinator({ ...studentCoordinator, password: e.target.value })}
                       placeholder="••••••••"
+                      autoComplete="new-password"
                       className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 shadow-sm focus:border-kits-blue focus:ring-1 focus:ring-kits-blue"
                     />
                   </div>

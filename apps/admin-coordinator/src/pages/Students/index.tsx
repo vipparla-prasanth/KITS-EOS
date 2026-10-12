@@ -8,6 +8,7 @@ import type { StudentProfile } from '@kits-eos/shared/src/types/models';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { LoadingState } from '../../components/ui/LoadingState';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 import { 
   Users, 
   Search, 
@@ -28,8 +29,11 @@ import {
   Eye,
   ShieldCheck,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Pencil,
+  Save
 } from 'lucide-react';
+import { DEPARTMENTS } from '@kits-eos/shared';
 
 // Authoritative account classification for Student Directory
 function getAccountCategory(student: StudentProfile) {
@@ -163,6 +167,39 @@ export function StudentsList() {
     error: string | null;
   }>({ open: false, student: null, note: '', loading: false, error: null });
 
+  // Admin Edit Student Profile Modal State (with Strict 3-Edit Limit)
+  const [editStudentModal, setEditStudentModal] = useState<{
+    open: boolean;
+    student: StudentProfile | null;
+    fullName: string;
+    rollNumber: string;
+    department: string;
+    otherDepartment: string;
+    branch: string;
+    yearOfStudy: number;
+    college: string;
+    phone: string;
+    email: string;
+    loading: boolean;
+    error: string | null;
+    success: string | null;
+  }>({
+    open: false,
+    student: null,
+    fullName: '',
+    rollNumber: '',
+    department: '',
+    otherDepartment: '',
+    branch: '',
+    yearOfStudy: 1,
+    college: '',
+    phone: '',
+    email: '',
+    loading: false,
+    error: null,
+    success: null,
+  });
+
   const handleOpenSuspend = (student: StudentProfile) => {
     setSuspendModal({
       open: true,
@@ -233,38 +270,190 @@ export function StudentsList() {
     }
   };
 
+  const handleOpenEditStudent = (student: StudentProfile) => {
+    setEditStudentModal({
+      open: true,
+      student,
+      fullName: student.full_name || '',
+      rollNumber: student.roll_number || '',
+      department: student.department || '',
+      otherDepartment: student.other_department || '',
+      branch: student.branch || '',
+      yearOfStudy: Number(student.year_of_study) || 1,
+      college: student.college || 'KITS Akshar Institute of Technology',
+      phone: student.phone || '',
+      email: (student as any).users?.email || '',
+      loading: false,
+      error: null,
+      success: null,
+    });
+  };
+
+  const handleCloseEditStudent = () => {
+    setEditStudentModal(prev => ({
+      ...prev,
+      open: false,
+      student: null,
+      error: null,
+      success: null,
+      loading: false,
+    }));
+  };
+
+  const handleExecuteEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editStudentModal.student) return;
+
+    const currentEditCount = editStudentModal.student.admin_edit_count || 0;
+    if (currentEditCount >= 3) {
+      setEditStudentModal(prev => ({
+        ...prev,
+        error: 'Maximum 3 edits have already been used for this student account. Further edits are blocked.',
+      }));
+      return;
+    }
+
+    if (!editStudentModal.fullName.trim()) {
+      setEditStudentModal(prev => ({ ...prev, error: 'Full legal name is required.' }));
+      return;
+    }
+    if (!editStudentModal.rollNumber.trim()) {
+      setEditStudentModal(prev => ({ ...prev, error: 'Roll number is required.' }));
+      return;
+    }
+    if (!editStudentModal.department.trim()) {
+      setEditStudentModal(prev => ({ ...prev, error: 'Department is required.' }));
+      return;
+    }
+    if (editStudentModal.department === 'OTHER' && !editStudentModal.otherDepartment.trim()) {
+      setEditStudentModal(prev => ({ ...prev, error: 'Please specify the department name for OTHER.' }));
+      return;
+    }
+    if (!editStudentModal.college.trim()) {
+      setEditStudentModal(prev => ({ ...prev, error: 'College is required.' }));
+      return;
+    }
+
+    try {
+      setEditStudentModal(prev => ({ ...prev, loading: true, error: null, success: null }));
+
+      const { data, error: rpcErr } = await supabase.rpc('admin_edit_student_profile', {
+        p_student_id: editStudentModal.student.user_id,
+        p_full_name: editStudentModal.fullName.trim(),
+        p_roll_number: editStudentModal.rollNumber.trim(),
+        p_department: editStudentModal.department.trim(),
+        p_year_of_study: Number(editStudentModal.yearOfStudy),
+        p_college: editStudentModal.college.trim(),
+        p_phone: editStudentModal.phone.trim(),
+        p_branch: editStudentModal.branch.trim() || null,
+        p_other_department: editStudentModal.department === 'OTHER' ? editStudentModal.otherDepartment.trim() : null,
+        p_email: editStudentModal.email.trim() || null,
+      });
+
+      if (rpcErr) {
+        throw rpcErr;
+      }
+
+      if (data && !data.success) {
+        throw new Error(data.message || 'Failed to update student profile.');
+      }
+
+      const updatedStudent = data?.student;
+      setEditStudentModal(prev => ({
+        ...prev,
+        loading: false,
+        success: data?.message || 'Student profile successfully updated.',
+      }));
+
+      // Immediately reflect updated student information in Admin UI
+      if (updatedStudent) {
+        setStudents(prev => prev.map(s => {
+          if (s.user_id === editStudentModal.student?.user_id) {
+            return {
+              ...s,
+              full_name: updatedStudent.full_name,
+              roll_number: updatedStudent.roll_number,
+              department: updatedStudent.department,
+              branch: updatedStudent.branch,
+              other_department: updatedStudent.other_department,
+              year_of_study: updatedStudent.year_of_study,
+              college: updatedStudent.college,
+              phone: updatedStudent.phone,
+              admin_edit_count: updatedStudent.admin_edit_count,
+              users: s.users ? { ...s.users, email: updatedStudent.email } : (s as any).users,
+            };
+          }
+          return s;
+        }));
+
+        if (selectedStudent && selectedStudent.user_id === editStudentModal.student?.user_id) {
+          setSelectedStudent(prev => prev ? ({
+            ...prev,
+            full_name: updatedStudent.full_name,
+            roll_number: updatedStudent.roll_number,
+            department: updatedStudent.department,
+            branch: updatedStudent.branch,
+            other_department: updatedStudent.other_department,
+            year_of_study: updatedStudent.year_of_study,
+            college: updatedStudent.college,
+            phone: updatedStudent.phone,
+            admin_edit_count: updatedStudent.admin_edit_count,
+            users: prev.users ? { ...prev.users, email: updatedStudent.email } : (prev as any).users,
+          }) : null);
+        }
+      }
+
+      await fetchStudents();
+
+      setTimeout(() => {
+        handleCloseEditStudent();
+      }, 1500);
+
+    } catch (err: any) {
+      console.error('Failed to edit student profile:', err);
+      setEditStudentModal(prev => ({
+        ...prev,
+        loading: false,
+        error: err.message || 'Failed to update student details.',
+      }));
+    }
+  };
+
   async function fetchStudents() {
     try {
       setIsLoading(true);
       setError(null);
 
-      const { data, error: fetchErr } = await supabase
-        .from('student_profiles')
-        .select(`
-          user_id,
-          full_name,
-          roll_number,
-          college,
-          department,
-          other_department,
-          year_of_study,
-          phone,
-          account_status,
-          suspension_reason,
-          suspended_at,
-          suspended_by,
-          users (
-            id,
-            email,
-            role,
-            status,
-            created_at
-          )
-        `)
-        .order('full_name');
+      const { data, error: fetchErr } = await supabase.rpc('admin_get_students_directory');
 
       if (fetchErr) throw fetchErr;
-      setStudents((data as unknown as StudentProfile[]) || []);
+
+      const mappedStudents = ((data as any[]) || []).map((row: any) => ({
+        user_id: row.user_id,
+        full_name: row.full_name || '',
+        roll_number: row.roll_number || '',
+        college: row.college || '',
+        department: row.department || '',
+        other_department: row.other_department || null,
+        branch: row.branch || null,
+        year_of_study: row.year_of_study || 0,
+        phone: row.phone || '',
+        admin_edit_count: row.admin_edit_count || 0,
+        account_status: row.account_status || (row.is_profile_complete ? 'ACTIVE' : 'INCOMPLETE'),
+        suspension_reason: row.suspension_reason || null,
+        suspended_at: row.suspended_at || null,
+        suspended_by: row.suspended_by || null,
+        is_profile_complete: row.is_profile_complete,
+        users: {
+          id: row.user_id,
+          email: row.email,
+          role: row.role,
+          status: row.user_status,
+          created_at: row.user_created_at,
+        },
+      }));
+
+      setStudents(mappedStudents as unknown as StudentProfile[]);
     } catch (err: any) {
       console.error('Failed to load students directory:', err);
       setError(err.message || 'Failed to load students.');
@@ -282,10 +471,12 @@ export function StudentsList() {
     return students.filter((s) => {
       const user = (s as any).users;
       if (statusFilter !== 'ALL') {
-        if (statusFilter === 'SUSPENDED') {
+        if (statusFilter === 'INCOMPLETE') {
+          if ((s as any).is_profile_complete !== false) return false;
+        } else if (statusFilter === 'SUSPENDED') {
           if (s.account_status !== 'SUSPENDED') return false;
         } else if (statusFilter === 'ACTIVE') {
-          if (s.account_status === 'SUSPENDED' || user?.status !== 'ACTIVE') return false;
+          if ((s as any).is_profile_complete === false || s.account_status === 'SUSPENDED' || user?.status !== 'ACTIVE') return false;
         } else if (user?.status !== statusFilter) {
           return false;
         }
@@ -784,6 +975,7 @@ export function StudentsList() {
             >
               <option value="ALL">All Account Statuses</option>
               <option value="ACTIVE">Active Accounts</option>
+              <option value="INCOMPLETE">Incomplete / Profile Pending</option>
               <option value="SUSPENDED">Suspended</option>
               <option value="PENDING">Pending</option>
             </select>
@@ -898,17 +1090,28 @@ export function StudentsList() {
                           onClick={() => handleOpenStudentDrawer(s)}
                           className="hover:text-kits-blue hover:underline text-left cursor-pointer"
                         >
-                          {s.full_name}
+                          {s.full_name || (
+                            <span className="text-amber-700 italic font-medium flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3 text-amber-500 inline shrink-0" />
+                              Profile Pending
+                            </span>
+                          )}
                         </button>
                       </td>
 
                       <td className="px-4 py-3.5 font-mono text-gray-700 whitespace-nowrap">
-                        {s.roll_number || '—'}
+                        {s.roll_number || <span className="text-gray-400 italic font-sans">Pending</span>}
                       </td>
 
                       <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">
-                        <span className="font-semibold text-gray-800">{deptDisplay}</span>{' '}
-                        {s.year_of_study ? <span className="text-gray-500">• Yr {s.year_of_study}</span> : null}
+                        {s.department ? (
+                          <>
+                            <span className="font-semibold text-gray-800">{deptDisplay}{s.branch ? ` (${s.branch})` : ''}</span>{' '}
+                            {s.year_of_study ? <span className="text-gray-500">• Yr {s.year_of_study}</span> : null}
+                          </>
+                        ) : (
+                          <span className="text-gray-400 italic">Not Submitted</span>
+                        )}
                       </td>
 
                       <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap space-y-0.5">
@@ -925,7 +1128,7 @@ export function StudentsList() {
                       </td>
 
                       <td className="px-4 py-3.5 text-gray-600 truncate max-w-[150px]" title={s.college}>
-                        {s.college || 'KITS'}
+                        {s.college || <span className="text-gray-400 italic">—</span>}
                       </td>
 
                       <td className="px-4 py-3.5 whitespace-nowrap">
@@ -947,7 +1150,15 @@ export function StudentsList() {
                             </span>
                           ) : null}
 
-                          {s.account_status === 'SUSPENDED' ? (
+                          {(s as any).is_profile_complete === false ? (
+                            <span 
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200 w-fit"
+                              title="Account registered in Auth but student academic profile is pending completion"
+                            >
+                              <AlertCircle className="h-3 w-3 text-amber-600 shrink-0" />
+                              <span>INCOMPLETE</span>
+                            </span>
+                          ) : s.account_status === 'SUSPENDED' ? (
                             <span 
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-50 text-kits-red border border-red-200 w-fit"
                               title={s.suspension_reason ? `Reason: ${s.suspension_reason}` : 'Account Suspended'}
@@ -969,8 +1180,8 @@ export function StudentsList() {
 
                       <td className="px-4 py-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Suspend / Unsuspend Account Controls (Admin only, not dual admin/coordinator) */}
-                          {cat.isDeletable && (
+                          {/* Suspend / Unsuspend Account Controls (Admin only, completed profiles only) */}
+                          {cat.isDeletable && (s as any).is_profile_complete !== false && (
                             s.account_status === 'SUSPENDED' ? (
                               <button
                                 type="button"
@@ -991,6 +1202,28 @@ export function StudentsList() {
                               </button>
                             )
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => (s as any).is_profile_complete !== false && handleOpenEditStudent(s)}
+                            disabled={(s as any).is_profile_complete === false}
+                            className={`p-1.5 rounded-lg transition ${
+                              (s as any).is_profile_complete === false
+                                ? 'text-gray-300 cursor-not-allowed'
+                                : (s.admin_edit_count || 0) >= 3
+                                ? 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer'
+                                : 'text-gray-500 hover:text-kits-blue hover:bg-blue-50 cursor-pointer'
+                            }`}
+                            title={
+                              (s as any).is_profile_complete === false
+                                ? 'Student profile has not yet been submitted by the student'
+                                : (s.admin_edit_count || 0) >= 3
+                                ? 'Edit Student Profile (3/3 edits used - Limit reached)'
+                                : `Edit Student Profile (${Math.max(0, 3 - (s.admin_edit_count || 0))} edits remaining)`
+                            }
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
 
                           <button
                             type="button"
@@ -1274,13 +1507,70 @@ export function StudentsList() {
             {/* Student Info Card */}
             <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-gray-900 text-sm">{selectedStudent.full_name}</span>
-                <span className="font-mono text-xs font-bold text-gray-600">{selectedStudent.roll_number}</span>
+                <span className="font-bold text-gray-900 text-sm">
+                  {selectedStudent.full_name || (
+                    <span className="text-amber-700 italic font-medium flex items-center gap-1">
+                      <AlertCircle className="h-3.5 w-3.5 text-amber-500 inline shrink-0" />
+                      Profile Pending Completion
+                    </span>
+                  )}
+                </span>
+                <span className="font-mono text-xs font-bold text-gray-600">
+                  {selectedStudent.roll_number || <span className="text-gray-400 italic font-sans font-normal">Pending</span>}
+                </span>
               </div>
-              <div className="text-gray-600 space-y-0.5 text-[11px]">
-                <div>Dept: <strong className="text-gray-900">{selectedStudent.department} (Year {selectedStudent.year_of_study})</strong></div>
-                <div>College: <strong className="text-gray-900">{selectedStudent.college}</strong></div>
-                <div>Email: <strong className="text-gray-900 font-mono">{(selectedStudent as any).users?.email}</strong></div>
+              <div className="text-gray-600 space-y-1 text-[11px]">
+                {(selectedStudent as any).is_profile_complete === false ? (
+                  <div className="p-2 bg-amber-50/70 border border-amber-200/80 rounded-xl text-amber-900 text-[11px] space-y-0.5">
+                    <span className="font-bold block text-amber-800">Account Onboarding Pending</span>
+                    <span>Student has registered authentication credentials but has not submitted their official academic profile yet.</span>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      Dept: <strong className="text-gray-900">
+                        {selectedStudent.department === 'OTHER' ? selectedStudent.other_department || 'Other' : selectedStudent.department}
+                        {selectedStudent.branch ? ` (${selectedStudent.branch})` : ''} • Year {selectedStudent.year_of_study}
+                      </strong>
+                    </div>
+                    <div>College: <strong className="text-gray-900">{selectedStudent.college}</strong></div>
+                  </>
+                )}
+                <div>Email: <strong className="text-gray-900 font-mono">{(selectedStudent as any).users?.email || '—'}</strong></div>
+                <div>Phone: <strong className="text-gray-900 font-mono">{selectedStudent.phone || '—'}</strong></div>
+
+                {/* Remaining Admin Edits Badge */}
+                <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                  <span className="text-gray-500 font-bold uppercase text-[10px]">Admin Edits Remaining:</span>
+                  <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-black uppercase tracking-wider border ${
+                    (selectedStudent.admin_edit_count || 0) >= 3
+                      ? 'bg-red-50 text-kits-red border-red-200'
+                      : 'bg-blue-50 text-kits-blue border-blue-200'
+                  }`}>
+                    {Math.max(0, 3 - (selectedStudent.admin_edit_count || 0))} / 3 Left
+                  </span>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditStudent(selectedStudent)}
+                    disabled={(selectedStudent as any).is_profile_complete === false}
+                    className={`w-full py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-2xs transition ${
+                      (selectedStudent as any).is_profile_complete === false
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                        : 'bg-kits-blue text-white hover:bg-blue-800 cursor-pointer'
+                    }`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span>
+                      {(selectedStudent as any).is_profile_complete === false
+                        ? 'Profile Pending Completion'
+                        : 'Edit Student Profile'}
+                    </span>
+                  </button>
+                </div>
+
                 {(selectedStudent as any).users?.role === 'ADMIN' && (
                   <div className="pt-1">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
@@ -1395,9 +1685,9 @@ export function StudentsList() {
 
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-gray-700 block">New Password</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     required
+                    autoComplete="new-password"
                     placeholder="Min. 6 characters"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -1407,9 +1697,9 @@ export function StudentsList() {
 
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-gray-700 block">Confirm Password</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     required
+                    autoComplete="new-password"
                     placeholder="Re-enter password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -1746,6 +2036,283 @@ export function StudentsList() {
           </div>
         </div>
       )}
+
+      {/* =========================================================================
+          ADMIN EDIT STUDENT PROFILE MODAL (WITH STRICT 3-EDIT LIMIT)
+          ========================================================================= */}
+      {editStudentModal.open && editStudentModal.student && (() => {
+        const editCount = editStudentModal.student.admin_edit_count || 0;
+        const remainingEdits = Math.max(0, 3 - editCount);
+        const isLimitReached = editCount >= 3;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto modal-overlay-animate">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-gray-200 relative modal-dialog-animate">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-xl ${isLimitReached ? 'bg-red-100 text-kits-red' : 'bg-blue-100 text-kits-blue'}`}>
+                    <Pencil className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-gray-900 tracking-tight">
+                      Edit Student Details (Admin)
+                    </h3>
+                    <p className="text-[11px] font-bold text-gray-500">
+                      Authoritative Profile Management
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                    isLimitReached 
+                      ? 'bg-red-50 text-kits-red border-red-200' 
+                      : 'bg-blue-50 text-kits-blue border-blue-200'
+                  }`}>
+                    {isLimitReached ? '0 Edits Remaining' : `${remainingEdits} of 3 Edits Left`}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleCloseEditStudent}
+                    className="p-1 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-gray-700 transition cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Error & Success Banners */}
+              {editStudentModal.error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-bold flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-kits-red shrink-0" />
+                  <span className="break-words">{editStudentModal.error}</span>
+                </div>
+              )}
+
+              {editStudentModal.success && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-bold flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>{editStudentModal.success}</span>
+                </div>
+              )}
+
+              {/* 3-Edit Limit Warning / Notice Banner */}
+              {isLimitReached ? (
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-kits-red">
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                    <span>Maximum 3 Edits Reached</span>
+                  </div>
+                  <p className="leading-relaxed text-[11px]">
+                    This student profile has already been edited <strong>3 times</strong> by Administrators. Under KITS-EOS administrative governance rules, no further modifications are permitted for this account.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-blue-50/80 border border-blue-200/80 rounded-2xl text-[11px] text-blue-950 font-medium space-y-0.5">
+                  <span className="font-bold flex items-center gap-1 text-kits-blue">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Administrative 3-Edit Limit Policy:
+                  </span>
+                  <p>
+                    Each student account allows a maximum of 3 administrative profile edits across the entire system. Saving changes now will consume edit #{editCount + 1} ({remainingEdits - 1} remaining after this save).
+                  </p>
+                </div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleExecuteEditStudent} className="space-y-3.5 text-xs">
+                {/* Name & Roll Number */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      Full Legal Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.fullName}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, fullName: e.target.value }))}
+                      placeholder="e.g. John Doe"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      Roll Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.rollNumber}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, rollNumber: e.target.value.toUpperCase() }))}
+                      placeholder="e.g. 23KH1A0501"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Department & Branch */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      Department <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.department}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, department: e.target.value }))}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                    >
+                      <option value="" disabled>Select Department</option>
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      Branch / Specialization
+                    </label>
+                    <input
+                      type="text"
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.branch}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, branch: e.target.value }))}
+                      placeholder="e.g. CSE, AIML, ECE"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {/* Other Department Specification if 'OTHER' */}
+                {editStudentModal.department === 'OTHER' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      Specify Other Department <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.otherDepartment}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, otherDepartment: e.target.value }))}
+                      placeholder="Enter exact academic department name"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                    />
+                  </div>
+                )}
+
+                {/* Year of Study & College */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      Year of Study <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.yearOfStudy}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, yearOfStudy: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                    >
+                      <option value={1}>1st Year</option>
+                      <option value={2}>2nd Year</option>
+                      <option value={3}>3rd Year</option>
+                      <option value={4}>4th Year</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      College / Institution <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.college}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, college: e.target.value }))}
+                      placeholder="e.g. KITS Akshar Institute of Technology"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {/* Mobile Phone & Email */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      Mobile Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      maxLength={15}
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.phone}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="10-digit mobile number"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-mono font-semibold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-gray-700 block">
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      disabled={isLimitReached || editStudentModal.loading}
+                      value={editStudentModal.email}
+                      onChange={(e) => setEditStudentModal(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="student@example.com"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed text-xs font-mono font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={handleCloseEditStudent}
+                    className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isLimitReached || editStudentModal.loading}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-2xs cursor-pointer flex items-center gap-1.5 ${
+                      isLimitReached
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-kits-blue text-white hover:bg-blue-800 disabled:opacity-50'
+                    }`}
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    <span>
+                      {editStudentModal.loading 
+                        ? 'Saving Changes...' 
+                        : isLimitReached 
+                          ? '3 Edits Used (Locked)' 
+                          : `Save Changes (${remainingEdits} edit${remainingEdits === 1 ? '' : 's'} left)`}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

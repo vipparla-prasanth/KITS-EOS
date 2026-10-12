@@ -1,5 +1,68 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
+
+declare const Deno: any;
+
+interface PrivilegedKeyResolution {
+  key: string;
+  source: 'SUPABASE_SECRET_KEYS' | 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK' | 'NONE';
+  isModern: boolean;
+}
+
+function resolvePrivilegedKey(): PrivilegedKeyResolution {
+  // 1. Primary: Modern SUPABASE_SECRET_KEYS JSON dictionary ({ "default": "sb_secret_..." })
+  const modernKeysRaw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (modernKeysRaw && typeof modernKeysRaw === 'string') {
+    try {
+      const parsed = JSON.parse(modernKeysRaw);
+      let candidate = '';
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          candidate = parsed.default.trim();
+        } else {
+          const candidateVal = Object.values(parsed).find(
+            (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_secret_')
+          );
+          if (candidateVal) {
+            candidate = candidateVal.trim();
+          }
+        }
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        candidate = parsed.trim();
+      }
+
+      if (candidate) {
+        return {
+          key: candidate,
+          source: 'SUPABASE_SECRET_KEYS',
+          isModern: true,
+        };
+      }
+    } catch {
+      // JSON parse error handling: fall through to temporary fallback
+    }
+  }
+
+  // 2. TEMPORARY FALLBACK (Phase 5D Controlled Migration Only):
+  // Retained temporarily to prevent an outage if modern secret resolution fails.
+  // Location: resolvePrivilegedKey() fallback branch in admin-download-document/index.ts.
+  // Warning: Must NOT become permanent architecture; will be removed once modern secret resolution is verified.
+  const fallbackKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (fallbackKey && typeof fallbackKey === 'string' && fallbackKey.trim().length > 0) {
+    return {
+      key: fallbackKey.trim(),
+      source: 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK',
+      isModern: false,
+    };
+  }
+
+  return {
+    key: '',
+    source: 'NONE',
+    isModern: false,
+  };
+}
 
 class HttpError extends Error {
   constructor(public statusCode: number, public code: string, message: string) {
@@ -8,22 +71,17 @@ class HttpError extends Error {
   }
 }
 
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin');
-  return {
-    'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-coordinator-token',
-    'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',
-  };
-}
-
-function handleError(error: unknown, corsHeaders: Record<string, string>) {
-  const headers = { ...corsHeaders, "Content-Type": "application/json" };
+function handleError(error: unknown, corsHeaders: Record<string, string>, extraHeaders?: Record<string, string>) {
+  const headers = { ...corsHeaders, ...extraHeaders, "Content-Type": "application/json" };
   if (error instanceof HttpError) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: { code: error.code, message: error.message }
+        error: { code: error.code, message: error.message },
+        ...(extraHeaders ? {
+          usedModernKey: extraHeaders['x-used-modern-key'] === 'true',
+          source: extraHeaders['x-key-source'],
+        } : {})
       }),
       { status: error.statusCode, headers }
     );
@@ -32,7 +90,9 @@ function handleError(error: unknown, corsHeaders: Record<string, string>) {
   return new Response(
     JSON.stringify({
       success: false,
-      error: { code: "INTERNAL_SERVER_ERROR", message: (error as any)?.message || "An unexpected error occurred." }
+      code: "INTERNAL_SERVER_ERROR",
+      message: "An unexpected error occurred.",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." }
     }),
     { status: 500, headers }
   );
@@ -45,10 +105,23 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const resolution = resolvePrivilegedKey();
+  const isModern = resolution.isModern;
+  const modernResponseHeaders = {
+    ...corsHeaders,
+    'x-secret-resolution': isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
+    'x-used-modern-key': isModern ? 'true' : 'false',
+    'x-key-source': resolution.source,
+  };
+
   try {
+    if (!resolution.key) {
+      throw new HttpError(500, 'CONFIGURATION_ERROR', 'Server configuration error: missing privileged credentials.');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      resolution.key,
       { auth: { persistSession: false } }
     );
 
@@ -151,7 +224,7 @@ serve(async (req: Request) => {
       }
     } else if (authHeader) {
       const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-      if (token && !token.startsWith("ctk_") && token !== (Deno.env.get('SUPABASE_ANON_KEY') ?? '')) {
+      if (token && !token.startsWith("ctk_") && !token.startsWith("sb_publishable_") && token !== (Deno.env.get('SUPABASE_ANON_KEY') ?? '')) {
         const { data: { user } } = await supabaseClient.auth.getUser(token);
         if (user) {
           const { data: appUser } = await supabaseClient
@@ -212,12 +285,15 @@ serve(async (req: Request) => {
       uploaded_at: doc.uploaded_at,
       signed_url: signedUrl,
       mode,
+      usedModernKey: isModern,
+      source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+      legacyFallbackUsed: !isModern,
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: modernResponseHeaders,
       status: 200,
     });
 
   } catch (error) {
-    return handleError(error, corsHeaders);
+    return handleError(error, corsHeaders, modernResponseHeaders);
   }
 });

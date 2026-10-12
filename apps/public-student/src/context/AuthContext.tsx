@@ -6,10 +6,14 @@ import {
   endSession, 
   triggerExpiry,
   onSessionExpired, 
-  isSessionValid, 
-  SessionExpiryNotice 
-} from '@kits-eos/shared';
+  isSessionValid,
+  RECOVERY_STORAGE_KEY,
+  isRecoverySessionActive
+} from '@kits-eos/shared/src/utils/sessionLifecycle';
+import { SessionExpiryNotice } from '@kits-eos/shared/src/components/SessionExpiryNotice';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { clearCachedDashboardData } from '../services/dashboardDataService';
+import { preloadTargetPageComponent, preloadTargetPageData } from '../services/pageReadinessService';
 
 export interface StudentProfile {
   user_id: string;
@@ -66,8 +70,10 @@ interface AuthContextType {
   deactivatedInfo: DeactivatedAccountInfo | null;
   suspendedInfo: SuspendedAccountInfo | null;
   isLoading: boolean;
-  signIn: (email: string, pass: string) => Promise<{ error: Error | null; deactivated?: boolean; suspended?: boolean }>;
-  signUp: (email: string, pass: string, profileData: Omit<StudentProfile, 'user_id'>) => Promise<{ error: Error | null }>;
+  isAuthTransitioning: boolean;
+  isRecoverySession: boolean;
+  signIn: (email: string, pass: string, targetRoute?: string) => Promise<{ error: Error | null; deactivated?: boolean; suspended?: boolean; incomplete?: boolean }>;
+  signUp: (email: string, pass: string, profileData: Omit<StudentProfile, 'user_id'>, targetRoute?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearDeactivatedInfo: () => void;
@@ -75,6 +81,17 @@ interface AuthContextType {
   reactivateAccount: (email: string) => Promise<{ error: Error | null }>;
   submitUnsuspensionRequest: (message: string) => Promise<{ success: boolean; message?: string; error?: Error | null }>;
   refreshAccountStatus: () => Promise<void>;
+  completeProfile: (profileData: {
+    full_name: string;
+    roll_number: string;
+    college: string;
+    department: string;
+    other_department?: string | null;
+    year_of_study: number;
+    phone: string;
+    privacy_acknowledged?: boolean;
+    privacy_notice_version?: string;
+  }) => Promise<{ success: boolean; error: Error | null; code?: string; message?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -86,7 +103,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [deactivatedInfo, setDeactivatedInfo] = useState<DeactivatedAccountInfo | null>(null);
   const [suspendedInfo, setSuspendedInfo] = useState<SuspendedAccountInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthTransitioning, setIsAuthTransitioning] = useState(false);
+  const [isRecoverySession, setIsRecoverySession] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && (sessionStorage.getItem(RECOVERY_STORAGE_KEY) === 'true' || isRecoverySessionActive());
+  });
   const isMountedRef = useRef(true);
+
+  const inFlightStatusCheck = useRef<Map<string, Promise<any>>>(new Map());
+  const inFlightProfileFetch = useRef<Map<string, Promise<StudentProfile | null>>>(new Map());
 
   const checkAccountStatus = async (currentUser: SupabaseUser | null) => {
     if (!currentUser) {
@@ -95,86 +119,111 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { deactivated: false, suspended: false };
     }
 
-    try {
-      let { data, error } = await supabase.rpc('get_student_account_status');
-
-      if (error && ((error as any).status === 401 || (error as any).code === 'PGRST303' || error.message?.includes('JWT') || error.message?.includes('expired'))) {
-        const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession().catch(() => ({ data: null, error: new Error('Refresh error') }));
-        if (!refreshErr && refreshed?.session) {
-          const retryRes = await supabase.rpc('get_student_account_status');
-          if (!retryRes.error && retryRes.data) {
-            data = retryRes.data;
-            error = null;
-          }
-        }
-      }
-
-      if (!error && data) {
-        if (data.status === 'DEACTIVATED') {
-          const info = data as DeactivatedAccountInfo;
-          if (info.is_expired) {
-            await supabase.auth.signOut();
-            setUser(null);
-            setSession(null);
-            setProfile(null);
-            setDeactivatedInfo(null);
-            setSuspendedInfo(null);
-            return {
-              deactivated: true,
-              expired: true,
-              suspended: false,
-              error: new Error('Your account deactivation recovery period (15 days) has expired. This account is permanently scheduled for deletion.')
-            };
-          }
-
-          setDeactivatedInfo(info);
-          setSuspendedInfo(null);
-          return { deactivated: true, expired: false, suspended: false, info };
-        }
-
-        if (data.account_status === 'SUSPENDED') {
-          const sInfo: SuspendedAccountInfo = {
-            user_id: currentUser.id,
-            email: currentUser.email || '',
-            account_status: 'SUSPENDED',
-            suspension_reason: data.suspension_reason || 'Your account has been suspended due to violations of platform rules.',
-            suspended_at: data.suspended_at || null,
-            full_name: data.full_name || '',
-            roll_number: data.roll_number || '',
-            pending_request: data.pending_request || null,
-            latest_request: data.latest_request || null,
-          };
-          setSuspendedInfo(sInfo);
-          setDeactivatedInfo(null);
-          return { deactivated: false, suspended: true, info: sInfo };
-        }
-      }
-      setDeactivatedInfo(null);
-      setSuspendedInfo(null);
-      return { deactivated: false, suspended: false };
-    } catch (e) {
-      console.error('Failed to check student account status:', e);
-      return { deactivated: false, suspended: false };
+    if (inFlightStatusCheck.current.has(currentUser.id)) {
+      return inFlightStatusCheck.current.get(currentUser.id)!;
     }
+
+    const checkPromise = (async () => {
+      try {
+        let { data, error } = await supabase.rpc('get_student_account_status');
+
+        if (error && ((error as any).status === 401 || (error as any).code === 'PGRST303' || error.message?.includes('JWT') || error.message?.includes('expired'))) {
+          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession().catch(() => ({ data: null, error: new Error('Refresh error') }));
+          if (!refreshErr && refreshed?.session) {
+            const retryRes = await supabase.rpc('get_student_account_status');
+            if (!retryRes.error && retryRes.data) {
+              data = retryRes.data;
+              error = null;
+            }
+          }
+        }
+
+        if (!error && data) {
+          if (data.status === 'DEACTIVATED') {
+            const info = data as DeactivatedAccountInfo;
+            if (info.is_expired) {
+              await supabase.auth.signOut();
+              setUser(null);
+              setSession(null);
+              setProfile(null);
+              setDeactivatedInfo(null);
+              setSuspendedInfo(null);
+              return {
+                deactivated: true,
+                expired: true,
+                suspended: false,
+                error: new Error('Your account deactivation recovery period (15 days) has expired. This account is permanently scheduled for deletion.')
+              };
+            }
+
+            setDeactivatedInfo(info);
+            setSuspendedInfo(null);
+            return { deactivated: true, expired: false, suspended: false, info };
+          }
+
+          if (data.account_status === 'SUSPENDED') {
+            const sInfo: SuspendedAccountInfo = {
+              user_id: currentUser.id,
+              email: currentUser.email || '',
+              account_status: 'SUSPENDED',
+              suspension_reason: data.suspension_reason || 'Your account has been suspended due to violations of platform rules.',
+              suspended_at: data.suspended_at || null,
+              full_name: data.full_name || '',
+              roll_number: data.roll_number || '',
+              pending_request: data.pending_request || null,
+              latest_request: data.latest_request || null,
+            };
+            setSuspendedInfo(sInfo);
+            setDeactivatedInfo(null);
+            return { deactivated: false, suspended: true, info: sInfo };
+          }
+        }
+        setDeactivatedInfo(null);
+        setSuspendedInfo(null);
+        return { deactivated: false, suspended: false };
+      } catch (e) {
+        console.error('Failed to check student account status:', e);
+        return { deactivated: false, suspended: false };
+      } finally {
+        inFlightStatusCheck.current.delete(currentUser.id);
+      }
+    })();
+
+    inFlightStatusCheck.current.set(currentUser.id, checkPromise);
+    return checkPromise;
   };
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('student_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (!error && data) {
-        setProfile(data as StudentProfile);
-      } else {
-        setProfile(null);
-      }
-    } catch (e) {
-      console.error('Failed to fetch student profile:', e);
-      setProfile(null);
+  const fetchProfile = async (userId: string): Promise<StudentProfile | null> => {
+    if (inFlightProfileFetch.current.has(userId)) {
+      return inFlightProfileFetch.current.get(userId)!;
     }
+
+    const fetchPromise = (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('student_profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!error && data) {
+          setProfile(data as StudentProfile);
+          return data as StudentProfile;
+        } else {
+          setProfile(null);
+          return null;
+        }
+      } catch (e) {
+        console.error('Failed to fetch student profile:', e);
+        setProfile(null);
+        return null;
+      } finally {
+        inFlightProfileFetch.current.delete(userId);
+      }
+    })();
+
+    inFlightProfileFetch.current.set(userId, fetchPromise);
+    return fetchPromise;
   };
 
   useEffect(() => {
@@ -210,6 +259,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!isMountedRef.current) return;
 
       if (event === 'SIGNED_OUT') {
+        try {
+          sessionStorage.removeItem(RECOVERY_STORAGE_KEY);
+        } catch {
+          // silent
+        }
+        setIsRecoverySession(false);
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -233,12 +288,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!isSessionValid()) {
             startSession({ role: 'STUDENT' });
           }
-          setSession(newSession);
-          setUser(newSession.user);
-          await Promise.all([
+          const [statusCheck, userProfile] = await Promise.all([
             checkAccountStatus(newSession.user),
             fetchProfile(newSession.user.id)
           ]);
+          if (!isMountedRef.current) return;
+          if (!statusCheck?.deactivated) {
+            setSession(newSession);
+            setUser(newSession.user);
+            setProfile(userProfile);
+          }
         }
         setIsLoading(false);
         return;
@@ -246,12 +305,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === 'INITIAL_SESSION') {
         if (newSession?.user && isSessionValid()) {
-          setSession(newSession);
-          setUser(newSession.user);
-          await Promise.all([
+          const [statusCheck, userProfile] = await Promise.all([
             checkAccountStatus(newSession.user),
             fetchProfile(newSession.user.id)
           ]);
+          if (!isMountedRef.current) return;
+          if (!statusCheck?.deactivated) {
+            setSession(newSession);
+            setUser(newSession.user);
+            setProfile(userProfile);
+          }
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      if (event === 'PASSWORD_RECOVERY') {
+        try {
+          sessionStorage.setItem(RECOVERY_STORAGE_KEY, 'true');
+        } catch {
+          // silent
+        }
+        setIsRecoverySession(true);
+        if (newSession?.user) {
+          setSession(newSession);
+          setUser(newSession.user);
         }
         setIsLoading(false);
         return;
@@ -274,23 +352,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!isMountedRef.current) return;
 
           if (currentSession?.user && isSessionValid()) {
+            const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/dashboard';
+            const [statusCheck, userProfile] = await Promise.all([
+              checkAccountStatus(currentSession.user),
+              fetchProfile(currentSession.user.id),
+              preloadTargetPageComponent(currentPath),
+              preloadTargetPageData(currentPath, currentSession.user.id)
+            ]);
+
+            if (!isMountedRef.current) return;
+
+            if (statusCheck?.deactivated) {
+              setIsLoading(false);
+              return;
+            }
+
             setSession(currentSession);
             setUser(currentSession.user);
-            const statusCheck = await checkAccountStatus(currentSession.user);
-            if (!statusCheck.deactivated) {
-              await fetchProfile(currentSession.user.id);
-            }
+            setProfile(userProfile);
             setIsLoading(false);
             return;
           }
         }
 
-        // Clean unauthenticated startup
-        setUser(null);
-        setSession(null);
-        setProfile(null);
-        setDeactivatedInfo(null);
-        setSuspendedInfo(null);
+        // Clean unauthenticated startup (preserve in-flight recovery/OAuth flow)
+        if (sessionStatus.reason !== 'OAUTH_IN_FLIGHT' && sessionStatus.reason !== 'RECOVERY_IN_FLIGHT' && !isRecoverySessionActive()) {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setDeactivatedInfo(null);
+          setSuspendedInfo(null);
+        } else if (sessionStatus.reason === 'RECOVERY_IN_FLIGHT' || isRecoverySessionActive()) {
+          setIsRecoverySession(true);
+          const { data: { session: recoverySession } } = await supabase.auth.getSession();
+          if (recoverySession?.user) {
+            setSession(recoverySession);
+            setUser(recoverySession.user);
+          }
+        }
         setIsLoading(false);
       } catch (err) {
         console.warn('Student auth bootstrap notice:', err);
@@ -311,31 +410,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signIn = async (email: string, pass: string) => {
+  const signIn = async (email: string, pass: string, targetRoute = '/dashboard') => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: pass,
       });
-      if (error) return { error };
+      if (error) {
+        return { error };
+      }
       if (data.user && data.session) {
-        const statusCheck = await checkAccountStatus(data.user);
-        if (statusCheck.error) {
-          return { error: statusCheck.error };
+        setIsAuthTransitioning(true);
+        try {
+          // Concurrently execute account status check, profile load, and target page preparation
+          const [statusCheck, userProf] = await Promise.all([
+            checkAccountStatus(data.user),
+            fetchProfile(data.user.id),
+            preloadTargetPageComponent(targetRoute),
+            preloadTargetPageData(targetRoute, data.user.id)
+          ]);
+
+          if (statusCheck?.error) {
+            return { error: statusCheck.error };
+          }
+          if (statusCheck?.deactivated) {
+            return { error: null, deactivated: true };
+          }
+          if (statusCheck?.suspended) {
+            return { error: null, suspended: true };
+          }
+
+          startSession({ role: 'STUDENT' });
+          setSession(data.session);
+          setUser(data.user);
+          setProfile(userProf);
+
+          if (!userProf) {
+            return { error: null, incomplete: true };
+          }
+        } finally {
+          setIsAuthTransitioning(false);
         }
-        if (statusCheck.deactivated) {
-          return { error: null, deactivated: true };
-        }
-        if (statusCheck.suspended) {
-          return { error: null, suspended: true };
-        }
-        startSession({ role: 'STUDENT' });
-        setSession(data.session);
-        setUser(data.user);
-        await fetchProfile(data.user.id);
       }
       return { error: null };
     } catch (err: any) {
+      setIsAuthTransitioning(false);
       return { error: err };
     }
   };
@@ -395,7 +514,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, pass: string, profileData: Omit<StudentProfile, 'user_id'>) => {
+  const signUp = async (email: string, pass: string, profileData: Omit<StudentProfile, 'user_id'>, targetRoute = '/dashboard') => {
     try {
       const cleanEmail = email.trim().toLowerCase();
       
@@ -435,20 +554,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: new Error(data?.error?.message || 'Failed to create student account') };
       }
 
-      // 2. Sign in to establish active authenticated session
-      const signInResult = await signIn(cleanEmail, pass);
-      if (signInResult.error) {
-        return { error: signInResult.error };
-      }
-
-      return { error: null };
+      // 2. Sign in to establish active authenticated session and prepare target page
+      return await signIn(cleanEmail, pass, targetRoute);
     } catch (err: any) {
       return { error: err };
     }
   };
 
   const signOut = async () => {
+    clearCachedDashboardData();
     endSession();
+    try {
+      sessionStorage.removeItem(RECOVERY_STORAGE_KEY);
+    } catch {
+      // silent
+    }
+    setIsRecoverySession(false);
     try {
       await supabase.auth.signOut();
     } catch {
@@ -467,6 +588,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const completeProfile = async (profileData: {
+    full_name: string;
+    roll_number: string;
+    college: string;
+    department: string;
+    other_department?: string | null;
+    year_of_study: number;
+    phone: string;
+    privacy_acknowledged?: boolean;
+    privacy_notice_version?: string;
+  }): Promise<{ success: boolean; error: Error | null; code?: string; message?: string }> => {
+    try {
+      const { data, error } = await supabase.rpc('student_complete_profile', {
+        p_full_name: profileData.full_name.trim(),
+        p_roll_number: profileData.roll_number.trim().toUpperCase(),
+        p_college: profileData.college.trim(),
+        p_department: profileData.department.trim(),
+        p_other_department: profileData.department === 'OTHER' ? profileData.other_department?.trim() || null : null,
+        p_year_of_study: Number(profileData.year_of_study),
+        p_phone: profileData.phone.trim(),
+        p_privacy_acknowledged: Boolean(profileData.privacy_acknowledged),
+        p_privacy_notice_version: profileData.privacy_notice_version || '1.0',
+      });
+
+      if (error) {
+        return { success: false, error: new Error(error.message || 'Profile completion failed') };
+      }
+
+      if (data && !data.success) {
+        return {
+          success: false,
+          error: new Error(data.message || 'Profile completion failed'),
+          code: data.code,
+          message: data.message,
+        };
+      }
+
+      if (user) {
+        await fetchProfile(user.id);
+      }
+
+      return { success: true, error: null };
+    } catch (err: any) {
+      return { success: false, error: err };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -476,6 +644,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         deactivatedInfo,
         suspendedInfo,
         isLoading,
+        isAuthTransitioning,
+        isRecoverySession,
         signIn,
         signUp,
         signOut,
@@ -485,6 +655,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         reactivateAccount,
         submitUnsuspensionRequest,
         refreshAccountStatus,
+        completeProfile,
       }}
     >
       <SessionExpiryNotice />

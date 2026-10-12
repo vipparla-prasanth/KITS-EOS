@@ -2,6 +2,69 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { handleError, HttpError } from "../_shared/errorHandling.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { verifyPassword, hashPassword } from "../_shared/password.ts";
+
+declare const Deno: any;
+
+interface PrivilegedKeyResolution {
+  key: string;
+  source: 'SUPABASE_SECRET_KEYS' | 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK' | 'NONE';
+  isModern: boolean;
+}
+
+function resolvePrivilegedKey(): PrivilegedKeyResolution {
+  // 1. Primary: Modern SUPABASE_SECRET_KEYS JSON dictionary ({ "default": "sb_secret_..." })
+  const modernKeysRaw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (modernKeysRaw && typeof modernKeysRaw === 'string') {
+    try {
+      const parsed = JSON.parse(modernKeysRaw);
+      let candidate = '';
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          candidate = parsed.default.trim();
+        } else {
+          const candidateVal = Object.values(parsed).find(
+            (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_secret_')
+          );
+          if (candidateVal) {
+            candidate = candidateVal.trim();
+          }
+        }
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        candidate = parsed.trim();
+      }
+
+      if (candidate) {
+        return {
+          key: candidate,
+          source: 'SUPABASE_SECRET_KEYS',
+          isModern: true,
+        };
+      }
+    } catch {
+      // JSON parse error handling: fall through to temporary fallback
+    }
+  }
+
+  // 2. TEMPORARY FALLBACK (Phase 5B Controlled Migration Only):
+  // Retained temporarily to prevent an outage if modern secret resolution fails.
+  // Location: resolvePrivilegedKey() fallback branch in coordinator-login/index.ts.
+  // Warning: Must NOT become permanent architecture; will be removed once modern secret resolution is verified.
+  const fallbackKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (fallbackKey && typeof fallbackKey === 'string' && fallbackKey.trim().length > 0) {
+    return {
+      key: fallbackKey.trim(),
+      source: 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK',
+      isModern: false,
+    };
+  }
+
+  return {
+    key: '',
+    source: 'NONE',
+    isModern: false,
+  };
+}
 
 async function hashString(value: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -18,14 +81,27 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const resolution = resolvePrivilegedKey();
+  const isModern = resolution.isModern;
+  const modernResponseHeaders = {
+    ...corsHeaders,
+    'x-secret-resolution': isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
+    'x-used-modern-key': isModern ? 'true' : 'false',
+    'x-key-source': resolution.source,
+  };
+
   try {
     if (req.method !== 'POST') {
       throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
     }
 
+    if (!resolution.key) {
+      throw new HttpError(500, 'CONFIGURATION_ERROR', 'Server configuration error: missing privileged credentials.');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      resolution.key,
       { auth: { persistSession: false } }
     );
 
@@ -46,14 +122,19 @@ serve(async (req: Request) => {
     }
 
     const cleanUsername = username.trim();
-    const computedHash = await hashString(password.trim());
 
-    // 1. Fetch coordinator by username (Strictly Username + Password, No synthetic email)
-    const { data: coordinator, error: coordError } = await supabaseClient
+    // 1. Fetch coordinator by username (supporting canonical username and paymentmanager@eos)
+    let coordQuery = supabaseClient
       .from('coordinators')
-      .select('id, username, password_hash, display_name, phone_number, coordinator_type, status')
-      .eq('username', cleanUsername)
-      .single();
+      .select('id, username, password_hash, display_name, phone_number, coordinator_type, status');
+
+    if (cleanUsername.toLowerCase() === 'paymentmanager@eos') {
+      coordQuery = coordQuery.or(`username.eq.${cleanUsername},coordinator_type.eq.PAYMENT_MANAGER`);
+    } else {
+      coordQuery = coordQuery.eq('username', cleanUsername);
+    }
+
+    const { data: coordinator, error: coordError } = await coordQuery.limit(1).single();
 
     if (coordError || !coordinator) {
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid credentials. Please check your username and password.');
@@ -63,9 +144,25 @@ serve(async (req: Request) => {
       throw new HttpError(403, 'ACCOUNT_INACTIVE', 'Coordinator account is inactive or archived');
     }
 
-    // 2. Verify password hash
-    if (coordinator.password_hash !== computedHash) {
+    // 2. Verify password (Dual-verification: bcrypt or legacy SHA-256)
+    const verification = await verifyPassword(password.trim(), coordinator.password_hash);
+    if (!verification.isValid) {
+      // Conservative artificial delay to slow down automated brute-force attacks
+      await new Promise((r) => setTimeout(r, 250));
       throw new HttpError(401, 'INVALID_CREDENTIALS', 'Invalid credentials. Please check your username and password.');
+    }
+
+    // 2b. Transparent Lazy Re-hash: If verified via legacy SHA-256, upgrade to bcrypt cost factor 12
+    if (verification.needsRehash) {
+      try {
+        const modernHash = await hashPassword(password.trim());
+        await supabaseClient
+          .from('coordinators')
+          .update({ password_hash: modernHash })
+          .eq('id', coordinator.id);
+      } catch (rehashErr) {
+        console.error("Non-fatal: Failed to lazily upgrade coordinator password hash:", rehashErr);
+      }
     }
 
     // 3. Generate Cryptographically Secure Session Token (256 bits entropy)
@@ -160,12 +257,15 @@ serve(async (req: Request) => {
       access_state: accessState,
       assignment_state: assignmentState,
       expires_at: expiresAt,
+      usedModernKey: isModern,
+      source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+      legacyFallbackUsed: !isModern,
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: modernResponseHeaders,
       status: 200,
     });
 
   } catch (error) {
-    return handleError(error, corsHeaders);
+    return handleError(error, modernResponseHeaders);
   }
 });

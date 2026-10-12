@@ -127,28 +127,80 @@ export function TechSupport() {
 
   const faqs = [
     {
-      question: 'How do I register for a team competition?',
-      answer: 'After signing into the Student Portal, navigate to Events → Select your Event & Category → Open the Sub-Event → Click [ REGISTER NOW ]. Select "TEAM" mode, enter your team name, and add your teammates by providing their Full Name, Roll Number, Department, College, and Phone number. Submit to generate your team pass.'
+      question: 'How do I create a student account and sign in?',
+      answer: 'Click [ Sign In ] in the top navigation or visit /signup. Enter your Full Legal Name, official College Roll Number, Academic Department, Year of Study (1st to 4th Year), College Name, 10-digit Indian Mobile Number, registered Email Address, and a secure password. If you already have an account, enter your registered email and password on the Login page (/login).'
     },
     {
-      question: 'Where can I find my QR Pass and 10-Digit Manual Token after registering?',
-      answer: 'Your confirmed passes are permanently stored in your Student Portal under [ My Passes ] (/my-registrations). You can download the high-resolution QR code image or present your 10-digit manual token (e.g., KITS-EOS-PPT-XXXXXXXXXX) directly at the venue check-in desk.'
+      question: 'I forgot my password. How do I reset it?',
+      answer: 'On the Student Login page (/login), click [ Forgot Password? ] or navigate directly to /forgot-password. Enter your registered email address and submit. You will receive an official password-recovery email containing a secure reset link. Open the link to access the Reset Password page (/reset-password), enter a new password (minimum 6 characters), and submit. You can then immediately log in with your updated credentials. Note: Password recovery is currently available for Student accounts.'
     },
     {
       question: 'What should I do if I see "Duplicate Roll Number" during signup?',
-      answer: 'Each student roll number is unique within KITS-EOS. If your roll number is already registered, please sign in with your email and password. If you forgot your password, contact your department faculty coordinator or system admin to initiate an administrative password reset.'
+      answer: 'Each student roll number is unique within KITS-EOS to preserve academic identity. If you receive an alert that your roll number is already registered, an account already exists for you. Return to the Login page and sign in with your email and password. If you cannot remember your password, use the self-service [ Forgot Password? ] flow to reset your credentials.'
     },
     {
-      question: 'How do coordinators verify my attendance at the competition hall?',
-      answer: 'At the entrance of the event venue, present your digital QR pass from your phone or give your 10-digit token to the assigned coordinator. The coordinator scans or validates the token in real time and marks your attendance as CONFIRMED.'
+      question: 'How do I discover events and view competition details?',
+      answer: 'Navigate to [ Events ] (/events) to browse all active, upcoming, and past flagship symposiums and fests. Select any flagship event to explore its categories and competition tracks. Opening a sub-event displays the complete competition guidelines, solo or team rules, team size thresholds, venue, prize pool, registration deadline, fee details, and coordinator contacts.'
     },
     {
-      question: 'How do I verify the authenticity of a KITS-EOS certificate?',
-      answer: 'Anyone (employers, university evaluators, students) can navigate to [ Verify Certificate ] (/verify-certificate) and input the Certificate UUID printed on the official PDF. The system queries the live cryptographically verifiable database to confirm validity.'
+      question: 'How do I register for a solo or team competition?',
+      answer: 'Sign in to your student account, open the desired sub-event, and click [ Register Now ]. For solo events, your verified profile details are automatically populated. For team events, select "TEAM" mode, enter your Team Name, and add each teammate with their Name, Roll Number, Department, Year, College, and Phone number. KITS-EOS verifies team sizes against event rules and auto-saves your progress as a draft.'
     },
     {
-      question: 'Can I edit my department or phone number after account creation?',
-      answer: 'Yes. Once signed in, navigate to [ Profile ] in the upper navigation menu to update your contact number or check your verified academic department and year of study.'
+      question: 'Can I register for multiple sub-events or categories?',
+      answer: 'Yes! You can participate in multiple competitions across different tracks, provided their schedules and event rules do not conflict. However, duplicate registration with the same roll number in competing teams within the exact same sub-event track is prohibited.'
+    },
+    {
+      question: 'What payment modes are supported for paid events?',
+      answer: 'For events with a registration fee, KITS-EOS provides two official payment workflows: (1) UPI Payment: Scan the official event UPI QR code with any UPI app, enter your 12-digit UTR/transaction reference ID, and upload a payment screenshot; or (2) Cash-on-Desk (COD): Complete your registration online and submit payment in cash directly at the on-campus registration desk before competition check-in.'
+    },
+    {
+      question: 'How do I know whether my registration and payment are confirmed?',
+      answer: 'You can check your status anytime under [ My Passes ] (/my-registrations). Free events and verified UPI submissions receive instant or rapid confirmation. Cash-on-Desk registrations display a "Payment Pending" badge until confirmed in person by an authorized coordinator or payment manager at the venue desk.'
+    },
+    {
+      question: 'Where can I find my QR Pass, 10-Digit Manual Token, and Digital ID Card?',
+      answer: 'All your confirmed registrations are stored in the Student Portal under [ My Passes ] (/my-registrations) and [ Attendance ] (/attendance). You can view and download your high-resolution dynamic QR Pass, access your unique 10-digit manual token (e.g., KITS-EOS-XXX-XXXXXXXXXX), download an official Student Digital ID Card, or generate a printable Transaction Receipt.'
+    },
+    {
+      question: 'How do event coordinators verify my attendance at the venue?',
+      answer: 'At the entrance of the competition venue or hall, present your digital QR pass on your smartphone or provide your 10-digit manual token to the assigned coordinator. The coordinator scans your QR code or enters the token in the coordinator portal to instantly validate your identity and record an official attendance stamp.'
+    },
+    {
+      question: 'Why is my participation certificate locked or not showing in my dashboard?',
+      answer: 'To uphold institutional credential integrity, KITS-EOS participation certificates have two mandatory requirements: (1) You must have a confirmed physical attendance check-in recorded by an event coordinator, and (2) You must submit brief event feedback under [ Feedback ] (/feedback). Once both steps are completed, your certificate automatically unlocks in [ Certificates ] (/certificates).'
+    },
+    {
+      question: 'Where can I view competition results and podium winners?',
+      answer: 'Once event evaluators and faculty finalize scores, official results (1st Place, 2nd Place, 3rd Place) are published in the Student Portal under [ Certificates & Results ] (/certificates). Winners and runners-up can also download their official Achievement Certificates from this section.'
+    },
+    {
+      question: 'How do I download my digital certificate?',
+      answer: 'Navigate to [ Certificates ] (/certificates). For all unlocked events, you can view your digital credential and click to export or download high-resolution PDF or image formats with official institutional branding, signatures, and unique Certificate UUID.'
+    },
+    {
+      question: 'Can employers or external evaluators verify a KITS-EOS certificate without logging in?',
+      answer: 'Yes! Anyone can verify any official KITS-EOS certificate without needing an account. Simply visit the public [ Verify Certificate ] portal (/verify-certificate) and enter the Certificate ID printed on the document (or scan the verification QR code). The system checks the authoritative ledger and displays verified recipient and event credentials.'
+    },
+    {
+      question: 'Can I edit my profile details after account creation?',
+      answer: 'From your [ Profile ] (/profile) page, you can review your registered academic details and update your active mobile number. To preserve academic integrity and prevent impersonation, critical student identity fields (Full Name and Roll Number) are locked; if a genuine correction is needed, contact college administration.'
+    },
+    {
+      question: 'What happens if a sub-event reaches capacity or registration closes?',
+      answer: 'Each competition has a maximum participant capacity and an official registration deadline set by event organizers. Once the deadline passes or capacity is reached, registration automatically closes. Closed competitions are clearly marked on the sub-event page, and the registration button is disabled.'
+    },
+    {
+      question: 'What should I do if I experience a technical issue or have a grievance?',
+      answer: 'If you encounter any operational or evaluation issues, visit [ Help & Grievances ] (/complaints) to submit a formal ticket with your issue category and description. You can track ticket progress (Pending, In Review, Resolved) and view administrative responses directly in your portal. For immediate technical help, contact Team KEOS developers listed below.'
+    },
+    {
+      question: 'Where can I view college food stalls and exhibition menus?',
+      answer: 'During college fests and symposiums, you can explore the [ Stalls Directory ] (/stalls) to view registered food and commercial stalls, stall numbers, menu items, prices, and locations across campus.'
+    },
+    {
+      question: 'How do I contact assigned event coordinators or college administration?',
+      answer: 'Navigate to [ Contact Coordinators ] (/contact-coordinators) to view the complete directory of faculty advisors and student coordinators for each department and sub-event. For official institutional help, refer to the Official KITS Support desk contacts below.'
     },
   ];
 

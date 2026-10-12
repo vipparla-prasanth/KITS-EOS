@@ -387,13 +387,17 @@ export function ResultsList() {
 
   const eligibleCompetitorsCount = eligibleCandidates.length;
 
-  const currentStage: 'SELECT_WINNER' | 'SELECT_RUNNER' | 'SELECT_THIRD' | 'READY_TO_PUBLISH' | 'DIRECT_PUBLISH' | 'PUBLISHED' = useMemo(() => {
+  const currentStage: 'SELECT_WINNER' | 'SELECT_RUNNER' | 'SELECT_THIRD' | 'READY_TO_PUBLISH' | 'DIRECT_PUBLISH' | 'PUBLISHED' | 'NO_CANDIDATES' = useMemo(() => {
     if (!currentSubEvent) return 'SELECT_WINNER';
-    if (currentSubEvent.results_published) return 'PUBLISHED';
+    if (currentSubEvent.results_published && eligibleCompetitorsCount > 0) return 'PUBLISHED';
 
-    // If sub-event has fewer than 2 eligible competitors (solo entries or teams),
+    if (eligibleCompetitorsCount === 0) {
+      return 'NO_CANDIDATES';
+    }
+
+    // If sub-event has 1 eligible competitor (solo entry or team),
     // winner selection and result locking are not required; direct certificate publishing is enabled.
-    if (eligibleCompetitorsCount < 2) {
+    if (eligibleCompetitorsCount === 1) {
       return 'DIRECT_PUBLISH';
     }
 
@@ -770,23 +774,33 @@ export function ResultsList() {
           {/* =========================================================================
               PODIUM PROGRESS SUMMARY BAR
               ========================================================================= */}
-          {eligibleCompetitorsCount < 2 && currentStage !== 'PUBLISHED' ? (
+          {eligibleCompetitorsCount === 0 ? (
+            <div className="p-8 bg-white border border-gray-200 rounded-3xl text-center space-y-3 shadow-2xs">
+              <div className="p-3 bg-gray-50 text-gray-400 rounded-2xl inline-block">
+                <Users className="h-8 w-8 mx-auto" />
+              </div>
+              <h4 className="text-base font-black text-gray-900">
+                No eligible participants available
+              </h4>
+              <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                No registered and attended participants found for this sub-event. Once participants register and check in on-venue, they will automatically appear here as eligible podium candidates.
+              </p>
+            </div>
+          ) : eligibleCompetitorsCount === 1 && currentStage !== 'PUBLISHED' ? (
             <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-2xl text-xs text-indigo-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-center gap-2.5">
                 <Award className="h-5 w-5 text-indigo-600 shrink-0" />
                 <div>
                   <span className="font-black uppercase tracking-wider block text-indigo-950">
-                    Direct Participation Workflow Active (&lt; 2 Competitors)
+                    Direct Participation Workflow Active (1 Competitor)
                   </span>
                   <span className="text-[11px] text-indigo-700">
-                    {eligibleCompetitorsCount === 0
-                      ? 'No attended competitors found for this sub-event.'
-                      : `Only 1 competitor attended (${eligibleCandidates[0]?.teamName}). Winner and runner-up locking are bypassed.`}
+                    Only 1 competitor attended ({eligibleCandidates[0]?.teamName}). Winner and runner-up locking are bypassed.
                   </span>
                 </div>
               </div>
               <span className="px-3 py-1 bg-indigo-100 text-indigo-900 text-[10px] font-black uppercase rounded-full tracking-wider shrink-0 self-start sm:self-auto">
-                {eligibleCompetitorsCount} Eligible {currentSubEvent?.participation_type === 'TEAM' ? 'Team' : 'Participant'}
+                1 Eligible {currentSubEvent?.participation_type === 'TEAM' ? 'Team' : 'Participant'}
               </span>
             </div>
           ) : (
@@ -1120,8 +1134,10 @@ export function ResultsList() {
                   Attended Candidates for Podium Selection
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {currentStage === 'DIRECT_PUBLISH'
-                    ? 'This sub-event has fewer than 2 participants/teams. Winner selection and result locking are not required. You can proceed directly with certificate publishing.'
+                  {currentStage === 'NO_CANDIDATES'
+                    ? 'No eligible attended participants found for this sub-event.'
+                    : currentStage === 'DIRECT_PUBLISH'
+                    ? 'This sub-event has 1 participant/team. Winner selection and result locking are not required. You can proceed directly with certificate publishing.'
                     : currentStage === 'SELECT_WINNER'
                     ? 'Select the team or solo participant who won 1st Place (Winner).'
                     : currentStage === 'SELECT_RUNNER'

@@ -157,6 +157,20 @@ export function resolveEffectiveSubEventStatus(
     ? timestamp.getTime() 
     : (timestamp !== undefined ? timestamp : Date.now());
 
+  // Priority 0: Authoritative Main Event Status Precedence
+  // The Admin-controlled Main Event is the single source of truth.
+  // If Main Event status is COMPLETED, all sub-events inside are strictly COMPLETED.
+  if (parentEvent) {
+    const parentEffective = resolveEffectiveEventStatus(parentEvent, now);
+    if (
+      parentEffective === 'COMPLETED' ||
+      parentEvent.manual_status === 'COMPLETED' ||
+      (parentEvent.status as any) === 'COMPLETED'
+    ) {
+      return 'COMPLETED';
+    }
+  }
+
   const startTime = subEvent.start_time ? new Date(subEvent.start_time).getTime() : null;
   const endTime = subEvent.end_time ? new Date(subEvent.end_time).getTime() : null;
 

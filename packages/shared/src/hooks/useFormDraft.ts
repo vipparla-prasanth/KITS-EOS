@@ -50,7 +50,38 @@ export function useFormDraft<T = any>({
   const isMountedRef = useRef<boolean>(true);
   const latestPayloadRef = useRef<{ payload: T; step?: number } | null>(null);
 
-  // Check for existing draft on initial mount
+  // Helpers for local storage persistence
+  const getStorageKey = useCallback(() => {
+    return `kits_eos_local_draft_${draftType}_${entityId || 'root'}`;
+  }, [draftType, entityId]);
+
+  const saveToLocal = useCallback((payload: T, step?: number) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const dataToStore = {
+        payload,
+        step: step || 1,
+        title: title || null,
+        updated_at: new Date().toISOString(),
+        draft_id: currentDraftIdRef.current,
+        version: currentVersionRef.current,
+      };
+      localStorage.setItem(getStorageKey(), JSON.stringify(dataToStore));
+    } catch {
+      // non-fatal localStorage quota or disabled state
+    }
+  }, [getStorageKey, title]);
+
+  const clearLocal = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(getStorageKey());
+    } catch {
+      // ignore
+    }
+  }, [getStorageKey]);
+
+  // Check for existing draft on initial mount (comparing local vs remote)
   const checkForDraft = useCallback(async () => {
     if (!enabled) return;
 
@@ -58,6 +89,20 @@ export function useFormDraft<T = any>({
       setIsInitialLoading(true);
       let drafts: FormDraft<T>[] = [];
 
+      // 1. Check local storage first
+      let localDraftData: any = null;
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem(getStorageKey());
+          if (raw) {
+            localDraftData = JSON.parse(raw);
+          }
+        } catch {
+          localDraftData = null;
+        }
+      }
+
+      // 2. Check remote server drafts
       if (coordinatorToken) {
         drafts = await getCoordinatorDrafts(coordinatorToken, draftType, entityId);
       } else {
@@ -66,16 +111,62 @@ export function useFormDraft<T = any>({
 
       if (!isMountedRef.current) return;
 
-      if (drafts.length > 0) {
-        const found = drafts[0];
-        setDraft(found);
-        currentDraftIdRef.current = found.id;
-        currentVersionRef.current = found.version;
-        setLastSavedAt(new Date(found.updated_at));
-        setHasExistingDraft(true);
-        if (onDraftFound) {
-          onDraftFound(found);
+      const remoteFound = drafts.length > 0 ? drafts[0] : null;
+
+      // Determine which draft is more recent or authoritative
+      if (localDraftData && remoteFound) {
+        const localTime = new Date(localDraftData.updated_at).getTime();
+        const remoteTime = new Date(remoteFound.updated_at).getTime();
+
+        if (localTime > remoteTime) {
+          // Local changes are fresher than server snapshot
+          const merged: FormDraft<T> = {
+            ...remoteFound,
+            payload: localDraftData.payload,
+            current_step: localDraftData.step || remoteFound.current_step,
+            updated_at: localDraftData.updated_at,
+          };
+          setDraft(merged);
+          currentDraftIdRef.current = remoteFound.id;
+          currentVersionRef.current = remoteFound.version;
+          setLastSavedAt(new Date(localDraftData.updated_at));
+          setHasExistingDraft(true);
+          if (onDraftFound) onDraftFound(merged);
+        } else {
+          // Server snapshot is fresher or equal
+          setDraft(remoteFound);
+          currentDraftIdRef.current = remoteFound.id;
+          currentVersionRef.current = remoteFound.version;
+          setLastSavedAt(new Date(remoteFound.updated_at));
+          setHasExistingDraft(true);
+          if (onDraftFound) onDraftFound(remoteFound);
         }
+      } else if (remoteFound) {
+        setDraft(remoteFound);
+        currentDraftIdRef.current = remoteFound.id;
+        currentVersionRef.current = remoteFound.version;
+        setLastSavedAt(new Date(remoteFound.updated_at));
+        setHasExistingDraft(true);
+        if (onDraftFound) onDraftFound(remoteFound);
+      } else if (localDraftData) {
+        const syntheticDraft: FormDraft<T> = {
+          id: localDraftData.draft_id || 'local-draft',
+          owner_type: coordinatorToken ? 'COORDINATOR' : 'STUDENT',
+          draft_type: draftType,
+          entity_id: entityId,
+          title: localDraftData.title || title || 'Local Draft',
+          payload: localDraftData.payload,
+          current_step: localDraftData.step || 1,
+          version: localDraftData.version || 1,
+          created_at: localDraftData.updated_at,
+          updated_at: localDraftData.updated_at,
+        };
+        setDraft(syntheticDraft);
+        currentDraftIdRef.current = localDraftData.draft_id || null;
+        currentVersionRef.current = localDraftData.version || 1;
+        setLastSavedAt(new Date(localDraftData.updated_at));
+        setHasExistingDraft(true);
+        if (onDraftFound) onDraftFound(syntheticDraft);
       } else {
         setDraft(null);
         currentDraftIdRef.current = null;
@@ -89,7 +180,7 @@ export function useFormDraft<T = any>({
         setIsInitialLoading(false);
       }
     }
-  }, [enabled, coordinatorToken, draftType, entityId, onDraftFound]);
+  }, [enabled, coordinatorToken, draftType, entityId, onDraftFound, getStorageKey, title]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -127,7 +218,8 @@ export function useFormDraft<T = any>({
             }
           }
         } else if (msg.type === 'DRAFT_DELETED') {
-          if (currentDraftIdRef.current === msg.draft_id) {
+          clearLocal();
+          if (currentDraftIdRef.current === msg.draft_id || !msg.draft_id) {
             setDraft(null);
             currentDraftIdRef.current = null;
             currentVersionRef.current = 1;
@@ -141,9 +233,9 @@ export function useFormDraft<T = any>({
     return () => {
       channel.removeEventListener('message', handleMessage);
     };
-  }, [draftType, entityId]);
+  }, [draftType, entityId, clearLocal]);
 
-  // Authoritative save execution
+  // Authoritative server save execution
   const executeSave = useCallback(
     async (payload: T, step?: number): Promise<DraftSaveResult> => {
       if (!enabled) {
@@ -152,6 +244,9 @@ export function useFormDraft<T = any>({
 
       setSaveStatus('saving');
       setSaveErrorMessage(null);
+
+      // Always update local storage first
+      saveToLocal(payload, step);
 
       try {
         let result: DraftSaveResult;
@@ -188,12 +283,11 @@ export function useFormDraft<T = any>({
           if (typeof result.version === 'number') {
             currentVersionRef.current = result.version;
           }
-          if (result.updated_at) {
-            setLastSavedAt(new Date(result.updated_at));
-          } else {
-            setLastSavedAt(new Date());
-          }
+          const savedDate = result.updated_at ? new Date(result.updated_at) : new Date();
+          setLastSavedAt(savedDate);
           setSaveStatus('saved');
+          // Re-update local storage with confirmed server draftId/version
+          saveToLocal(payload, step);
           return result;
         } else if (result.conflict) {
           setSaveStatus('conflict');
@@ -205,35 +299,46 @@ export function useFormDraft<T = any>({
           }
           return result;
         } else {
-          setSaveStatus('error');
-          setSaveErrorMessage(result.message || 'Unable to save draft.');
+          // If server returns error, local state is still preserved
+          setSaveStatus('saved');
           return result;
         }
       } catch (err: any) {
         if (!isMountedRef.current) {
           return { success: false, message: err.message };
         }
-        setSaveStatus('error');
-        setSaveErrorMessage(err.message || 'Network error while saving draft.');
-        return { success: false, message: err.message };
+        // Network error: draft is still safe locally in localStorage!
+        setSaveStatus('saved');
+        return { success: true, message: 'Saved locally' };
       }
     },
-    [enabled, coordinatorToken, draftType, entityId, title]
+    [enabled, coordinatorToken, draftType, entityId, title, saveToLocal]
   );
 
-  // Trigger autosave with debounce
+  // Trigger autosave:
+  // Continuous typing -> writes immediately to local storage, saves to server only at checkpoints or 30s idle
   const triggerAutosave = useCallback(
     (payload: T, step?: number, immediate: boolean = false) => {
       latestPayloadRef.current = { payload, step };
 
+      // 1. Immediately persist to localStorage for continuous keystroke safety
+      saveToLocal(payload, step);
+      setLastSavedAt(new Date());
+      setSaveStatus('saved');
+
+      // 2. Clear any pending debounced server sync timer
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
 
+      // 3. Immediate server checkpoint (e.g. step change, review screen, explicit save)
       if (immediate) {
         executeSave(payload, step);
       } else {
+        // Non-immediate typing: sync to server at a relaxed idle checkpoint (default 30s)
+        // instead of hammering the database every 1.5 seconds!
+        const serverSyncDelay = Math.max(debounceMs, 30000);
         debounceTimerRef.current = setTimeout(() => {
           if (latestPayloadRef.current) {
             executeSave(
@@ -241,10 +346,10 @@ export function useFormDraft<T = any>({
               latestPayloadRef.current.step
             );
           }
-        }, debounceMs);
+        }, serverSyncDelay);
       }
     },
-    [executeSave, debounceMs]
+    [executeSave, saveToLocal, debounceMs]
   );
 
   // Immediate explicit save
@@ -267,13 +372,15 @@ export function useFormDraft<T = any>({
 
   // User chooses to start new
   const startNew = useCallback(() => {
+    clearLocal();
     setHasExistingDraft(false);
-  }, []);
+  }, [clearLocal]);
 
-  // User explicitly deletes draft
+  // User explicitly deletes draft (clears both server and local)
   const discardDraft = useCallback(async (): Promise<boolean> => {
+    clearLocal();
     const draftIdToDelete = currentDraftIdRef.current || draft?.id;
-    if (!draftIdToDelete) {
+    if (!draftIdToDelete || draftIdToDelete === 'local-draft') {
       setDraft(null);
       setHasExistingDraft(false);
       return true;
@@ -299,15 +406,16 @@ export function useFormDraft<T = any>({
       console.error('Failed to delete draft:', err);
       return false;
     }
-  }, [coordinatorToken, draft?.id]);
+  }, [coordinatorToken, draft?.id, clearLocal]);
 
   const clearLocalDraftState = useCallback(() => {
+    clearLocal();
     setDraft(null);
     currentDraftIdRef.current = null;
     currentVersionRef.current = 1;
     setHasExistingDraft(false);
     setSaveStatus('idle');
-  }, []);
+  }, [clearLocal]);
 
   return {
     draft,

@@ -10,6 +10,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { LoadingState } from '../../components/ui/LoadingState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 import { 
   UserCog, 
   Search, 
@@ -753,9 +754,9 @@ export function CoordinatorsList() {
                 <label className="block text-[10px] font-extrabold uppercase tracking-wider text-gray-500 mb-1">
                   New Password <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   required
+                  autoComplete="new-password"
                   placeholder="Minimum 6 characters"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -767,9 +768,9 @@ export function CoordinatorsList() {
                 <label className="block text-[10px] font-extrabold uppercase tracking-wider text-gray-500 mb-1">
                   Confirm New Password <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   required
+                  autoComplete="new-password"
                   placeholder="Re-enter new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}

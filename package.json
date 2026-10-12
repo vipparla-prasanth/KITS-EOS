@@ -12,5 +12,8 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
+  },
+  "overrides": {
+    "source-map-js": "^1.2.2"
   }
 }

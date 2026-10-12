@@ -464,7 +464,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // isLoading is true while either authentication or profile authorization is in-flight
-  const isLoading = authState === 'INITIALIZING' || profileState === 'LOADING';
+  const isLoading = authState === 'INITIALIZING' || profileState === 'LOADING' || (authState === 'AUTHENTICATED' && profileState === 'IDLE');
 
   return (
     <AuthContext.Provider

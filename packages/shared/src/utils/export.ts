@@ -5,8 +5,9 @@ export {
   KITS_EXCEL_THEME,
   REGISTRATION_REPORT_HEADERS,
   REGISTRATION_ROSTER_HEADERS,
+  COORDINATOR_OVERALL_REPORT_HEADERS,
 } from './excelExport';
-export type { ExcelExportOptions } from './excelExport';
+export type { ExcelExportOptions, ExcelExportSection } from './excelExport';
 
 export interface PNGExportOptions {
   filename: string;

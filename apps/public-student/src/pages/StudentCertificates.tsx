@@ -1,5 +1,21 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+
+// Digital Certificate typography packages (code-split exclusively to certificates route)
+import '@fontsource/cinzel/600.css';
+import '@fontsource/cinzel/700.css';
+import '@fontsource/cinzel/800.css';
+import '@fontsource/cinzel/900.css';
+import '@fontsource/cormorant-garamond/600.css';
+import '@fontsource/cormorant-garamond/700.css';
+import '@fontsource/cormorant-garamond/600-italic.css';
+import '@fontsource/cormorant-garamond/700-italic.css';
+import '@fontsource/montserrat/400.css';
+import '@fontsource/montserrat/500.css';
+import '@fontsource/montserrat/600.css';
+import '@fontsource/montserrat/700.css';
+import '@fontsource/montserrat/800.css';
+import '@fontsource/montserrat/900.css';
 import { Link } from 'react-router-dom';
 import { supabase } from '@kits-eos/shared/src/api/client';
 import { useScrollLock } from '@kits-eos/shared';
@@ -39,7 +55,7 @@ export interface StudentCertificateItem {
   id: string;
   certificateCode: string;
   type: 'WINNER' | 'RUNNER' | 'THIRD_PLACE' | 'PARTICIPANT';
-  status: 'LOCKED' | 'UNLOCKED';
+  status: 'LOCKED' | 'UNLOCKED' | 'REVOKED';
   issuedAt: string | null;
   subEventId: string;
   subEventName: string;
@@ -349,7 +365,7 @@ export function StudentCertificates() {
   };
 
   const handleDownloadPdf = async (cert: StudentCertificateItem) => {
-    if (!cert.certificateCode || cert.status === 'LOCKED') return;
+    if (!cert.certificateCode || cert.status !== 'UNLOCKED') return;
     downloadCertificateAsPdf({
       studentName: cert.studentName,
       rollNumber: cert.rollNumber,
@@ -374,7 +390,7 @@ export function StudentCertificates() {
   };
 
   const handleDownloadImage = async (cert: StudentCertificateItem) => {
-    if (!cert.certificateCode || cert.status === 'LOCKED') return;
+    if (!cert.certificateCode || cert.status !== 'UNLOCKED') return;
     try {
       await downloadCertificateAsHighResImage({
         studentName: cert.studentName,
@@ -404,7 +420,7 @@ export function StudentCertificates() {
   };
 
   const handleViewCertificate = (cert: StudentCertificateItem) => {
-    if (cert.status === 'LOCKED') return;
+    if (cert.status !== 'UNLOCKED') return;
     setSelectedCert(cert);
   };
 
@@ -487,6 +503,28 @@ export function StudentCertificates() {
 
     return groups;
   }, [achievementCertificates]);
+
+  const multiMemberParticipationGroups = useMemo(() => {
+    return groupedParticipation.filter((g) => g.isTeam && g.certificates.length > 1);
+  }, [groupedParticipation]);
+
+  const individualParticipationCerts = useMemo(() => {
+    const multiMemberCertIds = new Set(
+      multiMemberParticipationGroups.flatMap((g) => g.certificates.map((c) => c.id))
+    );
+    return participationCertificates.filter((c) => !multiMemberCertIds.has(c.id));
+  }, [participationCertificates, multiMemberParticipationGroups]);
+
+  const multiMemberAchievementGroups = useMemo(() => {
+    return groupedAchievements.filter((g) => g.isTeam && g.certificates.length > 1);
+  }, [groupedAchievements]);
+
+  const individualAchievementCerts = useMemo(() => {
+    const multiMemberCertIds = new Set(
+      multiMemberAchievementGroups.flatMap((g) => g.certificates.map((c) => c.id))
+    );
+    return achievementCertificates.filter((c) => !multiMemberCertIds.has(c.id));
+  }, [achievementCertificates, multiMemberAchievementGroups]);
 
   if (isLoading) return <LoadingState message="Loading your official credentials..." />;
   if (error) return <ErrorState message={error} onRetry={fetchStudentCertificates} />;
@@ -668,45 +706,26 @@ export function StudentCertificates() {
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              {groupedParticipation.map((group) => {
-                if (group.isTeam && group.certificates.length > 1) {
-                  return (
-                    <div key={group.key} className="p-5 sm:p-6 bg-slate-50/80 rounded-3xl border border-slate-200 space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-xl bg-kits-blue text-white shadow-2xs">
-                            <Users className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-black text-gray-900 tracking-tight">
-                              {group.teamName} • {group.subEventName}
-                            </h3>
-                            <span className="text-[11px] font-bold text-gray-500">
-                              {group.eventName} • {group.certificates.length} Team Participants
-                            </span>
-                          </div>
-                        </div>
+            <div className="space-y-6 w-full">
+              {/* Multi-member team grouped certificates */}
+              {multiMemberParticipationGroups.map((group) => (
+                <div key={group.key} className="p-5 sm:p-6 bg-slate-50/80 rounded-3xl border border-slate-200 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-kits-blue text-white shadow-2xs">
+                        <Users className="h-4 w-4" />
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {group.certificates.map((cert) => (
-                          <CertificateCard
-                            key={cert.id}
-                            cert={cert}
-                            onView={() => handleViewCertificate(cert)}
-                            onDownloadPdf={() => handleDownloadPdf(cert)}
-                            onDownloadImage={() => handleDownloadImage(cert)}
-                            copiedCode={copiedCode}
-                            onCopyCode={handleCopyCode}
-                          />
-                        ))}
+                      <div>
+                        <h3 className="text-sm font-black text-gray-900 tracking-tight">
+                          {group.teamName} • {group.subEventName}
+                        </h3>
+                        <span className="text-[11px] font-bold text-gray-500">
+                          {group.eventName} • {group.certificates.length} Team Participants
+                        </span>
                       </div>
                     </div>
-                  );
-                }
-
-                return (
-                  <div key={group.key} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {group.certificates.map((cert) => (
                       <CertificateCard
                         key={cert.id}
@@ -719,8 +738,25 @@ export function StudentCertificates() {
                       />
                     ))}
                   </div>
-                );
-              })}
+                </div>
+              ))}
+
+              {/* Individual / Solo certificates side-by-side in responsive 2-column grid */}
+              {individualParticipationCerts.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                  {individualParticipationCerts.map((cert) => (
+                    <CertificateCard
+                      key={cert.id}
+                      cert={cert}
+                      onView={() => handleViewCertificate(cert)}
+                      onDownloadPdf={() => handleDownloadPdf(cert)}
+                      onDownloadImage={() => handleDownloadImage(cert)}
+                      copiedCode={copiedCode}
+                      onCopyCode={handleCopyCode}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -766,45 +802,26 @@ export function StudentCertificates() {
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              {groupedAchievements.map((group) => {
-                if (group.isTeam && group.certificates.length > 1) {
-                  return (
-                    <div key={group.key} className="p-5 sm:p-6 bg-amber-50/50 rounded-3xl border border-amber-200/80 space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-xl bg-amber-500 text-white shadow-2xs">
-                            <Trophy className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-black text-gray-900 tracking-tight">
-                              {group.teamName} • {group.subEventName}
-                            </h3>
-                            <span className="text-[11px] font-bold text-gray-500">
-                              {group.eventName} • {group.certificates.length} Team Participants
-                            </span>
-                          </div>
-                        </div>
+            <div className="space-y-6 w-full">
+              {/* Multi-member team grouped achievement certificates */}
+              {multiMemberAchievementGroups.map((group) => (
+                <div key={group.key} className="p-5 sm:p-6 bg-amber-50/50 rounded-3xl border border-amber-200/80 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-amber-500 text-white shadow-2xs">
+                        <Trophy className="h-4 w-4" />
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {group.certificates.map((cert) => (
-                          <CertificateCard
-                            key={cert.id}
-                            cert={cert}
-                            onView={() => handleViewCertificate(cert)}
-                            onDownloadPdf={() => handleDownloadPdf(cert)}
-                            onDownloadImage={() => handleDownloadImage(cert)}
-                            copiedCode={copiedCode}
-                            onCopyCode={handleCopyCode}
-                          />
-                        ))}
+                      <div>
+                        <h3 className="text-sm font-black text-gray-900 tracking-tight">
+                          {group.teamName} • {group.subEventName}
+                        </h3>
+                        <span className="text-[11px] font-bold text-gray-500">
+                          {group.eventName} • {group.certificates.length} Team Participants
+                        </span>
                       </div>
                     </div>
-                  );
-                }
-
-                return (
-                  <div key={group.key} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {group.certificates.map((cert) => (
                       <CertificateCard
                         key={cert.id}
@@ -817,8 +834,25 @@ export function StudentCertificates() {
                       />
                     ))}
                   </div>
-                );
-              })}
+                </div>
+              ))}
+
+              {/* Individual / Solo achievement certificates side-by-side in responsive 2-column grid */}
+              {individualAchievementCerts.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                  {individualAchievementCerts.map((cert) => (
+                    <CertificateCard
+                      key={cert.id}
+                      cert={cert}
+                      onView={() => handleViewCertificate(cert)}
+                      onDownloadPdf={() => handleDownloadPdf(cert)}
+                      onDownloadImage={() => handleDownloadImage(cert)}
+                      copiedCode={copiedCode}
+                      onCopyCode={handleCopyCode}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </section>

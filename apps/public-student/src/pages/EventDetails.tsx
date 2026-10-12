@@ -9,7 +9,6 @@ import {
   isSubEventRegistrationAvailable,
   getLifecycleBadgeTheme 
 } from '@kits-eos/shared';
-import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
 import { NotFound } from './NotFound';
 import { 
@@ -95,7 +94,45 @@ export function EventDetails() {
     loadEventData();
   }, [eventId]);
 
-  if (isLoading) return <LoadingState message="Loading event information..." />;
+  if (isLoading) {
+    return (
+      <div className="space-y-8 animate-pulse" aria-busy="true" aria-label="Loading event details">
+        <div className="flex items-center justify-between gap-4">
+          <div className="h-4 w-36 bg-gray-200 rounded-md"></div>
+          <div className="h-8 w-32 bg-gray-100 rounded-xl"></div>
+        </div>
+        <div className="h-64 sm:h-80 w-full rounded-3xl bg-gray-200 relative overflow-hidden flex flex-col justify-end p-6 sm:p-8">
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <div className="h-5 w-24 bg-gray-300 rounded-full"></div>
+              <div className="h-5 w-20 bg-gray-300 rounded-full"></div>
+            </div>
+            <div className="h-8 sm:h-10 w-2/3 max-w-md bg-gray-300 rounded-lg"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 space-y-4">
+            <div className="h-5 w-32 bg-gray-200 rounded"></div>
+            <div className="space-y-2">
+              <div className="h-4 w-full bg-gray-100 rounded"></div>
+              <div className="h-4 w-5/6 bg-gray-100 rounded"></div>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 space-y-4">
+            <div className="h-5 w-28 bg-gray-200 rounded"></div>
+            <div className="space-y-2">
+              <div className="h-4 w-3/4 bg-gray-100 rounded"></div>
+              <div className="h-4 w-1/2 bg-gray-100 rounded"></div>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 space-y-4">
+            <div className="h-5 w-24 bg-gray-200 rounded"></div>
+            <div className="h-8 w-28 bg-gray-200 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (isNotFound) return <NotFound />;
   if (error || !event) return <ErrorState message={error || 'Event unavailable.'} onRetry={loadEventData} />;
 
@@ -134,6 +171,11 @@ export function EventDetails() {
             <img
               src={resolveEventBannerUrl(event.banner_path) || event.banner_path}
               alt={event.name}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              width={1200}
+              height={400}
               className={`w-full h-full object-cover ${isEventCompleted ? 'grayscale contrast-90' : ''}`}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />

@@ -23,6 +23,7 @@ export const SUPABASE_AUTH_STORAGE_KEY = 'kits_eos_auth_token';
 export const COORDINATOR_SESSION_KEY = 'kits_coordinator_session';
 export const SESSION_EXPIRED_NOTICE_KEY = 'kits_session_expired_notice';
 export const OAUTH_INTENT_KEY = 'kits_eos_oauth_intent';
+export const RECOVERY_STORAGE_KEY = 'kits_eos_recovery_active';
 
 export type PortalRole = 'STUDENT' | 'ADMIN' | 'COORDINATOR' | 'PAYMENT_MANAGER';
 
@@ -52,6 +53,7 @@ let isInitialized = false;
 // GoTrueClient clears window.location.hash asynchronously, so we must capture tokens early.
 const initialHash = typeof window !== 'undefined' ? (window.location.hash || '') : '';
 const initialSearch = typeof window !== 'undefined' ? (window.location.search || '') : '';
+const initialPath = typeof window !== 'undefined' ? (window.location.pathname || '') : '';
 const initialHasOAuthTokens = Boolean(
   initialHash.includes('access_token=') ||
   initialHash.includes('refresh_token=') ||
@@ -60,11 +62,45 @@ const initialHasOAuthTokens = Boolean(
   initialSearch.includes('error=')
 );
 
+// Synchronously preserve recovery state if initial URL indicates password recovery
+const initialIsRecovery = Boolean(
+  initialHash.includes('type=recovery') ||
+  initialSearch.includes('type=recovery') ||
+  (initialPath.startsWith('/reset-password') && (initialHasOAuthTokens || initialSearch.includes('token_hash=')))
+);
+
+if (typeof window !== 'undefined' && initialIsRecovery) {
+  try {
+    sessionStorage.setItem(RECOVERY_STORAGE_KEY, 'true');
+  } catch {
+    // Non-fatal storage exception
+  }
+}
+
 type ExpiryCallback = (reason: 'EXPIRED' | 'LOGOUT' | 'BROWSER_CLOSE') => void;
 type WarningCallback = (isWarning: boolean, remainingMs: number) => void;
 
 const expiryListeners = new Set<ExpiryCallback>();
 const warningListeners = new Set<WarningCallback>();
+
+/**
+ * Deterministically checks whether the current URL or storage indicates
+ * an in-flight Supabase password recovery session.
+ */
+export function isRecoverySessionActive(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    const pathname = window.location.pathname || '';
+    const hasRecoveryParam = hash.includes('type=recovery') || search.includes('type=recovery') || search.includes('token_hash=');
+    const hasStorageFlag = sessionStorage.getItem(RECOVERY_STORAGE_KEY) === 'true';
+    const isResetRoute = pathname.startsWith('/reset-password');
+    return initialIsRecovery || hasRecoveryParam || (isResetRoute && hasStorageFlag);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Deterministically checks whether the current URL or storage indicates
@@ -97,6 +133,7 @@ export function clearExplicitAuthStorage(): void {
     sessionStorage.removeItem(SESSION_MARKER_KEY);
     sessionStorage.removeItem(COORDINATOR_SESSION_KEY);
     sessionStorage.removeItem(OAUTH_INTENT_KEY);
+    sessionStorage.removeItem(RECOVERY_STORAGE_KEY);
 
     // 2. Clear known Supabase auth token key from localStorage
     localStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY);
@@ -447,7 +484,7 @@ function setupLifecycleEventListeners() {
 export async function initSessionLifecycle(): Promise<{
   isAuthenticated: boolean;
   marker: SessionMarker | null;
-  reason?: 'VALID' | 'EXPIRED' | 'NO_ACTIVE_BROWSER_SESSION' | 'OAUTH_IN_FLIGHT';
+  reason?: 'VALID' | 'EXPIRED' | 'NO_ACTIVE_BROWSER_SESSION' | 'OAUTH_IN_FLIGHT' | 'RECOVERY_IN_FLIGHT';
 }> {
   if (typeof window === 'undefined') {
     return { isAuthenticated: false, marker: null };
@@ -460,7 +497,11 @@ export async function initSessionLifecycle(): Promise<{
     isInitialized = true;
   }
 
-  // 1. Google OAuth callback in flight: allow OAuth flow to finish and start session
+  // 1. Google OAuth callback or Password Recovery flow in flight: preserve state
+  if (isRecoverySessionActive()) {
+    return { isAuthenticated: false, marker: null, reason: 'RECOVERY_IN_FLIGHT' };
+  }
+
   if (isOAuthCallbackInProgress()) {
     return { isAuthenticated: false, marker: null, reason: 'OAUTH_IN_FLIGHT' };
   }
@@ -538,12 +579,18 @@ export async function initSessionLifecycle(): Promise<{
 
   // 4. No active tab responded within 350ms: browser was closed or fresh navigation
   // Targeted cleanup of persisted credentials to prevent silent session restoration
-  // CRITICAL: Do NOT clear auth storage if an OAuth callback was detected or is in flight!
-  if (!isOAuthCallbackInProgress()) {
+  // CRITICAL: Do NOT clear auth storage if an OAuth callback or Password Recovery is in flight!
+  if (!isOAuthCallbackInProgress() && !isRecoverySessionActive()) {
     clearExplicitAuthStorage();
   }
   activeMarker = null;
-  return { isAuthenticated: false, marker: null, reason: isOAuthCallbackInProgress() ? 'OAUTH_IN_FLIGHT' : 'NO_ACTIVE_BROWSER_SESSION' };
+  return { 
+    isAuthenticated: false, 
+    marker: null, 
+    reason: isRecoverySessionActive() 
+      ? 'RECOVERY_IN_FLIGHT' 
+      : (isOAuthCallbackInProgress() ? 'OAUTH_IN_FLIGHT' : 'NO_ACTIVE_BROWSER_SESSION') 
+  };
 }
 
 /**

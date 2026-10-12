@@ -1,20 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 class HttpError extends Error {
   constructor(public statusCode: number, public code: string, message: string) {
     super(message);
     this.name = "HttpError";
   }
-}
-
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin');
-  return {
-    'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-coordinator-token',
-    'Access-Control-Allow-Methods': 'OPTIONS, POST',
-  };
 }
 
 function handleError(error: unknown, corsHeaders: Record<string, string>) {
@@ -34,7 +26,9 @@ function handleError(error: unknown, corsHeaders: Record<string, string>) {
   return new Response(
     JSON.stringify({
       success: false,
-      error: { code: "INTERNAL_SERVER_ERROR", message: (error as any)?.message || "An unexpected error occurred." }
+      code: "INTERNAL_SERVER_ERROR",
+      message: "An unexpected error occurred.",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." }
     }),
     { status: 500, headers }
   );
@@ -98,9 +92,30 @@ serve(async (req: Request) => {
       clientHeaders['Authorization'] = authHeader;
     }
 
+function resolvePublishableKey(): string {
+  const raw = Deno.env.get('SUPABASE_PUBLISHABLE_KEYS');
+  if (raw && typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          return parsed.default.trim();
+        }
+        const candidate = Object.values(parsed).find(
+          (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_publishable_')
+        );
+        if (candidate) return candidate.trim();
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        return parsed.trim();
+      }
+    } catch {}
+  }
+  return Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+}
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      resolvePublishableKey(),
       {
         auth: { persistSession: false },
         global: { headers: clientHeaders }
@@ -120,7 +135,7 @@ serve(async (req: Request) => {
         JSON.stringify({
           success: false,
           code: 'DATABASE_ERROR',
-          message: rpcError.message || 'Database error during attendance verification.'
+          message: 'Database error during attendance verification.'
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

@@ -34,11 +34,6 @@ export function App() {
     }
   }, []);
 
-  const handleLoginSuccess = (session: CoordinatorSession) => {
-    setCoordinatorSession(session);
-    setActiveMode('COORDINATOR');
-  };
-
   const handleLogout = () => {
     clearStoredCoordinatorSession();
     setCoordinatorSession(null);
@@ -79,8 +74,6 @@ export function App() {
           <PublicPortal />
         ) : (
           <CoordinatorPortal
-            session={coordinatorSession}
-            onLoginSuccess={handleLoginSuccess}
             onLogout={handleLogout}
           />
         )}

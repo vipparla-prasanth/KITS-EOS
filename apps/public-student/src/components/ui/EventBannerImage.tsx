@@ -64,7 +64,10 @@ export function EventBannerImage({
         src={resolvedUrl}
         alt={`${eventName} Banner`}
         loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : 'auto'}
         decoding="async"
+        width={800}
+        height={400}
         onLoad={() => setIsLoading(false)}
         onError={() => {
           console.warn(`[EventBannerImage] Failed to load banner for "${eventName}" from URL:`, resolvedUrl);

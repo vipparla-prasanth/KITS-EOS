@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Layers
 } from 'lucide-react';
+import { PasswordInput } from '../components/ui/PasswordInput';
 
 /**
  * KITS-EOS Institutional Authentication Portal
@@ -59,7 +60,7 @@ export function Login() {
     }
 
     // Wait until both session initialization and profile resolution have definitively completed
-    if (authState === 'INITIALIZING' || profileState === 'LOADING') return;
+    if (authState === 'INITIALIZING' || profileState === 'LOADING' || (user && profileState === 'IDLE')) return;
 
     if (user) {
       if (role === 'ADMIN' && status === 'ACTIVE' && isAllowlisted) {
@@ -329,12 +330,12 @@ export function Login() {
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-800 mb-1">
                       Password
                     </label>
-                    <input
-                      type="password"
+                    <PasswordInput
                       required
                       value={coordPassword}
                       onChange={(e) => setCoordPassword(e.target.value)}
                       placeholder="••••••••"
+                      autoComplete="current-password"
                       className="block w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 shadow-sm focus:border-kits-blue focus:ring-1 focus:ring-kits-blue"
                     />
                   </div>
@@ -475,19 +476,15 @@ export function Login() {
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-800 mb-1">
                     Password
                   </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-                      <Lock className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="password"
-                      required
-                      value={coordPassword}
-                      onChange={(e) => setCoordPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="block w-full rounded-xl border border-gray-300 pl-9 pr-3.5 py-2.5 text-sm text-gray-900 shadow-sm focus:border-kits-blue focus:ring-1 focus:ring-kits-blue transition"
-                    />
-                  </div>
+                  <PasswordInput
+                    required
+                    leftIcon={<Lock className="h-4 w-4" />}
+                    value={coordPassword}
+                    onChange={(e) => setCoordPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    className="block w-full rounded-xl border border-gray-300 py-2.5 text-sm text-gray-900 shadow-sm focus:border-kits-blue focus:ring-1 focus:ring-kits-blue transition"
+                  />
                 </div>
 
                 <button

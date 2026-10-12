@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@kits-eos/shared/src/api/client';
-import { useAuth } from '../../context/AuthContext';
 import { formatDateOnly } from '@kits-eos/shared/src/utils/date';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { LoadingState } from '../../components/ui/LoadingState';
@@ -43,7 +42,6 @@ interface ParticipantRow {
 }
 
 export function AttendanceList() {
-  const { role, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // URL-driven hierarchical state for refresh & history resilience
@@ -80,18 +78,6 @@ export function AttendanceList() {
       setIsHierarchyLoading(true);
       setHierarchyError(null);
 
-      // If accessed by a coordinator, query assigned sub-event IDs to scope access
-      let allowedSubEventIds: Set<string> | null = null;
-      if (role === 'COORDINATOR' && user) {
-        const { data: assignData } = await supabase
-          .from('coordinator_assignments')
-          .select('sub_event_id')
-          .eq('coordinator_id', user.id);
-        if (assignData) {
-          allowedSubEventIds = new Set(assignData.map((a: any) => a.sub_event_id));
-        }
-      }
-
       const [eventsRes, catsRes, subsRes] = await Promise.all([
         supabase
           .from('events')
@@ -114,32 +100,16 @@ export function AttendanceList() {
       if (catsRes.error) throw catsRes.error;
       if (subsRes.error) throw subsRes.error;
 
-      let rawEvents = (eventsRes.data as Event[]) || [];
-      let rawCats = (catsRes.data as Category[]) || [];
-      let rawSubs = (subsRes.data as SubEvent[]) || [];
-
-      // Enforce coordinator scope if applicable
-      if (allowedSubEventIds !== null) {
-        rawSubs = rawSubs.filter((s) => allowedSubEventIds!.has(s.id));
-        const activeCatIds = new Set(rawSubs.map((s) => s.category_id).filter(Boolean));
-        rawCats = rawCats.filter((c) => activeCatIds.has(c.id));
-        const activeEventIds = new Set([
-          ...rawSubs.map((s) => s.event_id).filter(Boolean),
-          ...rawCats.map((c) => c.event_id).filter(Boolean)
-        ]);
-        rawEvents = rawEvents.filter((e) => activeEventIds.has(e.id));
-      }
-
-      setEvents(rawEvents);
-      setCategories(rawCats);
-      setSubEvents(rawSubs);
+      setEvents((eventsRes.data as Event[]) || []);
+      setCategories((catsRes.data as Category[]) || []);
+      setSubEvents((subsRes.data as SubEvent[]) || []);
     } catch (err: any) {
       console.error('Failed to load event hierarchy for attendance:', err);
       setHierarchyError('Failed to load event hierarchy. Please verify network connection.');
     } finally {
       setIsHierarchyLoading(false);
     }
-  }, [role, user]);
+  }, []);
 
   useEffect(() => {
     fetchHierarchy();

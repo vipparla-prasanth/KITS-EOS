@@ -235,23 +235,13 @@ export function PaymentsList() {
       setConfirmationSuccessMsg(null);
 
       // Call authoritative RPC
-      const { error: rpcErr } = await supabase.rpc('confirm_cod_payment', {
+      const { data, error: rpcErr } = await supabase.rpc('confirm_cod_payment', {
         p_payment_id: confirmingPayment.id,
       });
 
-      if (rpcErr) {
-        // Fallback: direct update if RPC fails
-        const { error: directErr } = await supabase
-          .from('payments')
-          .update({ status: 'SUCCESS' })
-          .eq('id', confirmingPayment.id);
-
-        if (directErr) throw directErr;
-
-        await supabase
-          .from('registrations')
-          .update({ status: 'CONFIRMED' })
-          .eq('id', confirmingPayment.registration_id);
+      if (rpcErr) throw rpcErr;
+      if (data && !data.success) {
+        throw new Error(data.message || data.error || 'Payment confirmation failed.');
       }
 
       // Update local state

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from '@kits-eos/shared/src/api/client';
+import { supabase, invokeAdminEdgeFunction } from '@kits-eos/shared/src/api/client';
 import { formatDateTime12h } from '@kits-eos/shared/src/utils/date';
 import type { Event, Category, SubEvent } from '@kits-eos/shared/src/types/models';
 import { LoadingState } from '../../components/ui/LoadingState';
@@ -221,7 +221,7 @@ export function EventDetails() {
     try {
       setActionLoading(true);
       setActionError(null);
-      const { data, error: fnErr } = await supabase.functions.invoke('admin-delete-historical-data', {
+      const { data, error: fnErr } = await invokeAdminEdgeFunction('admin-delete-historical-data', {
         body: {
           scope: 'EVENT',
           entity_id: event.id,
@@ -271,7 +271,7 @@ export function EventDetails() {
     try {
       setActionLoading(true);
       setActionError(null);
-      const { data, error: fnErr } = await supabase.functions.invoke('admin-delete-sub-event', {
+      const { data, error: fnErr } = await invokeAdminEdgeFunction('admin-delete-sub-event', {
         body: {
           sub_event_id: deleteSubEventItem.id,
           confirmation_phrase: 'CONFIRM',

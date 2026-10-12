@@ -1,7 +1,69 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { handleError, HttpError } from "./_shared/errorHandling.ts";
-import { getCorsHeaders } from "./_shared/cors.ts";
+import { handleError, HttpError } from "../_shared/errorHandling.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+
+declare const Deno: any;
+
+interface PrivilegedKeyResolution {
+  key: string;
+  source: 'SUPABASE_SECRET_KEYS' | 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK' | 'NONE';
+  isModern: boolean;
+}
+
+function resolvePrivilegedKey(): PrivilegedKeyResolution {
+  // 1. Primary: Modern SUPABASE_SECRET_KEYS JSON dictionary ({ "default": "sb_secret_..." })
+  const modernKeysRaw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (modernKeysRaw && typeof modernKeysRaw === 'string') {
+    try {
+      const parsed = JSON.parse(modernKeysRaw);
+      let candidate = '';
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          candidate = parsed.default.trim();
+        } else {
+          const candidateVal = Object.values(parsed).find(
+            (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_secret_')
+          );
+          if (candidateVal) {
+            candidate = candidateVal.trim();
+          }
+        }
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        candidate = parsed.trim();
+      }
+
+      if (candidate) {
+        return {
+          key: candidate,
+          source: 'SUPABASE_SECRET_KEYS',
+          isModern: true,
+        };
+      }
+    } catch {
+      // JSON parse error handling: fall through to temporary fallback
+    }
+  }
+
+  // 2. TEMPORARY FALLBACK (Phase 5B Controlled Migration Only):
+  // Retained temporarily to prevent an outage if modern secret resolution fails.
+  // Location: resolvePrivilegedKey() fallback branch in student-signup/index.ts.
+  // Warning: Must NOT become permanent architecture; will be removed once modern secret resolution is verified.
+  const fallbackKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (fallbackKey && typeof fallbackKey === 'string' && fallbackKey.trim().length > 0) {
+    return {
+      key: fallbackKey.trim(),
+      source: 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK',
+      isModern: false,
+    };
+  }
+
+  return {
+    key: '',
+    source: 'NONE',
+    isModern: false,
+  };
+}
 
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -15,9 +77,18 @@ serve(async (req: Request) => {
       throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const resolution = resolvePrivilegedKey();
+    const elevatedKey = resolution.key;
+    const isModern = resolution.isModern;
+
+    if (!supabaseUrl || !elevatedKey) {
+      throw new HttpError(500, 'CONFIGURATION_ERROR', 'Supabase environment configuration missing.');
+    }
+
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      elevatedKey,
       { auth: { persistSession: false } }
     );
 
@@ -109,6 +180,22 @@ serve(async (req: Request) => {
           'This email belongs to an Administrator account. To onboard as a Student, please sign in to your Administrator account first to securely link your Student profile.'
         );
       }
+
+      // Pre-flight check: Verify if the existing student account has a completed student profile
+      const { data: userProfile } = await supabaseClient
+        .from('student_profiles')
+        .select('user_id')
+        .eq('user_id', existingUser.id)
+        .maybeSingle();
+
+      if (!userProfile) {
+        throw new HttpError(
+          409,
+          'ACCOUNT_INCOMPLETE',
+          `An account with email "${cleanEmail}" already exists. Please sign in to complete your student profile.`
+        );
+      }
+
       throw new HttpError(409, 'DUPLICATE_EMAIL', `An account with email "${cleanEmail}" is already registered. Please sign in.`);
     }
 
@@ -187,10 +274,20 @@ serve(async (req: Request) => {
           email: cleanEmail,
           full_name: cleanFullName,
         },
+        secret_resolution: isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
+        usedModernKey: isModern,
+        source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+        legacyFallbackUsed: !isModern,
       }),
       {
         status: 201,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'x-secret-resolution': isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
+          'x-used-modern-key': isModern ? 'true' : 'false',
+          'x-key-source': resolution.source,
+        },
       }
     );
 

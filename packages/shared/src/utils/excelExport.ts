@@ -18,12 +18,19 @@
  * - Pure live database data integrity
  */
 
+export interface ExcelExportSection {
+  title: string;
+  subtitle?: string;
+  rows: (string | number | boolean | null | undefined)[][];
+}
+
 export interface ExcelExportOptions {
   filename: string;
   title: string;
   subtitle?: string;
   headers: string[];
-  rows: (string | number | boolean | null | undefined)[][];
+  rows?: (string | number | boolean | null | undefined)[][];
+  sections?: ExcelExportSection[];
   colWidths?: number[];
   sheetName?: string;
   metadata?: {
@@ -32,6 +39,21 @@ export interface ExcelExportOptions {
     extraMeta?: Record<string, string>;
   };
 }
+
+/**
+ * Approved Coordinator Operational Overall Participant List Headers
+ * Focused, simple operational participant columns (No internal admin IDs, credentials, or audit trails)
+ */
+export const COORDINATOR_OVERALL_REPORT_HEADERS = [
+  'S.No',
+  'Name',
+  'Roll Number',
+  'Year',
+  'Department',
+  'Sub-Event',
+  'Payment Status',
+  'Status',
+];
 
 /**
  * Approved Global Registration Report Headers (1 Registration = 1 Row)
@@ -110,7 +132,7 @@ export const KITS_EXCEL_THEME = {
 
 // Semantic Status Color Palette (Restrained, professional institutional badges)
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  // Positive / Confirmed / Attended
+  // Positive / Confirmed / Attended / Paid
   CONFIRMED: { bg: 'FFDCFCE7', text: 'FF166534' },
   APPROVED: { bg: 'FFDCFCE7', text: 'FF166534' },
   SUCCESS: { bg: 'FFDCFCE7', text: 'FF166534' },
@@ -129,7 +151,8 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   NOT_ASSIGNED: { bg: 'FFFEF3C7', text: 'FF92400E' },
   UNASSIGNED: { bg: 'FFFEF3C7', text: 'FF92400E' },
 
-  // Negative / Cancelled / Not Attended
+  // Negative / Cancelled / Unpaid / Not Attended
+  UNPAID: { bg: 'FFFEE2E2', text: 'FF991B1B' },
   REJECTED: { bg: 'FFFEE2E2', text: 'FF991B1B' },
   CANCELLED: { bg: 'FFFEE2E2', text: 'FF991B1B' },
   'NOT ATTENDED': { bg: 'FFFEE2E2', text: 'FF991B1B' },
@@ -249,7 +272,7 @@ function isWrapTextColumn(header: string): boolean {
  * Produces an authentic, institutional-grade styled ExcelJS Workbook.
  */
 export async function createKitsExcelWorkbook(options: ExcelExportOptions) {
-  const { title, subtitle, headers, rows, colWidths, sheetName } = options;
+  const { title, subtitle, headers, rows, sections, colWidths, sheetName } = options;
 
   let ExcelJSModule: any;
   try {
@@ -270,8 +293,13 @@ export async function createKitsExcelWorkbook(options: ExcelExportOptions) {
     .trim()
     .slice(0, 31) || 'Report';
 
+  const hasSections = Boolean(sections && sections.length > 0);
+  const allRows: (string | number | boolean | null | undefined)[][] = hasSections
+    ? sections!.flatMap((s) => s.rows)
+    : rows || [];
+
   const ws = workbook.addWorksheet(sanitizedSheetName, {
-    views: [{ state: 'frozen', xSplit: 0, ySplit: 6 }],
+    views: [{ state: 'frozen', xSplit: 0, ySplit: hasSections ? 4 : 6 }],
     properties: { defaultRowHeight: 22 },
   });
 
@@ -284,6 +312,113 @@ export async function createKitsExcelWorkbook(options: ExcelExportOptions) {
       bottom: { style: isThin ? 'thin' : 'medium', color: { argb: borderColor } },
       left: { style: isThin ? 'thin' : 'medium', color: { argb: borderColor } },
       right: { style: isThin ? 'thin' : 'medium', color: { argb: borderColor } },
+    };
+  };
+
+  // Helper to style and format an individual table data cell
+  const renderDataCell = (
+    cell: any,
+    headerText: string,
+    colIdx: number,
+    rawVal: any,
+    rowIdx: number,
+    rowBg: string
+  ) => {
+    const isCurr = isCurrencyColumn(headerText);
+    const isDate = isDateColumn(headerText);
+    const isWrap = isWrapTextColumn(headerText);
+
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: rowBg },
+    };
+    cell.font = {
+      name: 'Segoe UI',
+      size: 9.5,
+      color: { argb: KITS_EXCEL_THEME.SLATE_BODY },
+    };
+    applyCellBorder(cell, KITS_EXCEL_THEME.BORDER_BODY, true);
+
+    let horizontalAlign: 'left' | 'center' | 'right' = 'left';
+
+    // 1. S.No or First Numeric Column
+    if (
+      colIdx === 0 &&
+      (headerText.toLowerCase() === 's.no' ||
+        headerText.toLowerCase() === '#' ||
+        headerText.toLowerCase() === 'sl.no')
+    ) {
+      cell.value = rawVal !== undefined && rawVal !== null ? rawVal : rowIdx + 1;
+      horizontalAlign = 'center';
+      cell.font = {
+        name: 'Segoe UI',
+        size: 9.5,
+        bold: true,
+        color: { argb: KITS_EXCEL_THEME.SLATE_MUTED },
+      };
+    }
+    // 2. Currency Column
+    else if (isCurr) {
+      horizontalAlign = 'right';
+      if (rawVal !== undefined && rawVal !== null && rawVal !== '' && rawVal !== '—') {
+        const num = typeof rawVal === 'number' ? rawVal : Number(String(rawVal).replace(/[^0-9.-]/g, ''));
+        if (!isNaN(num)) {
+          cell.value = num;
+          cell.numFmt = '"₹"#,##0';
+        } else {
+          cell.value = String(rawVal);
+        }
+      } else {
+        cell.value = 0;
+        cell.numFmt = '"₹"#,##0';
+      }
+    }
+    // 3. Date / Time Column
+    else if (isDate) {
+      horizontalAlign = 'center';
+      cell.value = formatInstitutionalDateTime(rawVal);
+    }
+    // 4. Status Column Check (Restrained Institutional Semantic Badges)
+    else if (typeof rawVal === 'string' && STATUS_STYLES[rawVal.trim().toUpperCase()]) {
+      horizontalAlign = 'center';
+      const stKey = rawVal.trim().toUpperCase();
+      const style = STATUS_STYLES[stKey];
+      cell.value = rawVal.trim();
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: style.bg },
+      };
+      cell.font = {
+        name: 'Segoe UI',
+        size: 9,
+        bold: true,
+        color: { argb: style.text },
+      };
+    }
+    // 5. Short Academic / Roll Number / Mobile / Tokens / Mode / Year
+    else if (
+      headerText.toLowerCase().includes('roll') ||
+      headerText.toLowerCase().includes('year') ||
+      headerText.toLowerCase().includes('mobile') ||
+      headerText.toLowerCase().includes('phone') ||
+      headerText.toLowerCase().includes('token') ||
+      headerText.toLowerCase().includes('mode') ||
+      headerText.toLowerCase().includes('team size')
+    ) {
+      horizontalAlign = 'center';
+      cell.value = rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? rawVal : '—';
+    }
+    // 6. Generic Text / Identifiers
+    else {
+      cell.value = rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? rawVal : '—';
+    }
+
+    cell.alignment = {
+      horizontal: horizontalAlign,
+      vertical: 'middle',
+      wrapText: isWrap,
     };
   };
 
@@ -354,7 +489,7 @@ export async function createKitsExcelWorkbook(options: ExcelExportOptions) {
   const timestampStr = formatInstitutionalDateTime(now);
   const metaParts: string[] = [
     `Generated On: ${timestampStr} IST`,
-    `Total Records: ${rows.length}`,
+    `Total Records: ${allRows.length}`,
     'Official Campus Record',
   ];
   if (options.metadata?.scope) {
@@ -380,172 +515,152 @@ export async function createKitsExcelWorkbook(options: ExcelExportOptions) {
   ws.getRow(5).height = 10;
 
   // ==========================================
-  // 2. GLOBAL COLUMN HEADERS (Row 6)
-  // Alternating KITS RED / AKSHAR BLUE
+  // 2. BODY CONTENT (Sections vs. Single Flat Table)
   // ==========================================
-  const headerRow = ws.getRow(6);
-  headerRow.height = 30;
+  if (hasSections) {
+    let curRow = 6;
 
-  headers.forEach((headerText, colIdx) => {
-    const colNumber = colIdx + 1;
-    const cell = headerRow.getCell(colNumber);
-    cell.value = headerText;
-
-    // Alternating institutional colors:
-    // Col 1 (colIdx 0) -> RED
-    // Col 2 (colIdx 1) -> BLUE
-    // Col 3 (colIdx 2) -> RED
-    // Col 4 (colIdx 3) -> BLUE
-    const isRed = colIdx % 2 === 0;
-    const headerBg = isRed ? KITS_EXCEL_THEME.KITS_RED : KITS_EXCEL_THEME.AKSHAR_BLUE;
-
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: headerBg },
-    };
-
-    cell.font = {
-      name: 'Segoe UI',
-      size: 10,
-      bold: true,
-      color: { argb: KITS_EXCEL_THEME.WHITE },
-    };
-
-    cell.alignment = {
-      horizontal: 'center',
-      vertical: 'middle',
-      wrapText: true,
-    };
-
-    cell.border = {
-      top: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
-      bottom: { style: 'medium', color: { argb: KITS_EXCEL_THEME.DARK_SLATE } },
-      left: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
-      right: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
-    };
-  });
-
-  // Enable Auto-Filter on the Header Row (Row 6)
-  ws.autoFilter = {
-    from: { row: 6, column: 1 },
-    to: { row: 6, column: headers.length },
-  };
-
-  // ==========================================
-  // 3. TABLE BODY ROWS (Row 7 and beyond)
-  // Clean zebra striping, currency & dates
-  // ==========================================
-  rows.forEach((row, rowIdx) => {
-    const rowNumber = rowIdx + 7;
-    const dataRow = ws.getRow(rowNumber);
-    dataRow.height = 24;
-
-    const isZebra = rowIdx % 2 !== 0;
-    const rowBg = isZebra ? KITS_EXCEL_THEME.LIGHT_BG : KITS_EXCEL_THEME.WHITE;
-
-    headers.forEach((headerText, colIdx) => {
-      const colNumber = colIdx + 1;
-      const cell = dataRow.getCell(colNumber);
-      const rawVal = row[colIdx];
-      const isCurr = isCurrencyColumn(headerText);
-      const isDate = isDateColumn(headerText);
-      const isWrap = isWrapTextColumn(headerText);
-
-      // Default cell font & background
-      cell.fill = {
+    sections!.forEach((sec, secIdx) => {
+      // A. Section Heading Banner Row (e.g. "TECH INNOVATION CHALLENGE")
+      ws.mergeCells(curRow, 1, curRow, numCols);
+      const secCell = ws.getCell(curRow, 1);
+      secCell.value = sec.title.toUpperCase();
+      secCell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: rowBg },
+        fgColor: { argb: KITS_EXCEL_THEME.AKSHAR_BLUE },
       };
-      cell.font = {
+      secCell.font = {
         name: 'Segoe UI',
-        size: 9.5,
-        color: { argb: KITS_EXCEL_THEME.SLATE_BODY },
+        size: 11,
+        bold: true,
+        color: { argb: KITS_EXCEL_THEME.WHITE },
       };
-      applyCellBorder(cell, KITS_EXCEL_THEME.BORDER_BODY, true);
+      secCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+      applyCellBorder(secCell, KITS_EXCEL_THEME.BORDER_HEADER, true);
+      ws.getRow(curRow).height = 26;
+      curRow++;
 
-      // Alignment determination
-      let horizontalAlign: 'left' | 'center' | 'right' = 'left';
+      // B. Section Column Headers Row
+      const sHeaderRow = ws.getRow(curRow);
+      sHeaderRow.height = 28;
+      headers.forEach((headerText, colIdx) => {
+        const colNumber = colIdx + 1;
+        const cell = sHeaderRow.getCell(colNumber);
+        cell.value = headerText;
 
-      // 1. S.No or First Numeric Column
-      if (colIdx === 0 && (headerText.toLowerCase() === 's.no' || headerText.toLowerCase() === '#' || headerText.toLowerCase() === 'sl.no')) {
-        cell.value = rawVal !== undefined && rawVal !== null ? rawVal : rowIdx + 1;
-        horizontalAlign = 'center';
-        cell.font = {
-          name: 'Segoe UI',
-          size: 9.5,
-          bold: true,
-          color: { argb: KITS_EXCEL_THEME.SLATE_MUTED },
-        };
-      }
-      // 2. Currency Column
-      else if (isCurr) {
-        horizontalAlign = 'right';
-        if (rawVal !== undefined && rawVal !== null && rawVal !== '' && rawVal !== '—') {
-          const num = typeof rawVal === 'number' ? rawVal : Number(String(rawVal).replace(/[^0-9.-]/g, ''));
-          if (!isNaN(num)) {
-            cell.value = num;
-            cell.numFmt = '"₹"#,##0';
-          } else {
-            cell.value = String(rawVal);
-          }
-        } else {
-          cell.value = 0;
-          cell.numFmt = '"₹"#,##0';
-        }
-      }
-      // 3. Date / Time Column
-      else if (isDate) {
-        horizontalAlign = 'center';
-        cell.value = formatInstitutionalDateTime(rawVal);
-      }
-      // 4. Status Column Check
-      else if (typeof rawVal === 'string' && STATUS_STYLES[rawVal.trim().toUpperCase()]) {
-        horizontalAlign = 'center';
-        const stKey = rawVal.trim().toUpperCase();
-        const style = STATUS_STYLES[stKey];
-        cell.value = rawVal.trim();
+        const isRed = colIdx % 2 === 0;
+        const headerBg = isRed ? KITS_EXCEL_THEME.KITS_RED : KITS_EXCEL_THEME.AKSHAR_BLUE;
+
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: style.bg },
+          fgColor: { argb: headerBg },
         };
         cell.font = {
           name: 'Segoe UI',
-          size: 9,
+          size: 10,
           bold: true,
-          color: { argb: style.text },
+          color: { argb: KITS_EXCEL_THEME.WHITE },
         };
-      }
-      // 5. Short Academic / Roll Number / Mobile / Tokens / Mode
-      else if (
-        headerText.toLowerCase().includes('roll') ||
-        headerText.toLowerCase().includes('year') ||
-        headerText.toLowerCase().includes('mobile') ||
-        headerText.toLowerCase().includes('phone') ||
-        headerText.toLowerCase().includes('token') ||
-        headerText.toLowerCase().includes('mode') ||
-        headerText.toLowerCase().includes('team size')
-      ) {
-        horizontalAlign = 'center';
-        cell.value = rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? rawVal : '—';
-      }
-      // 6. Generic Text / Identifiers
-      else {
-        cell.value = rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '' ? rawVal : '—';
-      }
+        cell.alignment = {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true,
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
+          bottom: { style: 'medium', color: { argb: KITS_EXCEL_THEME.DARK_SLATE } },
+          left: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
+          right: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
+        };
+      });
+      curRow++;
 
+      // C. Section Participant Data Rows
+      sec.rows.forEach((row, rowIdx) => {
+        const dataRow = ws.getRow(curRow);
+        dataRow.height = 24;
+        const isZebra = rowIdx % 2 !== 0;
+        const rowBg = isZebra ? KITS_EXCEL_THEME.LIGHT_BG : KITS_EXCEL_THEME.WHITE;
+
+        headers.forEach((headerText, colIdx) => {
+          const colNumber = colIdx + 1;
+          const cell = dataRow.getCell(colNumber);
+          const rawVal = row[colIdx];
+          renderDataCell(cell, headerText, colIdx, rawVal, rowIdx, rowBg);
+        });
+        curRow++;
+      });
+
+      // D. Spacing Row between grouped sections
+      if (secIdx < sections!.length - 1) {
+        ws.getRow(curRow).height = 14;
+        curRow++;
+      }
+    });
+  } else {
+    // Flat Table Architecture (Row 6 Global Headers + Row 7+ Data Rows)
+    const headerRow = ws.getRow(6);
+    headerRow.height = 30;
+
+    headers.forEach((headerText, colIdx) => {
+      const colNumber = colIdx + 1;
+      const cell = headerRow.getCell(colNumber);
+      cell.value = headerText;
+
+      const isRed = colIdx % 2 === 0;
+      const headerBg = isRed ? KITS_EXCEL_THEME.KITS_RED : KITS_EXCEL_THEME.AKSHAR_BLUE;
+
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: headerBg },
+      };
+      cell.font = {
+        name: 'Segoe UI',
+        size: 10,
+        bold: true,
+        color: { argb: KITS_EXCEL_THEME.WHITE },
+      };
       cell.alignment = {
-        horizontal: horizontalAlign,
+        horizontal: 'center',
         vertical: 'middle',
-        wrapText: isWrap,
+        wrapText: true,
+      };
+      cell.border = {
+        top: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
+        bottom: { style: 'medium', color: { argb: KITS_EXCEL_THEME.DARK_SLATE } },
+        left: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
+        right: { style: 'thin', color: { argb: KITS_EXCEL_THEME.BORDER_HEADER } },
       };
     });
-  });
+
+    // Auto-Filter on Row 6
+    ws.autoFilter = {
+      from: { row: 6, column: 1 },
+      to: { row: 6, column: headers.length },
+    };
+
+    allRows.forEach((row, rowIdx) => {
+      const rowNumber = rowIdx + 7;
+      const dataRow = ws.getRow(rowNumber);
+      dataRow.height = 24;
+
+      const isZebra = rowIdx % 2 !== 0;
+      const rowBg = isZebra ? KITS_EXCEL_THEME.LIGHT_BG : KITS_EXCEL_THEME.WHITE;
+
+      headers.forEach((headerText, colIdx) => {
+        const colNumber = colIdx + 1;
+        const cell = dataRow.getCell(colNumber);
+        const rawVal = row[colIdx];
+        renderDataCell(cell, headerText, colIdx, rawVal, rowIdx, rowBg);
+      });
+    });
+  }
 
   // ==========================================
-  // 4. COLUMN WIDTH CALCULATION
+  // 3. COLUMN WIDTH CALCULATION
   // Generous human-readable widths + padding
   // ==========================================
   headers.forEach((headerText, colIdx) => {
@@ -558,11 +673,10 @@ export async function createKitsExcelWorkbook(options: ExcelExportOptions) {
     }
 
     let maxLen = headerText.length;
-    for (let r = 0; r < Math.min(rows.length, 250); r++) {
-      const cellVal = rows[r][colIdx];
+    for (let r = 0; r < Math.min(allRows.length, 250); r++) {
+      const cellVal = allRows[r][colIdx];
       if (cellVal !== undefined && cellVal !== null) {
         const str = String(cellVal);
-        // If multiline, take longest line
         const lines = str.split('\n');
         for (const line of lines) {
           if (line.length > maxLen) {
@@ -573,7 +687,7 @@ export async function createKitsExcelWorkbook(options: ExcelExportOptions) {
     }
 
     const isWrap = isWrapTextColumn(headerText);
-    const minWidth = colIdx === 0 ? 8 : 14;
+    const minWidth = colIdx === 0 ? 8 : (headerText.toLowerCase().includes('roll') ? 16 : 14);
     const maxWidth = isWrap ? 60 : 42;
     column.width = Math.min(Math.max(maxLen + 4, minWidth), maxWidth);
   });

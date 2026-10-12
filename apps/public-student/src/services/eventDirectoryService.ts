@@ -16,7 +16,42 @@ export interface EventDirectoryItem {
  * Excludes all private/sensitive fields (e.g. user_id, password_hash, internal tokens).
  */
 export async function fetchEventDirectoryData(): Promise<EventDirectoryItem[]> {
-  const { data, error } = await supabase
+  // 1. Primary: High-performance, public-safe SECURITY DEFINER RPC
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_event_directory');
+
+  if (!rpcError && Array.isArray(rpcData)) {
+    return rpcData.map((item: any) => ({
+      id: item.id,
+      event: (item.event || 'KITS Event').trim(),
+      category: (item.category || 'General').trim(),
+      subEvent: (item.sub_event || 'Sub-Event').trim(),
+      venue: (item.venue && item.venue.trim().length > 0) ? item.venue.trim() : 'Not Assigned',
+      coordinator: (item.coordinator && item.coordinator.trim().length > 0) ? item.coordinator.trim() : 'Not Assigned',
+    }));
+  }
+
+  if (rpcError) {
+    console.warn('RPC get_public_event_directory notice, attempting view fallback:', rpcError);
+  }
+
+  // 2. Secondary fallback: Safe public view
+  const { data: viewData, error: viewError } = await supabase
+    .from('public_event_directory_view')
+    .select('id, event, category, sub_event, venue, coordinator');
+
+  if (!viewError && Array.isArray(viewData)) {
+    return viewData.map((item: any) => ({
+      id: item.id,
+      event: (item.event || 'KITS Event').trim(),
+      category: (item.category || 'General').trim(),
+      subEvent: (item.sub_event || 'Sub-Event').trim(),
+      venue: (item.venue && item.venue.trim().length > 0) ? item.venue.trim() : 'Not Assigned',
+      coordinator: (item.coordinator && item.coordinator.trim().length > 0) ? item.coordinator.trim() : 'Not Assigned',
+    }));
+  }
+
+  // 3. Tertiary fallback: Query sub_events directly without coordinators table join
+  const { data: subData, error: subError } = await supabase
     .from('sub_events')
     .select(`
       id,
@@ -33,81 +68,39 @@ export async function fetchEventDirectoryData(): Promise<EventDirectoryItem[]> {
       events (
         id,
         name
-      ),
-      coordinator_assignments (
-        id,
-        coordinators (
-          id,
-          display_name,
-          coordinator_type,
-          status
-        )
       )
     `)
     .eq('status', 'ACTIVE');
 
-  if (error) {
-    console.error('Failed to query event directory from database:', error);
-    throw new Error(error.message || 'Failed to load event directory records.');
+  if (subError) {
+    console.error('Failed to query event directory from database:', subError);
+    throw new Error(subError.message || 'Failed to load event directory records.');
   }
 
-  if (!data || data.length === 0) {
+  if (!subData || subData.length === 0) {
     return [];
   }
 
-  // Normalize and resolve authoritative relationships
-  const items: EventDirectoryItem[] = data.map((sub: any) => {
+  const items: EventDirectoryItem[] = subData.map((sub: any) => {
     const cat = Array.isArray(sub.categories) ? sub.categories[0] : sub.categories;
     const ev = Array.isArray(sub.events) ? sub.events[0] : sub.events;
     const catEv = cat?.events ? (Array.isArray(cat.events) ? cat.events[0] : cat.events) : null;
 
-    const eventName = (ev?.name || catEv?.name || 'KITS Event').trim();
-    const categoryName = (cat?.name || 'General').trim();
-    const subEventName = (sub.name || 'Sub-Event').trim();
-    const venueName = (sub.venue && sub.venue.trim().length > 0) ? sub.venue.trim() : 'Not Assigned';
-
-    // Parse and sort active assigned coordinators
-    const rawAssignments = sub.coordinator_assignments || [];
-    const activeCoords = rawAssignments
-      .map((a: any) => a.coordinators)
-      .filter((c: any) => c && c.status === 'ACTIVE');
-
-    // Faculty coordinators first, then student coordinators, then alphabetically
-    activeCoords.sort((a: any, b: any) => {
-      const typeA = (a.coordinator_type || '').toUpperCase();
-      const typeB = (b.coordinator_type || '').toUpperCase();
-      if (typeA === 'FACULTY' && typeB !== 'FACULTY') return -1;
-      if (typeA !== 'FACULTY' && typeB === 'FACULTY') return 1;
-      return (a.display_name || '').localeCompare(b.display_name || '');
-    });
-
-    const coordinatorStr = activeCoords.length > 0
-      ? activeCoords
-          .map((c: any) => {
-            const role = c.coordinator_type ? ` (${c.coordinator_type.toUpperCase()})` : '';
-            return `${c.display_name}${role}`;
-          })
-          .join(', ')
-      : 'Not Assigned';
-
     return {
       id: sub.id,
-      event: eventName,
-      category: categoryName,
-      subEvent: subEventName,
-      venue: venueName,
-      coordinator: coordinatorStr,
+      event: (ev?.name || catEv?.name || 'KITS Event').trim(),
+      category: (cat?.name || 'General').trim(),
+      subEvent: (sub.name || 'Sub-Event').trim(),
+      venue: (sub.venue && sub.venue.trim().length > 0) ? sub.venue.trim() : 'Not Assigned',
+      coordinator: 'Contact Event Office',
     };
   });
 
-  // Canonical ordering: Event -> Category -> Sub-Event
   items.sort((a, b) => {
     const cmpEvent = a.event.localeCompare(b.event);
     if (cmpEvent !== 0) return cmpEvent;
-
     const cmpCat = a.category.localeCompare(b.category);
     if (cmpCat !== 0) return cmpCat;
-
     return a.subEvent.localeCompare(b.subEvent);
   });
 

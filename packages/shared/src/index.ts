@@ -5,7 +5,6 @@ export * from './api/client';
 export * from './utils/date';
 export * from './utils/export';
 export * from './utils/excelExport';
-export * from './utils/storageUtils';
 export * from './constants/theme';
 export * from './constants/academic';
 export * from './components/DeleteButton';

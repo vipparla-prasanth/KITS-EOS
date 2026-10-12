@@ -1,5 +1,68 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
+
+declare const Deno: any;
+
+interface PrivilegedKeyResolution {
+  key: string;
+  source: 'SUPABASE_SECRET_KEYS' | 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK' | 'NONE';
+  isModern: boolean;
+}
+
+function resolvePrivilegedKey(): PrivilegedKeyResolution {
+  // 1. Primary: Modern SUPABASE_SECRET_KEYS JSON dictionary ({ "default": "sb_secret_..." })
+  const modernKeysRaw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (modernKeysRaw && typeof modernKeysRaw === 'string') {
+    try {
+      const parsed = JSON.parse(modernKeysRaw);
+      let candidate = '';
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          candidate = parsed.default.trim();
+        } else {
+          const candidateVal = Object.values(parsed).find(
+            (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_secret_')
+          );
+          if (candidateVal) {
+            candidate = candidateVal.trim();
+          }
+        }
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        candidate = parsed.trim();
+      }
+
+      if (candidate) {
+        return {
+          key: candidate,
+          source: 'SUPABASE_SECRET_KEYS',
+          isModern: true,
+        };
+      }
+    } catch {
+      // JSON parse error handling: fall through to temporary fallback
+    }
+  }
+
+  // 2. TEMPORARY FALLBACK (Phase 5D Controlled Migration Only):
+  // Retained temporarily to prevent an outage if modern secret resolution fails.
+  // Location: resolvePrivilegedKey() fallback branch in coordinator-delete-document/index.ts.
+  // Warning: Must NOT become permanent architecture; will be removed once modern secret resolution is verified.
+  const fallbackKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (fallbackKey && typeof fallbackKey === 'string' && fallbackKey.trim().length > 0) {
+    return {
+      key: fallbackKey.trim(),
+      source: 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK',
+      isModern: false,
+    };
+  }
+
+  return {
+    key: '',
+    source: 'NONE',
+    isModern: false,
+  };
+}
 
 class HttpError extends Error {
   constructor(public statusCode: number, public code: string, message: string) {
@@ -8,24 +71,19 @@ class HttpError extends Error {
   }
 }
 
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin');
-  return {
-    'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-coordinator-token',
-    'Access-Control-Allow-Methods': 'OPTIONS, POST',
-  };
-}
-
-function handleError(error: unknown, corsHeaders: Record<string, string>) {
-  const headers = { ...corsHeaders, "Content-Type": "application/json" };
+function handleError(error: unknown, corsHeaders: Record<string, string>, extraHeaders?: Record<string, string>) {
+  const headers = { ...corsHeaders, ...extraHeaders, "Content-Type": "application/json" };
   if (error instanceof HttpError) {
     return new Response(
       JSON.stringify({
         success: false,
         code: error.code,
         message: error.message,
-        error: { code: error.code, message: error.message }
+        error: { code: error.code, message: error.message },
+        ...(extraHeaders ? {
+          usedModernKey: extraHeaders['x-used-modern-key'] === 'true',
+          source: extraHeaders['x-key-source'],
+        } : {})
       }),
       { status: error.statusCode, headers }
     );
@@ -34,7 +92,9 @@ function handleError(error: unknown, corsHeaders: Record<string, string>) {
   return new Response(
     JSON.stringify({
       success: false,
-      error: { code: "INTERNAL_SERVER_ERROR", message: (error as any)?.message || "An unexpected error occurred." }
+      code: "INTERNAL_SERVER_ERROR",
+      message: "An unexpected error occurred.",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." }
     }),
     { status: 500, headers }
   );
@@ -47,14 +107,27 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const resolution = resolvePrivilegedKey();
+  const isModern = resolution.isModern;
+  const modernResponseHeaders = {
+    ...corsHeaders,
+    'x-secret-resolution': isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
+    'x-used-modern-key': isModern ? 'true' : 'false',
+    'x-key-source': resolution.source,
+  };
+
   try {
     if (req.method !== 'POST') {
       throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed. Only POST is accepted.');
     }
 
+    if (!resolution.key) {
+      throw new HttpError(500, 'CONFIGURATION_ERROR', 'Server configuration error: missing privileged credentials.');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      resolution.key,
       { auth: { persistSession: false } }
     );
 
@@ -103,7 +176,7 @@ serve(async (req: Request) => {
       }
     } else if (authHeader) {
       const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-      if (token && !token.startsWith("ctk_") && token !== (Deno.env.get("SUPABASE_ANON_KEY") ?? "")) {
+      if (token && !token.startsWith("ctk_") && !token.startsWith("sb_publishable_") && token !== (Deno.env.get("SUPABASE_ANON_KEY") ?? "")) {
         const { data: { user }, error: authErr } = await supabaseClient.auth.getUser(token);
         if (user && !authErr) {
           const { data: appUser } = await supabaseClient
@@ -162,7 +235,6 @@ serve(async (req: Request) => {
     }> = [];
 
     for (const docId of documentIds) {
-      // Step A: Fetch document metadata from trusted database
       const { data: doc, error: docErr } = await supabaseClient
         .from('documents')
         .select('id, owner_id, entity_type, entity_id, storage_path, file_name, mime_type, size_bytes')
@@ -170,16 +242,16 @@ serve(async (req: Request) => {
         .maybeSingle();
 
       if (docErr) {
+        console.error("Failed to query document:", docErr);
         results.push({
           id: docId,
           status: 'DATABASE_FAILURE',
-          error: `Failed to query document: ${docErr.message}`,
+          error: 'Failed to query document metadata.',
         });
         continue;
       }
 
       if (!doc) {
-        // Section 22: Safe idempotency handling
         results.push({
           id: docId,
           status: 'NOT_FOUND',
@@ -188,7 +260,6 @@ serve(async (req: Request) => {
         continue;
       }
 
-      // Step B: Verify registration relationship
       if (doc.entity_type !== 'REGISTRATION') {
         results.push({
           id: docId,
@@ -215,7 +286,6 @@ serve(async (req: Request) => {
         continue;
       }
 
-      // Step C: Verify Coordinator is assigned to this sub-event (Cross-sub-event protection)
       if (!isAdminOverride) {
         const { data: assignment, error: assignErr } = await supabaseClient
           .from('coordinator_assignments')
@@ -235,7 +305,6 @@ serve(async (req: Request) => {
         }
       }
 
-      // Step D: Delete from Supabase Storage first (Section 19 & Section 21)
       let storageDeleted = false;
       let storageErrorDetail: string | null = null;
       let targetBucket = 'documents';
@@ -248,7 +317,6 @@ serve(async (req: Request) => {
       if (!removeErr1) {
         storageDeleted = true;
       } else {
-        // Fallback check on 'events' bucket for legacy uploads
         const { error: removeErr2 } = await supabaseClient
           .storage
           .from('events')
@@ -258,38 +326,37 @@ serve(async (req: Request) => {
           storageDeleted = true;
           targetBucket = 'events';
         } else {
-          storageErrorDetail = removeErr1.message || removeErr2.message || 'Failed to remove file from storage.';
+          console.error("Storage remove error:", removeErr1, removeErr2);
+          storageErrorDetail = 'Failed to remove file from storage.';
         }
       }
 
       if (!storageDeleted) {
-        // Section 21: Storage failure prevents database metadata deletion
         results.push({
           id: docId,
           status: 'STORAGE_FAILURE',
           file_name: doc.file_name,
-          error: `Storage file removal failed: ${storageErrorDetail}. Database record preserved.`,
+          error: `Storage file removal failed. Database record preserved.`,
         });
         continue;
       }
 
-      // Step E: Delete corresponding document record from database (Section 20 & Section 21)
       const { error: dbDeleteErr } = await supabaseClient
         .from('documents')
         .delete()
         .eq('id', doc.id);
 
       if (dbDeleteErr) {
+        console.error("Database metadata delete error:", dbDeleteErr);
         results.push({
           id: docId,
           status: 'DATABASE_FAILURE',
           file_name: doc.file_name,
-          error: `Storage file removed, but database metadata deletion failed: ${dbDeleteErr.message}.`,
+          error: `Storage file removed, but database metadata deletion failed.`,
         });
         continue;
       }
 
-      // Step F: Record audit log (Section 29)
       try {
         await supabaseClient
           .from('audit_logs')
@@ -338,14 +405,17 @@ serve(async (req: Request) => {
         all_succeeded: allSucceeded,
         partial_success: partialSuccess,
         results,
+        usedModernKey: isModern,
+        source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+        legacyFallbackUsed: !isModern,
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: modernResponseHeaders,
       }
     );
 
   } catch (error) {
-    return handleError(error, corsHeaders);
+    return handleError(error, corsHeaders, modernResponseHeaders);
   }
 });

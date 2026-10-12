@@ -131,7 +131,12 @@ export function NotificationCenter({
   // 1. Ensure welcome notification exactly once per user/coordinator
   const ensureWelcome = useCallback(async () => {
     if (hasEnsuredWelcome.current) return;
+    if (portal === 'COORDINATOR' && !token) return;
     try {
+      if (portal !== 'COORDINATOR') {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+      }
       await supabase.rpc('ensure_welcome_notification', {
         p_token: token || null
       });
@@ -139,11 +144,22 @@ export function NotificationCenter({
     } catch {
       // Non-blocking
     }
-  }, [token]);
+  }, [token, portal]);
 
   // 2. Fetch authoritative unread count
   const fetchUnreadCount = useCallback(async () => {
+    if (portal === 'COORDINATOR' && !token) {
+      setUnreadCount(0);
+      return;
+    }
     try {
+      if (portal !== 'COORDINATOR') {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          setUnreadCount(0);
+          return;
+        }
+      }
       const { data, error: err } = await supabase.rpc('get_portal_unread_count', {
         p_token: token || null
       });
@@ -153,7 +169,7 @@ export function NotificationCenter({
     } catch {
       // Non-blocking
     }
-  }, [token]);
+  }, [token, portal]);
 
   const fetchUnreadCountRef = useRef(fetchUnreadCount);
   useEffect(() => {
@@ -229,19 +245,27 @@ export function NotificationCenter({
 
   // Periodic polling & Window focus refresh (Runs for ALL portals including Coordinator)
   useEffect(() => {
+    let lastPollTime = Date.now();
     const handleFocus = () => {
-      fetchUnreadCountRef.current();
-      if (isOpenRef.current) {
-        fetchAndAutoMarkRef.current();
+      // Avoid firing if focus happens within 15 seconds of last check
+      if (Date.now() - lastPollTime >= 15000) {
+        lastPollTime = Date.now();
+        fetchUnreadCountRef.current();
+        if (isOpenRef.current) {
+          fetchAndAutoMarkRef.current();
+        }
       }
     };
 
     window.addEventListener('focus', handleFocus);
 
-    // Polling every 30 seconds as resilient fallback
+    // Polling every 45 seconds as resilient fallback when tab is visible
     const pollInterval = setInterval(() => {
-      fetchUnreadCountRef.current();
-    }, 30000);
+      if (!document.hidden) {
+        lastPollTime = Date.now();
+        fetchUnreadCountRef.current();
+      }
+    }, 45000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);
@@ -259,40 +283,59 @@ export function NotificationCenter({
     }
 
     let channelInstance: any = null;
+    let isSubscribed = true;
 
-    try {
-      // Generate a unique topic per mount to prevent any collision with stale or leaving channels
-      const topic = `notifs-${portal.toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Only establish Realtime subscription for authenticated users to avoid CHANNEL_ERROR and 401s
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isSubscribed || !session?.user?.id) {
+        return;
+      }
 
-      channelInstance = supabase
-        .channel(topic)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'notifications'
-          },
-          () => {
-            fetchUnreadCountRef.current();
-            if (isOpenRef.current) {
-              fetchAndAutoMarkRef.current();
-            }
+      try {
+        // Deterministic topic per user session to avoid collision and channel proliferation
+        const topic = `notifs-${portal.toLowerCase()}-${session.user.id.slice(0, 8)}`;
+
+        const existingChannel = supabase.getChannels().find((ch: any) => ch.topic === topic || ch.topic === `realtime:${topic}`);
+        if (existingChannel) {
+          try {
+            supabase.removeChannel(existingChannel);
+          } catch {
+            // Ignore channel removal error
           }
-        );
-
-      // Subscribe only after all callbacks are registered
-      channelInstance.subscribe((status: string, err?: Error) => {
-        if (err) {
-          console.warn(`[NotificationCenter] Realtime subscription status (${status}):`, err);
         }
-      });
-    } catch (realtimeErr) {
-      // Fail safely: Never allow a Realtime error to crash the portal UI
-      console.warn('[NotificationCenter] Realtime subscription could not be established; falling back to polling:', realtimeErr);
-    }
+
+        channelInstance = supabase
+          .channel(topic)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'notifications',
+              filter: `user_id=eq.${session.user.id}`
+            },
+            () => {
+              fetchUnreadCountRef.current();
+              if (isOpenRef.current) {
+                fetchAndAutoMarkRef.current();
+              }
+            }
+          );
+
+        // Subscribe only after all callbacks are registered
+        channelInstance.subscribe((status: string, err?: Error) => {
+          if (err) {
+            console.warn(`[NotificationCenter] Realtime subscription status (${status}):`, err);
+          }
+        });
+      } catch (realtimeErr) {
+        // Fail safely: Never allow a Realtime error to crash the portal UI
+        console.warn('[NotificationCenter] Realtime subscription could not be established; falling back to polling:', realtimeErr);
+      }
+    });
 
     return () => {
+      isSubscribed = false;
       if (channelInstance) {
         try {
           supabase.removeChannel(channelInstance);

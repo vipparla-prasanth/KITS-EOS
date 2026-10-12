@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import type { EventItem } from '../types';
 import { fetchActiveEvents } from '../services/fallbackData';
 import { EventModal } from './EventModal';
-import { 
-  Search, 
-  Calendar, 
-  ArrowRight, 
-  CheckCircle2, 
-  Layers, 
+import {
+  Search,
+  Calendar,
+  ArrowRight,
+  CheckCircle2,
+  Layers,
   Loader2
 } from 'lucide-react';
 
@@ -283,6 +283,7 @@ export function PublicPortal() {
                 className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-medium"
               >
                 <option value="CSE">Computer Science & Engineering (CSE)</option>
+                <option value="DS">Data Science (DS)</option>
                 <option value="ECE">Electronics & Communication (ECE)</option>
                 <option value="EEE">Electrical & Electronics (EEE)</option>
                 <option value="MECH">Mechanical Engineering (MECH)</option>

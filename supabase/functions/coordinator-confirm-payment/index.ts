@@ -1,5 +1,68 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
+
+declare const Deno: any;
+
+interface PrivilegedKeyResolution {
+  key: string;
+  source: 'SUPABASE_SECRET_KEYS' | 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK' | 'NONE';
+  isModern: boolean;
+}
+
+function resolvePrivilegedKey(): PrivilegedKeyResolution {
+  // 1. Primary: Modern SUPABASE_SECRET_KEYS JSON dictionary ({ "default": "sb_secret_..." })
+  const modernKeysRaw = Deno.env.get('SUPABASE_SECRET_KEYS');
+  if (modernKeysRaw && typeof modernKeysRaw === 'string') {
+    try {
+      const parsed = JSON.parse(modernKeysRaw);
+      let candidate = '';
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.default === 'string' && parsed.default.trim().length > 0) {
+          candidate = parsed.default.trim();
+        } else {
+          const candidateVal = Object.values(parsed).find(
+            (v): v is string => typeof v === 'string' && v.trim().startsWith('sb_secret_')
+          );
+          if (candidateVal) {
+            candidate = candidateVal.trim();
+          }
+        }
+      } else if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        candidate = parsed.trim();
+      }
+
+      if (candidate) {
+        return {
+          key: candidate,
+          source: 'SUPABASE_SECRET_KEYS',
+          isModern: true,
+        };
+      }
+    } catch {
+      // JSON parse error handling: fall through to temporary fallback
+    }
+  }
+
+  // 2. TEMPORARY FALLBACK (Phase 5C Controlled Migration Only):
+  // Retained temporarily to prevent an outage if modern secret resolution fails.
+  // Location: resolvePrivilegedKey() fallback branch in coordinator-confirm-payment/index.ts.
+  // Warning: Must NOT become permanent architecture; will be removed once modern secret resolution is verified.
+  const fallbackKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (fallbackKey && typeof fallbackKey === 'string' && fallbackKey.trim().length > 0) {
+    return {
+      key: fallbackKey.trim(),
+      source: 'SUPABASE_SERVICE_ROLE_KEY_FALLBACK',
+      isModern: false,
+    };
+  }
+
+  return {
+    key: '',
+    source: 'NONE',
+    isModern: false,
+  };
+}
 
 class HttpError extends Error {
   constructor(public statusCode: number, public code: string, message: string) {
@@ -8,22 +71,17 @@ class HttpError extends Error {
   }
 }
 
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin');
-  return {
-    'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-coordinator-token',
-    'Access-Control-Allow-Methods': 'OPTIONS, POST',
-  };
-}
-
-function handleError(error: unknown, corsHeaders: Record<string, string>) {
-  const headers = { ...corsHeaders, "Content-Type": "application/json" };
+function handleError(error: unknown, corsHeaders: Record<string, string>, extraHeaders?: Record<string, string>) {
+  const headers = { ...corsHeaders, ...extraHeaders, "Content-Type": "application/json" };
   if (error instanceof HttpError) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: { code: error.code, message: error.message }
+        error: { code: error.code, message: error.message },
+        ...(extraHeaders ? {
+          usedModernKey: extraHeaders['x-used-modern-key'] === 'true',
+          source: extraHeaders['x-key-source'],
+        } : {})
       }),
       { status: error.statusCode, headers }
     );
@@ -32,7 +90,9 @@ function handleError(error: unknown, corsHeaders: Record<string, string>) {
   return new Response(
     JSON.stringify({
       success: false,
-      error: { code: "INTERNAL_SERVER_ERROR", message: (error as any)?.message || "An unexpected error occurred." }
+      code: "INTERNAL_SERVER_ERROR",
+      message: "An unexpected error occurred.",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." }
     }),
     { status: 500, headers }
   );
@@ -45,18 +105,31 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const resolution = resolvePrivilegedKey();
+  const isModern = resolution.isModern;
+  const modernResponseHeaders = {
+    ...corsHeaders,
+    'x-secret-resolution': isModern ? 'SUCCESS' : 'TEMPORARY_FALLBACK',
+    'x-used-modern-key': isModern ? 'true' : 'false',
+    'x-key-source': resolution.source,
+  };
+
   try {
     if (req.method !== 'POST') {
       throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
     }
 
+    if (!resolution.key) {
+      throw new HttpError(500, 'CONFIGURATION_ERROR', 'Server configuration error: missing privileged credentials.');
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
     const supabaseClient = createClient(
       supabaseUrl,
-      supabaseServiceKey,
+      resolution.key,
       { auth: { persistSession: false } }
     );
 
@@ -163,14 +236,13 @@ serve(async (req: Request) => {
 
     if (rpcErr) {
       console.error("confirm_bulk_payments RPC error:", rpcErr);
-      const msg = rpcErr.message || 'Payment approval failed';
-      if (rpcErr.code === '42501' || msg.includes('Unauthorized') || msg.includes('Forbidden')) {
-        throw new HttpError(403, 'FORBIDDEN', msg);
+      if (rpcErr.code === '42501' || rpcErr.message?.includes('Unauthorized') || rpcErr.message?.includes('Forbidden')) {
+        throw new HttpError(403, 'FORBIDDEN', 'Unauthorized to confirm payment.');
       }
-      if (rpcErr.code === 'P0002' || msg.includes('not found') || msg.includes('do not exist')) {
-        throw new HttpError(404, 'NOT_FOUND', msg);
+      if (rpcErr.code === 'P0002' || rpcErr.message?.includes('not found') || rpcErr.message?.includes('do not exist')) {
+        throw new HttpError(404, 'NOT_FOUND', 'Payment record not found.');
       }
-      throw new HttpError(500, 'DATABASE_ERROR', msg);
+      throw new HttpError(500, 'DATABASE_ERROR', 'Payment approval failed.');
     }
 
     return new Response(JSON.stringify(rpcData || {
@@ -178,12 +250,15 @@ serve(async (req: Request) => {
       message: `${targetPaymentIds.length} payment(s) marked as PAID successfully.`,
       payment_ids: targetPaymentIds,
       status: 'SUCCESS',
+      usedModernKey: isModern,
+      source: resolution.source === 'SUPABASE_SECRET_KEYS' ? 'SUPABASE_SECRET_KEYS' : 'SUPABASE_SERVICE_ROLE_KEY',
+      legacyFallbackUsed: !isModern,
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: modernResponseHeaders,
       status: 200,
     });
 
   } catch (error) {
-    return handleError(error, corsHeaders);
+    return handleError(error, corsHeaders, modernResponseHeaders);
   }
 });

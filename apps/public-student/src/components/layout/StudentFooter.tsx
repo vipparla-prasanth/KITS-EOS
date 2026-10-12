@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Mail, Phone, MapPin, Globe, FileSpreadsheet } from 'lucide-react';
-import { openCookiePreferencesModal } from '@kits-eos/shared';
-import { CampusLocationModal } from '../ui/CampusLocationModal';
-import { downloadEventDirectoryExcel } from '../../services/eventDirectoryService';
+import { openCookiePreferencesModal } from '@kits-eos/shared/src/utils/cookieConsent';
+
+const CampusLocationModal = lazy(() => import('../ui/CampusLocationModal').then(m => ({ default: m.CampusLocationModal })));
 
 interface SocialLinkItem {
   name: string;
@@ -108,6 +108,7 @@ export function StudentFooter() {
   const handleDownloadDirectory = async () => {
     try {
       setIsDownloading(true);
+      const { downloadEventDirectoryExcel } = await import('../../services/eventDirectoryService');
       await downloadEventDirectoryExcel();
     } catch (err: any) {
       console.error('Failed to download event directory:', err);
@@ -126,6 +127,8 @@ export function StudentFooter() {
               <img
                 src="/college_logo.png"
                 alt="KITS Logo"
+                width={40}
+                height={40}
                 className="h-10 w-10 object-contain shrink-0"
               />
               <div>
@@ -333,10 +336,14 @@ export function StudentFooter() {
       </div>
 
       {/* Campus Location Map Modal */}
-      <CampusLocationModal
-        isOpen={isMapModalOpen}
-        onClose={() => setIsMapModalOpen(false)}
-      />
+      {isMapModalOpen && (
+        <Suspense fallback={null}>
+          <CampusLocationModal
+            isOpen={isMapModalOpen}
+            onClose={() => setIsMapModalOpen(false)}
+          />
+        </Suspense>
+      )}
     </footer>
   );
 }

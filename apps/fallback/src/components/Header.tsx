@@ -33,7 +33,7 @@ export function Header({
                 <span className="text-gray-800 font-bold hidden sm:inline text-xs">Institute of Technology</span>
               </div>
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 mt-0.5">
-                KITS-EOS • Standby Contingency Node
+                KITS-EOS - Standby Contingency Node
               </span>
             </div>
           </div>

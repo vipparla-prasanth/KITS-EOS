@@ -275,7 +275,7 @@ export function PaymentManagement() {
                 Welcome, {coordSession?.coordinator?.display_name || 'Payment Manager'}
               </div>
               <div className="text-[10px] font-mono text-emerald-700 font-bold">
-                @{coordSession?.coordinator?.username || 'kitseosmanager@123'}
+                @{coordSession?.coordinator?.username === 'kitseosmanager@123' ? 'paymentmanager@eos' : (coordSession?.coordinator?.username || 'paymentmanager@eos')}
               </div>
             </div>
 

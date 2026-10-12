@@ -366,7 +366,8 @@ export function CoordinatorResultDeclaration({
   }
 
   const currentStatus = resultData?.status || 'NOT_SUBMITTED';
-  const isApproved = currentStatus === 'APPROVED' || resultData?.results_published === true;
+  const hasEligible = eligibleCandidates.length > 0 || (resultData?.eligible_count || 0) > 0;
+  const isApproved = (currentStatus === 'APPROVED' || resultData?.results_published === true) && hasEligible;
   const isEdited = (resultData?.result_edit_count || 0) >= 1;
 
   // Podium objects
@@ -1924,16 +1925,16 @@ export function CoordinatorResultDeclaration({
           )}
 
           {/* If No Eligible Candidates Attended */}
-          {eligibleCandidates.length === 0 ? (
+          {!hasEligible ? (
             <div className="bg-white p-12 rounded-3xl border border-gray-200 text-center space-y-3 shadow-2xs">
               <div className="p-3 bg-gray-50 text-gray-400 rounded-2xl inline-block">
                 <Users className="h-8 w-8 mx-auto" />
               </div>
               <h4 className="text-base font-black text-gray-900">
-                No Attended Candidates Yet
+                No eligible participants available
               </h4>
               <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
-                Attendance check-in is strictly required for result eligibility. Once participants or teams check in on-venue, they will automatically appear here as eligible podium candidates.
+                Attendance check-in is strictly required for result eligibility. Once participants or teams register and check in on-venue, they will automatically appear here as eligible podium candidates.
               </p>
             </div>
           ) : (

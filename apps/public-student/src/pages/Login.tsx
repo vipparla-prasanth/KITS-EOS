@@ -17,6 +17,7 @@ import {
 import { DEPARTMENTS, DEFAULT_COLLEGE, CollegeSelect, formatDateTime12h, consumeSessionExpiredNotice } from '@kits-eos/shared';
 
 import { AccountSuspendedScreen } from '../components/AccountSuspendedScreen';
+import { PasswordInput } from '../components/ui/PasswordInput';
 
 /**
  * KITS-EOS Student Authentication Portal
@@ -74,7 +75,7 @@ export function Login() {
     setSignInLoading(true);
 
     try {
-      const result = await signIn(signInEmail.trim(), signInPassword);
+      const result = await signIn(signInEmail.trim(), signInPassword, from);
       if (result.error) throw result.error;
       if (result.deactivated) {
         // Intercepted by deactivated account info
@@ -84,17 +85,35 @@ export function Login() {
         // Intercepted by suspended account info
         return;
       }
+      if (result.incomplete) {
+        navigate('/complete-profile', { replace: true });
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Sign in error:', err);
-      const isRateLimit = err?.status === 429 || 
-        err?.message?.toLowerCase().includes('too many') || 
-        err?.message?.toLowerCase().includes('rate limit');
-      setSignInError(
-        isRateLimit
-          ? 'High traffic from your campus network: Please wait 15–30 seconds and try signing in again.'
-          : (err.message || 'Authentication failed. Please check your email and password.')
-      );
+      const errorMsg = (err?.message || '').toLowerCase();
+      const errorCode = (err?.code || '').toLowerCase();
+
+      const isInvalidCredentials = 
+        errorCode === 'invalid_credentials' ||
+        errorCode === 'invalid_grant' ||
+        errorMsg.includes('invalid login credentials') ||
+        errorMsg.includes('invalid credentials') ||
+        errorMsg.includes('invalid email or password');
+
+      const isRateLimit = 
+        err?.status === 429 || 
+        errorMsg.includes('too many') || 
+        errorMsg.includes('rate limit');
+
+      if (isRateLimit) {
+        setSignInError('High traffic from your campus network: Please wait 15–30 seconds and try signing in again.');
+      } else if (isInvalidCredentials) {
+        setSignInError('Invalid email or password. Please check your credentials and try again.');
+      } else {
+        setSignInError(err.message || 'Authentication failed. Please check your email and password.');
+      }
     } finally {
       setSignInLoading(false);
     }
@@ -160,7 +179,7 @@ export function Login() {
         phone: signUpPhone.trim(),
         privacy_notice_version: '1.0',
         privacy_acknowledged_at: new Date().toISOString(),
-      } as any);
+      } as any, from);
 
       if (err) throw err;
       navigate(from, { replace: true });
@@ -184,6 +203,8 @@ export function Login() {
       <img
         src="/college_logo.png"
         alt="KITS Logo"
+        width={40}
+        height={40}
         className="w-10 h-10 object-contain shrink-0"
       />
       <div>
@@ -276,9 +297,24 @@ export function Login() {
               )}
 
               {signInError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>{signInError}</span>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-kits-red" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-red-800">{signInError}</p>
+                    <p className="text-[11px] text-gray-600">
+                      Don't have an account?{' '}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSignUpMode(true);
+                          setSignInError(null);
+                        }}
+                        className="font-bold text-kits-red hover:underline cursor-pointer"
+                      >
+                        Create one
+                      </button>
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -302,15 +338,22 @@ export function Login() {
                   <label className="block uppercase text-[10px] font-extrabold tracking-wider text-gray-500 mb-1">
                     Password <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     required
-                    autoComplete="off"
+                    autoComplete="current-password"
                     placeholder="Please enter your password here"
                     value={signInPassword}
                     onChange={(e) => setSignInPassword(e.target.value)}
                     className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs text-gray-900 focus:ring-1 focus:ring-kits-red focus:border-kits-red"
                   />
+                  <div className="flex justify-end pt-1.5">
+                    <Link
+                      to="/forgot-password"
+                      className="text-[11px] font-semibold text-kits-red hover:text-red-700 hover:underline transition focus:outline-none focus:ring-1 focus:ring-kits-red rounded"
+                    >
+                      Forgot Password?
+                    </Link>
+                  </div>
                 </div>
 
                 <button
@@ -489,8 +532,7 @@ export function Login() {
                   <label className="block uppercase text-[10px] font-extrabold tracking-wider text-gray-500 mb-0.5">
                     Password <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     required
                     autoComplete="new-password"
                     placeholder="Please enter your password here"
@@ -606,9 +648,24 @@ export function Login() {
               )}
 
               {signInError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-kits-red" />
-                  <span>{signInError}</span>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-red-800">{signInError}</p>
+                    <p className="text-[11px] text-gray-600">
+                      Don't have an account?{' '}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSignUpMode(true);
+                          setSignInError(null);
+                        }}
+                        className="font-bold text-kits-red hover:underline cursor-pointer"
+                      >
+                        Create one
+                      </button>
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -632,15 +689,22 @@ export function Login() {
                   <label className="block uppercase text-[10px] font-extrabold tracking-wider text-gray-500 mb-1">
                     Password <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     required
-                    autoComplete="off"
+                    autoComplete="current-password"
                     placeholder="Please enter your password here"
                     value={signInPassword}
                     onChange={(e) => setSignInPassword(e.target.value)}
                     className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs text-gray-900 focus:ring-1 focus:ring-kits-red focus:border-kits-red"
                   />
+                  <div className="flex justify-end pt-1.5">
+                    <Link
+                      to="/forgot-password"
+                      className="text-[11px] font-semibold text-kits-red hover:text-red-700 hover:underline transition focus:outline-none focus:ring-1 focus:ring-kits-red rounded"
+                    >
+                      Forgot Password?
+                    </Link>
+                  </div>
                 </div>
 
                 <button
@@ -821,8 +885,7 @@ export function Login() {
                     <label className="block uppercase text-[10px] font-extrabold tracking-wider text-gray-500 mb-0.5">
                       Password <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="password"
+                    <PasswordInput
                       required
                       autoComplete="new-password"
                       placeholder="Please enter your password here"

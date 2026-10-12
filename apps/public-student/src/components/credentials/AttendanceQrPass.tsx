@@ -109,12 +109,14 @@ export function AttendanceQrPass(props: QrPassProps) {
           <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 block">
             Manual Verification Token
           </span>
-          <div className="flex items-center justify-center gap-2 p-2.5 bg-slate-900 text-white rounded-xl font-mono text-xs sm:text-sm font-black tracking-wider">
-            <span className="break-all">{manualToken}</span>
+          <div className="flex items-center justify-between gap-2 p-2 sm:p-2.5 bg-slate-900 text-white rounded-xl font-mono text-xs sm:text-sm font-black">
+            <span className="flex-1 min-w-0 font-mono text-xs sm:text-sm font-black tracking-tight sm:tracking-normal select-all break-all [overflow-wrap:anywhere] [word-break:break-word] leading-snug text-center">
+              {manualToken}
+            </span>
             <button
               type="button"
               onClick={handleCopyToken}
-              className="p-1 hover:bg-white/20 rounded-md transition cursor-pointer text-gray-300 hover:text-white shrink-0"
+              className="p-1.5 hover:bg-white/20 rounded-md transition cursor-pointer text-gray-300 hover:text-white shrink-0 self-center"
               title="Copy Token"
             >
               {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}

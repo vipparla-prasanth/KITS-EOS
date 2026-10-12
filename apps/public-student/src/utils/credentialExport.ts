@@ -130,75 +130,53 @@ export async function downloadCertificateAsPdf(options: CertificateRenderOptions
     return;
   }
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Certificate - ${options.certificateCode}</title>
-        <style>
-          @page {
-            size: A4 landscape;
-            margin: 0;
-          }
-          *, *::before, *::after {
-            box-sizing: border-box;
-          }
-          html, body {
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #ffffff;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .cert-print-img {
-            width: 100vw;
-            height: 100vh;
-            object-fit: contain;
-            display: block;
-          }
-          @media print {
-            html, body {
-              width: 100%;
-              height: 100%;
-            }
-            .cert-print-img {
-              width: 100%;
-              height: 100%;
-              page-break-after: avoid;
-              page-break-inside: avoid;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <img src="${canvasPngDataUrl}" class="cert-print-img" alt="Certificate - ${options.certificateCode}" />
-        <script>
-          function printWhenReady() {
-            setTimeout(function() {
-              window.print();
-              window.close();
-            }, 300);
-          }
-          if (document.images[0] && document.images[0].complete) {
-            printWhenReady();
-          } else if (document.images[0]) {
-            document.images[0].onload = printWhenReady;
-          } else {
-            window.addEventListener('load', printWhenReady);
-          }
-        </script>
-      </body>
-    </html>
-  `;
+  printWindow.document.title = `Certificate - ${options.certificateCode}`;
 
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
+  const style = printWindow.document.createElement('style');
+  style.textContent = `
+    @page { size: A4 landscape; margin: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 100vw; height: 100vh;
+      background: #ffffff; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .cert-print-img {
+      width: 100vw; height: 100vh; object-fit: contain; display: block;
+    }
+    @media print {
+      html, body { width: 100%; height: 100%; }
+      .cert-print-img {
+        width: 100%; height: 100%;
+        page-break-after: avoid; page-break-inside: avoid;
+      }
+    }
+  `;
+  printWindow.document.head.appendChild(style);
+
+  const img = printWindow.document.createElement('img');
+  img.src = canvasPngDataUrl;
+  img.className = 'cert-print-img';
+  img.alt = `Certificate - ${options.certificateCode}`;
+
+  const printWhenReady = () => {
+    setTimeout(() => {
+      try {
+        printWindow.print();
+        printWindow.close();
+      } catch {}
+    }, 300);
+  };
+
+  if (img.complete) {
+    printWhenReady();
+  } else {
+    img.onload = printWhenReady;
+    img.onerror = printWhenReady;
+  }
+
+  printWindow.document.body.appendChild(img);
 }
 

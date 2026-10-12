@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { supabase } from '@kits-eos/shared/src/api/client';
+import { supabase, invokeAdminEdgeFunction } from '@kits-eos/shared/src/api/client';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { LoadingState } from '../../components/ui/LoadingState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { ImageUpload } from '../../components/ui/ImageUpload';
 import { DateTimePicker } from '../../components/ui/DateTimePicker';
+import { PasswordInput } from '../../components/ui/PasswordInput';
 import { 
   ArrowLeft, 
   Save, 
@@ -251,28 +252,45 @@ export function EditSubEvent() {
           .select('coordinator_id, coordinators(id, username, display_name, phone_number, coordinator_type)')
           .eq('sub_event_id', subEventId);
 
+        let initialFaculty = {
+          name: '',
+          mobile: '',
+          username: '',
+          password: ''
+        };
+        let initialStudent = {
+          name: '',
+          mobile: '',
+          username: '',
+          password: ''
+        };
+
         if (assignments && assignments.length > 0) {
           for (const item of assignments) {
-            const c: any = item.coordinators;
+            const c: any = Array.isArray(item.coordinators) ? item.coordinators[0] : item.coordinators;
             if (c) {
-              if (c.coordinator_type === 'FACULTY' || !facultyCoordinator.username) {
-                setFacultyCoordinator({
+              const coordType = (c.coordinator_type || '').toUpperCase();
+              if (coordType === 'FACULTY') {
+                initialFaculty = {
                   name: c.display_name || '',
                   mobile: c.phone_number || '',
                   username: c.username || '',
                   password: ''
-                });
-              } else {
-                setStudentCoordinator({
+                };
+              } else if (coordType === 'STUDENT') {
+                initialStudent = {
                   name: c.display_name || '',
                   mobile: c.phone_number || '',
                   username: c.username || '',
                   password: ''
-                });
+                };
               }
             }
           }
         }
+
+        setFacultyCoordinator(initialFaculty);
+        setStudentCoordinator(initialStudent);
       } catch (err: any) {
         console.error('Failed to load sub-event:', err);
         setError('Failed to load sub-event data.');
@@ -352,16 +370,38 @@ export function EditSubEvent() {
         end_time: endTime ? new Date(endTime).toISOString() : null,
         venue: venue.trim() || null,
         status,
-        faculty_coordinator: facultyCoordinator.username.trim() ? facultyCoordinator : null,
-        student_coordinator: studentCoordinator.username.trim() ? studentCoordinator : null,
+        faculty_coordinator: facultyCoordinator.username.trim() ? {
+          name: facultyCoordinator.name.trim(),
+          mobile: facultyCoordinator.mobile.trim(),
+          username: facultyCoordinator.username.trim(),
+          password: facultyCoordinator.password ? facultyCoordinator.password.trim() : ''
+        } : null,
+        student_coordinator: studentCoordinator.username.trim() ? {
+          name: studentCoordinator.name.trim(),
+          mobile: studentCoordinator.mobile.trim(),
+          username: studentCoordinator.username.trim(),
+          password: studentCoordinator.password ? studentCoordinator.password.trim() : ''
+        } : null,
+        facultyCoordinator: facultyCoordinator.username.trim() ? {
+          name: facultyCoordinator.name.trim(),
+          mobile: facultyCoordinator.mobile.trim(),
+          username: facultyCoordinator.username.trim(),
+          password: facultyCoordinator.password ? facultyCoordinator.password.trim() : ''
+        } : null,
+        studentCoordinator: studentCoordinator.username.trim() ? {
+          name: studentCoordinator.name.trim(),
+          mobile: studentCoordinator.mobile.trim(),
+          username: studentCoordinator.username.trim(),
+          password: studentCoordinator.password ? studentCoordinator.password.trim() : ''
+        } : null,
       };
 
-      const { data, error: functionError } = await supabase.functions.invoke('admin-update-sub-event', {
+      const { data, error: functionError } = await invokeAdminEdgeFunction('admin-update-sub-event', {
         body: payload
       });
 
       if (functionError) throw functionError;
-      if (!data?.success) throw new Error(data?.error?.message || 'Failed to update sub-event');
+      if (!data?.success) throw new Error(data?.error?.message || data?.error || 'Failed to update sub-event');
       if (data?.subEvent && data.subEvent.payment_mode !== payload.payment_mode) {
         throw new Error(`Persisted payment mode mismatch: expected "${payload.payment_mode}", but database returned "${data.subEvent.payment_mode}".`);
       }
@@ -994,13 +1034,14 @@ export function EditSubEvent() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-600 uppercase">New Password</label>
-                    <input
-                      type="password"
+                    <PasswordInput
                       value={facultyCoordinator.password}
                       onChange={(e) => setFacultyCoordinator({ ...facultyCoordinator, password: e.target.value })}
                       placeholder="Leave blank to keep"
+                      autoComplete="new-password"
                       className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 shadow-sm focus:border-kits-red focus:ring-1 focus:ring-kits-red"
                     />
+                    <p className="text-[10px] text-gray-500 mt-1 font-medium">Leave blank to keep existing password</p>
                   </div>
                 </div>
               </div>
@@ -1044,13 +1085,14 @@ export function EditSubEvent() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-600 uppercase">New Password</label>
-                    <input
-                      type="password"
+                    <PasswordInput
                       value={studentCoordinator.password}
                       onChange={(e) => setStudentCoordinator({ ...studentCoordinator, password: e.target.value })}
                       placeholder="Leave blank to keep"
+                      autoComplete="new-password"
                       className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 shadow-sm focus:border-kits-blue focus:ring-1 focus:ring-kits-blue"
                     />
+                    <p className="text-[10px] text-gray-500 mt-1 font-medium">Leave blank to keep existing password</p>
                   </div>
                 </div>
               </div>

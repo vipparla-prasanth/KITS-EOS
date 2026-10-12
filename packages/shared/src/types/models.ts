@@ -197,7 +197,7 @@ export interface Certificate {
   team_member_id: string;
   sub_event_id: string;
   type: 'WINNER' | 'RUNNER' | 'THIRD_PLACE' | 'PARTICIPANT';
-  status: 'LOCKED' | 'UNLOCKED';
+  status: 'LOCKED' | 'UNLOCKED' | 'REVOKED';
   student_corrections_used: number;
   storage_path: string | null;
   certificate_code?: string;
@@ -282,10 +282,12 @@ export interface StudentProfile {
   roll_number: string;
   college: string;
   department: string;
+  branch?: string | null;
   other_department?: string | null;
   year_of_study: number;
   phone: string;
   name_change_used?: boolean;
+  admin_edit_count?: number;
   privacy_notice_version?: string | null;
   privacy_acknowledged_at?: string | null;
   account_status?: 'ACTIVE' | 'SUSPENDED';

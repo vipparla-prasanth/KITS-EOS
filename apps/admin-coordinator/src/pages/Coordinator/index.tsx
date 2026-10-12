@@ -35,7 +35,8 @@ import {
   CheckSquare,
   Square,
   Trophy,
-  Check
+  Check,
+  Lock
 } from 'lucide-react';
 import { CoordinatorResultDeclaration } from '../../components/coordinator/CoordinatorResultDeclaration';
 import type { Coordinator, CoordinatorAssignment } from '@kits-eos/shared/src/types/models';
@@ -43,8 +44,14 @@ import {
   exportToExcel, 
   sortParticipantsCollegeAndAlphabetical, 
   REGISTRATION_ROSTER_HEADERS,
+  COORDINATOR_OVERALL_REPORT_HEADERS,
   getRegistrationExportFilename 
 } from '@kits-eos/shared/src/utils/export';
+import type { ExcelExportSection } from '@kits-eos/shared/src/utils/export';
+import { 
+  resolveEffectiveEventStatus, 
+  resolveEffectiveSubEventStatus 
+} from '@kits-eos/shared/src/utils/eventLifecycle';
 import { AttendanceVerificationHub } from '../../components/ui/AttendanceVerificationHub';
 import { LogoutConfirmationModal } from '../../components/ui/LogoutConfirmationModal';
 import { DigitalIdCardModal } from '../../components/credentials/DigitalIdCardModal';
@@ -54,6 +61,8 @@ import { ScopedAnalyticsView } from '../../components/analytics/ScopedAnalyticsV
 interface GroupedEvent {
   id: string;
   name: string;
+  event?: any;
+  effectiveStatus: string;
   assignments: CoordinatorAssignment[];
 }
 
@@ -187,6 +196,25 @@ export function CoordinatorPortal() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [deleteModalStep, isDeletingDocs]);
 
+  // Effective sub-event status strictly respecting parent Main Event authority
+  // If parent Main Event is COMPLETED, all sub-events inside are strictly COMPLETED.
+  const getSubEventEffectiveStatus = (sub: any, parentEvent?: any): string => {
+    const pEv = parentEvent || currentEvent?.event || sub?.events || sub?.categories?.events;
+    const pEffective = currentEvent?.effectiveStatus || (pEv ? (pEv.effective_status || resolveEffectiveEventStatus(pEv, Date.now())) : null);
+    if (
+      pEffective === 'COMPLETED' ||
+      pEv?.manual_status === 'COMPLETED' ||
+      pEv?.effective_status === 'COMPLETED' ||
+      (pEv?.status as any) === 'COMPLETED'
+    ) {
+      return 'COMPLETED';
+    }
+    if (sub?.effective_status) {
+      return sub.effective_status;
+    }
+    return resolveEffectiveSubEventStatus(sub, pEv, Date.now());
+  };
+
   const groupAndSetEvents = (activeAssignments: CoordinatorAssignment[]) => {
     const eventMap = new Map<string, GroupedEvent>();
 
@@ -196,10 +224,25 @@ export function CoordinatorPortal() {
       const evId = ev?.id || sub?.event_id || 'DEFAULT_EVENT';
       const evName = (ev?.name || 'INSTITUTIONAL EVENT').toUpperCase();
 
+      // Authoritative Main Event Status Determination
+      // Priority: DB effective_status -> resolveEffectiveEventStatus -> manual_status
+      let effectiveStatus = 'UPCOMING';
+      if (ev) {
+        if (ev.effective_status) {
+          effectiveStatus = ev.effective_status;
+        } else if (ev.manual_status === 'COMPLETED' || (ev.status as any) === 'COMPLETED') {
+          effectiveStatus = 'COMPLETED';
+        } else {
+          effectiveStatus = resolveEffectiveEventStatus(ev, Date.now());
+        }
+      }
+
       if (!eventMap.has(evId)) {
         eventMap.set(evId, {
           id: evId,
           name: evName,
+          event: ev,
+          effectiveStatus,
           assignments: []
         });
       }
@@ -491,6 +534,10 @@ export function CoordinatorPortal() {
   };
 
   const handleOpenBulkApprovalModal = () => {
+    if (currentEvent?.effectiveStatus === 'COMPLETED') {
+      alert('Cannot approve payments: The parent Main Event has been concluded (COMPLETED) by Administrator.');
+      return;
+    }
     if (selectedPaymentIds.size === 0) return;
     setPaymentApprovalModal({
       isOpen: true,
@@ -501,6 +548,10 @@ export function CoordinatorPortal() {
   };
 
   const handleOpenSingleApprovalModal = (p: any) => {
+    if (currentEvent?.effectiveStatus === 'COMPLETED') {
+      alert('Cannot approve payments: The parent Main Event has been concluded (COMPLETED) by Administrator.');
+      return;
+    }
     if (!p.paymentId) return;
     setPaymentApprovalModal({
       isOpen: true,
@@ -655,7 +706,7 @@ export function CoordinatorPortal() {
         isAttended: isMemberAttended,
         attendanceTime: m.attendance_record?.check_in_time || null,
         verificationMethod: m.attendance_record?.verification_method || (isMemberAttended ? 'VERIFIED' : '—'),
-        regStatus: reg.status,
+        regStatus: currentEvent?.effectiveStatus === 'COMPLETED' || currentEvent?.event?.manual_status === 'COMPLETED' ? 'COMPLETED' : reg.status,
         paymentMethod: regPayment?.payment_method || 'ONLINE',
         paymentStatus: regPayment?.status || (reg.status === 'CONFIRMED' ? 'SUCCESS' : 'PENDING'),
         paymentAmount: regPayment?.amount !== undefined ? regPayment.amount : 0,
@@ -799,6 +850,16 @@ export function CoordinatorPortal() {
         const team = reg.teams?.[0] || reg.teams;
         const members = team?.team_members || [];
         const regPay = (reg.payments && reg.payments.length > 0) ? reg.payments[0] : (reg.payment || null);
+
+        // Authoritative parent Main Event status precedence
+        const parentEvStatus = reg.sub_event?.event_effective_status;
+        const isParentCompleted =
+          parentEvStatus === 'COMPLETED' ||
+          currentEvent?.effectiveStatus === 'COMPLETED' ||
+          currentEvent?.event?.manual_status === 'COMPLETED';
+        const effectiveRegStatus = isParentCompleted ? 'COMPLETED' : (reg.status || 'CONFIRMED');
+        const isPaid = regPay?.status === 'SUCCESS' || reg.status === 'CONFIRMED';
+
         members.forEach((m: any) => {
           rows.push({
             memberId: m.id,
@@ -819,9 +880,10 @@ export function CoordinatorPortal() {
             isAttended: Boolean(m.is_attended),
             attendanceTime: m.attendance_record?.check_in_time || null,
             verificationMethod: m.attendance_record?.verification_method || (m.is_attended ? 'VERIFIED' : '—'),
-            regStatus: reg.status,
+            regStatus: effectiveRegStatus,
             paymentMethod: regPay?.payment_method || 'ONLINE',
-            paymentStatus: regPay?.status || (reg.status === 'CONFIRMED' ? 'SUCCESS' : 'PENDING'),
+            paymentStatus: isPaid ? 'PAID' : 'UNPAID',
+            rawPaymentStatus: regPay?.status || (reg.status === 'CONFIRMED' ? 'SUCCESS' : 'PENDING'),
             paymentAmount: regPay?.amount !== undefined ? regPay.amount : 0,
             referenceId: regPay?.reference_id || '—',
             documentCount: reg.document_count || 0,
@@ -829,6 +891,7 @@ export function CoordinatorPortal() {
             categoryName: reg.sub_event?.category_name || '—',
             subEventName: reg.sub_event?.name || currentSubEvent?.name || '—',
             participationType: reg.sub_event?.participation_type || currentSubEvent?.participation_type || 'SOLO',
+            subEventEffectiveStatus: isParentCompleted ? 'COMPLETED' : reg.sub_event?.effective_status,
           });
         });
       });
@@ -839,61 +902,97 @@ export function CoordinatorPortal() {
     }
   };
 
-  const handleExportEventExcel = async (eventGroup: GroupedEvent) => {
+  /**
+   * Coordinator Operational Overall Participant List Download
+   * Exports focused 8-column table grouped by Sub-Event section headings:
+   * 1. S.No | 2. Name | 3. Roll Number | 4. Year | 5. Department | 6. Sub-Event | 7. Payment Status | 8. Status
+   * Pure live database data, strict institutional styling, visually clear PAID/UNPAID distinction.
+   */
+  const handleDownloadOverallList = async (targetEvent?: GroupedEvent) => {
     setExportMessage(null);
     try {
-      const allRows: any[] = [];
-      for (const assignment of eventGroup.assignments) {
-        const subRows = await fetchRosterForSubEvent(assignment.sub_event_id);
-        allRows.push(...subRows);
+      const activeAssignments = targetEvent ? targetEvent.assignments : assignments;
+      if (activeAssignments.length === 0) {
+        setExportMessage({
+          type: 'error',
+          text: 'No assigned sub-events available to export.',
+        });
+        return;
       }
-      const filename = getRegistrationExportFilename({
-        scopePrefix: 'KITS-EOS',
-        eventName: eventGroup.name,
-        attendanceFilter: 'ALL',
-      });
-      await exportParticipantList(
-        allRows,
-        `${eventGroup.name} — Full Event Roster`,
+
+      const sections: ExcelExportSection[] = [];
+      let totalParticipantCount = 0;
+
+      for (const assignment of activeAssignments) {
+        const sub = assignment.sub_events;
+        const subName = (sub?.name || 'Assigned Sub-Event').toUpperCase();
+        const rosterRows = await fetchRosterForSubEvent(assignment.sub_event_id);
+
+        // Sort participants alphabetically
+        rosterRows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        // Focused operational participant columns (No sensitive internal credentials, IDs, or audit info)
+        const sectionRows = rosterRows.map((p, idx) => [
+          idx + 1,
+          p.name || '—',
+          p.rollNumber || '—',
+          p.year ? `Year ${p.year}` : '—',
+          p.dept || '—',
+          p.subEventName || subName,
+          p.paymentStatus || 'UNPAID',
+          p.regStatus || 'CONFIRMED',
+        ]);
+
+        totalParticipantCount += sectionRows.length;
+
+        sections.push({
+          title: subName,
+          subtitle: `Sub-Event: ${subName} | Department: ${(sub as any)?.department || 'All'} | Participants: ${sectionRows.length}`,
+          rows: sectionRows,
+        });
+      }
+
+      if (totalParticipantCount === 0) {
+        setExportMessage({
+          type: 'error',
+          text: 'No participants registered in the assigned sub-event(s) yet.',
+        });
+        return;
+      }
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const scopeName = targetEvent ? targetEvent.name.replace(/[^a-zA-Z0-9_-]/g, '_') : 'All_Assigned';
+      const filename = `KITS_EOS_${scopeName}_Overall_Participants_${dateStr}.xlsx`;
+
+      await exportToExcel({
         filename,
-        `Coordinator: ${coordinatorName} | Sub-events: ${eventGroup.assignments.length} | Total Records: ${allRows.length} (College-wise & Alphabetical)`
-      );
+        title: targetEvent
+          ? `${targetEvent.name} — Operational Participant List`
+          : 'Coordinator Assigned Sub-Events — Overall Participant List',
+        subtitle: `Coordinator: ${coordinatorName} | Sub-Events: ${sections.length} | Total Participants: ${totalParticipantCount} | Generated: ${new Date().toLocaleDateString('en-IN')}`,
+        headers: COORDINATOR_OVERALL_REPORT_HEADERS,
+        sections,
+      });
+
+      setExportMessage({
+        type: 'success',
+        text: `Successfully exported ${totalParticipantCount} participant(s) across ${sections.length} sub-event(s) to ${filename}`,
+      });
     } catch (err: any) {
-      console.error('Export event roster error:', err);
+      console.error('Download overall list error:', err);
       setExportMessage({
         type: 'error',
-        text: 'Failed to generate Event Excel export: ' + (err.message || 'Unknown error')
+        text: 'Failed to download overall participant list: ' + (err.message || 'Unknown error'),
       });
-      throw err;
     }
   };
 
+  const handleExportEventExcel = async (eventGroup: GroupedEvent) => {
+    await handleDownloadOverallList(eventGroup);
+  };
+
   const handleExportAllExcel = async () => {
-    setExportMessage(null);
-    try {
-      const allRows: any[] = [];
-      for (const assignment of assignments) {
-        const subRows = await fetchRosterForSubEvent(assignment.sub_event_id);
-        allRows.push(...subRows);
-      }
-      const filename = getRegistrationExportFilename({
-        scopePrefix: 'KITS-EOS-Coordinator',
-        attendanceFilter: 'ALL',
-      });
-      await exportParticipantList(
-        allRows,
-        'Authorized Assigned Sub-Events — Complete Roster',
-        filename,
-        `Coordinator: ${coordinatorName} | Assigned Sub-events: ${assignments.length} | Total Records: ${allRows.length} (College-wise & Alphabetical)`
-      );
-    } catch (err: any) {
-      console.error('Export all roster error:', err);
-      setExportMessage({
-        type: 'error',
-        text: 'Failed to generate full Excel export: ' + (err.message || 'Unknown error')
-      });
-      throw err;
-    }
+    await handleDownloadOverallList();
   };
 
   // Authorized Sub-event Payments Mapping (Solo & Team handled consistently)
@@ -912,7 +1011,7 @@ export function CoordinatorPortal() {
       return {
         registrationId: r.id,
         regCreatedAt: r.created_at,
-        regStatus: r.status,
+        regStatus: currentEvent?.effectiveStatus === 'COMPLETED' ? 'COMPLETED' : r.status,
         paymentId: p?.id || null,
         amount: fee,
         status: p?.status || (r.status === 'CONFIRMED' ? 'SUCCESS' : 'PENDING'),
@@ -1147,6 +1246,20 @@ export function CoordinatorPortal() {
               <BarChart3 className="h-3.5 w-3.5 text-amber-400" />
               <span>Scope Analytics</span>
             </button>
+
+            {assignments.length > 0 && (
+              <DownloadButton
+                onDownload={() => handleDownloadOverallList(currentEvent || undefined)}
+                label="Download Overall List"
+                preparingLabel="Preparing List..."
+                downloadingLabel="Generating Excel..."
+                completedLabel="Downloaded"
+                variant="success"
+                size="sm"
+                className="flex-shrink-0"
+                title="Download simple operational participant list for assigned sub-events"
+              />
+            )}
           </div>
         </div>
 
@@ -1172,14 +1285,14 @@ export function CoordinatorPortal() {
                 {groupedEvents.length > 0 && (
                   <DownloadButton
                     onDownload={handleExportAllExcel}
-                    label="Export All Assigned (.xlsx)"
-                    preparingLabel="Preparing Roster..."
+                    label="Download Overall List"
+                    preparingLabel="Preparing List..."
                     downloadingLabel="Generating Excel..."
-                    completedLabel="Exported"
+                    completedLabel="Downloaded"
                     variant="success"
                     size="sm"
                     className="self-start sm:self-auto"
-                    title="Export complete participant list across all assigned sub-events"
+                    title="Download simple operational participant list (Excel) for all assigned sub-events"
                   />
                 )}
               </div>
@@ -1238,8 +1351,17 @@ export function CoordinatorPortal() {
                     className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs hover:border-kits-blue hover:shadow-xs transition space-y-4 flex flex-col justify-between"
                   >
                     <div className="space-y-2">
-                      <div className="p-3 bg-red-50 text-kits-red rounded-xl w-fit border border-red-100">
-                        <Calendar className="h-5 w-5" />
+                      <div className="flex items-center justify-between">
+                        <div className="p-3 bg-red-50 text-kits-red rounded-xl w-fit border border-red-100">
+                          <Calendar className="h-5 w-5" />
+                        </div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          ev.effectiveStatus === 'COMPLETED' ? 'bg-indigo-100 text-indigo-900 border border-indigo-200' :
+                          ev.effectiveStatus === 'LIVE' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' :
+                          'bg-blue-100 text-blue-900 border border-blue-200'
+                        }`}>
+                          {ev.effectiveStatus}
+                        </span>
                       </div>
                       <h3 className="text-lg font-black text-gray-900 tracking-tight">
                         {ev.name}
@@ -1300,27 +1422,40 @@ export function CoordinatorPortal() {
                   <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
                     <span>Welcome, <strong className="text-gray-900">{coordinatorName}</strong></span>
                   </div>
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
                     <span className="text-xs font-black uppercase text-kits-red">Selected Event:</span>
                     <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
                       {currentEvent.name}
                     </h2>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      currentEvent.effectiveStatus === 'COMPLETED' ? 'bg-indigo-100 text-indigo-900 border border-indigo-200' :
+                      currentEvent.effectiveStatus === 'LIVE' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' :
+                      'bg-blue-100 text-blue-900 border border-blue-200'
+                    }`}>
+                      {currentEvent.effectiveStatus}
+                    </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Select one of your assigned sub-events below to perform participant check-ins and review attendance.
                   </p>
+                  {currentEvent.effectiveStatus === 'COMPLETED' && (
+                    <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2 text-xs font-bold text-indigo-900 mt-2">
+                      <AlertCircle className="h-4 w-4 text-indigo-600 flex-shrink-0" />
+                      <span>Event Concluded: This Main Event is marked COMPLETED by Administrator. All sub-events and operations under this event are in COMPLETED status.</span>
+                    </div>
+                  )}
                 </div>
                 {currentEvent.assignments.length > 0 && (
                   <DownloadButton
                     onDownload={() => handleExportEventExcel(currentEvent)}
-                    label="Export Event Roster (.xlsx)"
-                    preparingLabel="Preparing Roster..."
+                    label="Download Overall List"
+                    preparingLabel="Preparing List..."
                     downloadingLabel="Generating Excel..."
-                    completedLabel="Exported"
+                    completedLabel="Downloaded"
                     variant="success"
                     size="sm"
                     className="self-start sm:self-auto"
-                    title="Export participants for all assigned sub-events in this event"
+                    title={`Download simple operational participant list for ${currentEvent.name}`}
                   />
                 )}
               </div>
@@ -1336,6 +1471,7 @@ export function CoordinatorPortal() {
                 {currentEvent.assignments.map((a) => {
                   const sub = a.sub_events;
                   const isTeam = sub?.participation_type === 'TEAM';
+                  const subEffectiveStatus = getSubEventEffectiveStatus(sub, currentEvent.event);
 
                   return (
                     <div
@@ -1344,12 +1480,21 @@ export function CoordinatorPortal() {
                     >
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                            isTeam ? 'bg-blue-50 text-kits-blue border border-blue-200' : 'bg-gray-100 text-gray-700 border border-gray-200'
-                          }`}>
-                            {isTeam ? <Users className="h-3 w-3" /> : null}
-                            {sub?.participation_type || 'SOLO'}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                              isTeam ? 'bg-blue-50 text-kits-blue border border-blue-200' : 'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}>
+                              {isTeam ? <Users className="h-3 w-3" /> : null}
+                              {sub?.participation_type || 'SOLO'}
+                            </span>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              subEffectiveStatus === 'COMPLETED' ? 'bg-indigo-100 text-indigo-900 border border-indigo-200' :
+                              subEffectiveStatus === 'LIVE' ? 'bg-emerald-100 text-emerald-900 border border-emerald-200' :
+                              'bg-blue-100 text-blue-900 border border-blue-200'
+                            }`}>
+                              {subEffectiveStatus}
+                            </span>
+                          </div>
                           <span className="text-[10px] font-mono font-bold text-gray-400">
                             Assigned Coordinator
                           </span>
@@ -1414,20 +1559,44 @@ export function CoordinatorPortal() {
 
             {/* Scope Details Banner */}
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-2xs space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs border-b border-gray-100 pb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs border-b border-gray-100 pb-3">
                 <div>
                   <span className="text-gray-400 block text-[10px] font-bold uppercase">Event</span>
-                  <span className="font-black text-gray-900">{currentEvent.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-gray-900">{currentEvent.name}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                      currentEvent.effectiveStatus === 'COMPLETED' ? 'bg-indigo-100 text-indigo-900' : 'bg-emerald-100 text-emerald-900'
+                    }`}>
+                      {currentEvent.effectiveStatus}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <span className="text-gray-400 block text-[10px] font-bold uppercase">Sub-Event</span>
-                  <span className="font-black text-kits-red">{currentSubEvent.name?.toUpperCase()}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-kits-red">{currentSubEvent.name?.toUpperCase()}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                      getSubEventEffectiveStatus(currentSubEvent, currentEvent.event) === 'COMPLETED' ? 'bg-indigo-100 text-indigo-900' : 'bg-emerald-100 text-emerald-900'
+                    }`}>
+                      {getSubEventEffectiveStatus(currentSubEvent, currentEvent.event)}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <span className="text-gray-400 block text-[10px] font-bold uppercase">Coordinator</span>
                   <span className="font-bold text-gray-900">Welcome, {coordinatorName}</span>
                 </div>
+                <div>
+                  <span className="text-gray-400 block text-[10px] font-bold uppercase">Status Authority</span>
+                  <span className="font-mono text-[11px] font-bold text-gray-600">Admin-Controlled</span>
+                </div>
               </div>
+              {currentEvent.effectiveStatus === 'COMPLETED' && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2 text-xs font-bold text-indigo-900 mt-2">
+                  <AlertCircle className="h-4 w-4 text-indigo-600 flex-shrink-0" />
+                  <span>This Main Event has been concluded (COMPLETED) by Administrator. Operations are in archived/read-only mode.</span>
+                </div>
+              )}
             </div>
 
             {/* Tab Navigation for Sub-Event Operations */}
@@ -1817,6 +1986,13 @@ export function CoordinatorPortal() {
                   </div>
                 )}
 
+                {currentEvent.effectiveStatus === 'COMPLETED' && (
+                  <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2 text-xs font-bold text-indigo-900">
+                    <AlertCircle className="h-4 w-4 text-indigo-600 flex-shrink-0" />
+                    <span>Payment Verification Locked: The parent Main Event is COMPLETED. Offline payments cannot be modified after event completion.</span>
+                  </div>
+                )}
+
                 {/* Scope Header Card */}
                 <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
@@ -1933,7 +2109,13 @@ export function CoordinatorPortal() {
                       <button
                         type="button"
                         onClick={handleOpenBulkApprovalModal}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider transition shadow-md cursor-pointer"
+                        disabled={currentEvent.effectiveStatus === 'COMPLETED'}
+                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-xs font-black uppercase tracking-wider transition shadow-md ${
+                          currentEvent.effectiveStatus === 'COMPLETED'
+                            ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                            : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                        }`}
+                        title={currentEvent.effectiveStatus === 'COMPLETED' ? 'Event is completed' : undefined}
                       >
                         <CheckCheck className="h-4 w-4" />
                         <span>APPROVE PAYMENTS ({selectedPaymentIds.size})</span>
@@ -2139,7 +2321,11 @@ export function CoordinatorPortal() {
                                 </td>
 
                                 <td className="px-4 py-3.5 text-right">
-                                  {p.isPending && p.paymentId ? (
+                                  {currentEvent.effectiveStatus === 'COMPLETED' ? (
+                                    <span className="text-xs font-bold text-gray-400 inline-flex items-center gap-1">
+                                      <Lock className="h-3.5 w-3.5" /> Event Closed
+                                    </span>
+                                  ) : p.isPending && p.paymentId ? (
                                     <button
                                       type="button"
                                       onClick={() => handleOpenSingleApprovalModal(p)}

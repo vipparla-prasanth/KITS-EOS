@@ -14,7 +14,6 @@ import {
   ResumeDraftModal
 } from '@kits-eos/shared';
 import { useAuth } from '../context/AuthContext';
-import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
 import { 
   Users, 
@@ -385,7 +384,27 @@ export function SubEventRegister() {
   }, [subEvent?.payment_mode, step]);
 
   if (isLoading) {
-    return <LoadingState message="Loading registration form..." />;
+    return (
+      <div className="max-w-3xl mx-auto space-y-6 animate-pulse" aria-busy="true" aria-label="Loading registration form">
+        <div className="h-4 w-32 bg-gray-200 rounded"></div>
+        <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 space-y-6">
+          <div className="space-y-2">
+            <div className="h-4 w-24 bg-gray-200 rounded"></div>
+            <div className="h-7 w-64 bg-gray-300 rounded-lg"></div>
+          </div>
+          <div className="flex gap-2">
+            <div className="h-2 flex-1 bg-gray-200 rounded-full"></div>
+            <div className="h-2 flex-1 bg-gray-100 rounded-full"></div>
+            <div className="h-2 flex-1 bg-gray-100 rounded-full"></div>
+          </div>
+          <div className="space-y-4 pt-4">
+            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
+            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
+            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error || !subEvent || !event) {
@@ -744,6 +763,63 @@ export function SubEventRegister() {
         setSubmitError(null);
         setStep('REVIEW');
       } else {
+        // Prevent false registration failure: Check if registration actually succeeded in database despite network timeout
+        try {
+          if (user?.id && subEvent?.id) {
+            const { data: verifiedReg } = await supabase
+              .from('registrations')
+              .select(`
+                id,
+                status,
+                created_at,
+                teams (
+                  id,
+                  team_name,
+                  team_members (*)
+                ),
+                payments (*)
+              `)
+              .eq('sub_event_id', subEvent.id)
+              .eq('leader_id', user.id)
+              .neq('status', 'CANCELLED')
+              .maybeSingle();
+
+            if (verifiedReg) {
+              console.log('[SubEventRegister] Registration verified in DB despite network timeout:', verifiedReg.id);
+              const p = Array.isArray(verifiedReg.payments) ? verifiedReg.payments[0] : verifiedReg.payments;
+              const t = Array.isArray(verifiedReg.teams) ? verifiedReg.teams[0] : verifiedReg.teams;
+              const authoritativeStatus = verifiedReg.status;
+              setRegistrationResult({
+                success: true,
+                registration_id: verifiedReg.id,
+                team_id: t?.id,
+                status: authoritativeStatus,
+                registration_status: authoritativeStatus,
+                is_free: isFreeEvent,
+                payment: p || null,
+                members: t?.team_members || [],
+                registration: {
+                  id: verifiedReg.id,
+                  status: authoritativeStatus,
+                  created_at: verifiedReg.created_at,
+                  payment: p || null,
+                  team: {
+                    id: t?.id,
+                    team_name: t?.team_name,
+                    members: t?.team_members || [],
+                  },
+                },
+              });
+              setStep('CONFIRMED');
+              await discardDraft();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              return;
+            }
+          }
+        } catch (verifyErr) {
+          console.warn('[SubEventRegister] Verification check notice:', verifyErr);
+        }
+
         setSubmitError(msg);
         setStep('DETAILS');
       }
@@ -1715,7 +1791,7 @@ export function SubEventRegister() {
                     : 'Submitting Registration & Demo Payment...'}
             </h3>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Synchronizing authoritative registration and payment records with live Supabase database...
+              Synchronizing authoritative registration and payment records with central database...
             </p>
           </div>
         </div>

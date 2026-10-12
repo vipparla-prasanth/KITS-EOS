@@ -75,6 +75,7 @@ export async function invokeAdminEdgeFunction<T = any>(
   // Step 8: Retry behavior on transient 401
   const is401 = res.error && (
     (res.error as any).status === 401 ||
+    (res.error as any).context?.status === 401 ||
     res.error.message?.includes('401') ||
     res.error.message?.includes('Authentication required')
   );
@@ -91,6 +92,18 @@ export async function invokeAdminEdgeFunction<T = any>(
         ...options,
         headers: retryHeaders,
       });
+    }
+  }
+
+  // Extract human-readable error message from response body if Edge Function returned non-2xx
+  if (res.error && (res.error as any).context && typeof (res.error as any).context.json === 'function') {
+    try {
+      const errBody = await (res.error as any).context.clone().json();
+      if (errBody?.error || errBody?.message) {
+        res.error.message = errBody.error || errBody.message;
+      }
+    } catch {
+      // Body is not JSON or already consumed; maintain existing error message
     }
   }
 

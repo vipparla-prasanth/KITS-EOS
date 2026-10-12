@@ -188,8 +188,8 @@ export function AboutKeos() {
               },
               {
                 icon: Lock,
-                title: 'Transparency & RLS',
-                desc: 'Strict Row Level Security ensures students access only their data while coordinators access assigned events.',
+                title: 'Data Access Controls',
+                desc: 'Strict server-side access controls ensure students access only their data while coordinators access assigned events.',
               },
               {
                 icon: QrCode,
@@ -199,7 +199,7 @@ export function AboutKeos() {
               {
                 icon: Award,
                 title: 'Certificate Authenticity',
-                desc: 'Public verification RPC allows any third party to confirm certificate legitimacy in real time.',
+                desc: 'Public verification portal allows any third party to confirm certificate legitimacy in real time.',
               },
               {
                 icon: Users,

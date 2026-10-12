@@ -20,6 +20,16 @@ html {
   scroll-behavior: auto;
 }
 
+/* Metric-compatible fallback font declaration to eliminate FOUT layout shift */
+@font-face {
+  font-family: 'PlusJakartaSans-Fallback';
+  src: local('Segoe UI'), local('Roboto'), local('Helvetica Neue'), local('Arial');
+  ascent-override: 96%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background-color: #F8FAFC;
@@ -28,7 +38,7 @@ body {
     radial-gradient(circle at 85% 85%, rgba(0, 51, 102, 0.04) 0%, transparent 40%);
   background-attachment: fixed;
   color: #0F172A;
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'PlusJakartaSans-Fallback', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

@@ -2,22 +2,23 @@ import { Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
   FileText, 
-  ArrowLeft,
-  Lock,
-  Cookie,
-  Mail,
-  Phone,
-  MapPin,
-  Globe,
-  Award,
-  CreditCard,
-  UserCheck,
-  UserX,
-  ShieldAlert,
-  HardDrive,
-  Users,
-  CheckCircle2,
-  Server
+  ArrowLeft, 
+  Lock, 
+  Cookie, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Globe, 
+  Award, 
+  CreditCard, 
+  UserCheck, 
+  UserX, 
+  ShieldAlert, 
+  HardDrive, 
+  Users, 
+  CheckCircle2, 
+  Server,
+  MessageSquare
 } from 'lucide-react';
 import { openCookiePreferencesModal } from '@kits-eos/shared';
 
@@ -62,10 +63,10 @@ export function PrivacyPolicy() {
           <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100 text-xs text-blue-950 space-y-1">
             <div className="font-black flex items-center gap-1.5 text-kits-blue">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span>Institutional Guarantee</span>
+              <span>Institutional Privacy Commitment</span>
             </div>
             <p className="leading-normal">
-              Personal data submitted to KITS-EOS is processed exclusively for institutional event operations, student credentialing, and academic reporting. <strong>KITS-EOS never sells, rents, leases, or monetizes student data, and never shares personal data with third-party advertisers or commercial marketing networks.</strong>
+              Personal data submitted to KITS-EOS is processed exclusively for institutional event operations, student credentialing, and academic reporting. <strong>KITS-EOS does not sell, rent, lease, or monetize student data, and does not share personal data with third-party advertisers or commercial marketing networks.</strong>
             </p>
           </div>
         </section>
@@ -85,10 +86,10 @@ export function PrivacyPolicy() {
             <div className="p-4 rounded-2xl bg-gray-50/80 border border-gray-200/80 space-y-1.5">
               <h3 className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-2">
                 <Users className="h-4 w-4 text-kits-blue" />
-                <span>A. Student & Account Profile Information</span>
+                <span>A. Student Profile & Academic Identity</span>
               </h3>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                When you create or update an account, we process your Full Legal Name, Official College Roll Number, Academic Department, Year of Study (Years 1–4), College / Host Institution Name, registered Email Address, active 10-digit Indian Mobile Number, and account authentication identifiers.
+                When you create or update an account, we process your Full Legal Name, Official College Roll Number, Academic Department, Year of Study (Years 1–4), College / Host Institution Name, registered Email Address, active 10-digit Indian Mobile Number, and authentication identifiers.
               </p>
             </div>
 
@@ -99,7 +100,7 @@ export function PrivacyPolicy() {
                 <span>B. Event Registrations & Team Rosters</span>
               </h3>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                Records of events, competition tracks, and sub-events you register for; participation format (solo vs team); Team Name; Team Leader identity; teammate rosters (names, roll numbers, departments, years, and colleges); and registration timestamps.
+                Records of events, categories, and sub-events you register for; participation format (Solo or Team); Team Name; Team Leader identity; teammate rosters (names, roll numbers, departments, years, colleges, and contact numbers); and registration timestamps.
               </p>
             </div>
 
@@ -107,14 +108,14 @@ export function PrivacyPolicy() {
             <div className="p-4 rounded-2xl bg-gray-50/80 border border-gray-200/80 space-y-1.5">
               <h3 className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-amber-600" />
-                <span>C. Payment & Accounting Records (Demo UPI & Cash-on-Desk)</span>
+                <span>C. Payment Records (UPI & Cash-on-Desk)</span>
               </h3>
               <div className="text-[11px] sm:text-xs text-gray-600 space-y-1.5 leading-normal">
                 <p>
-                  KITS-EOS records the applicable event registration fee amount, payment mode, payment status (<code className="font-mono text-gray-800">PENDING</code>, <code className="font-mono text-emerald-800">COMPLETED</code>), and reconciliation timestamp.
+                  For paid events, KITS-EOS records the applicable fee amount, selected payment mode (UPI or Cash-on-Desk), transaction reference UTR number, uploaded payment proof screenshot, payment status (<code className="font-mono text-gray-800">PENDING</code>, <code className="font-mono text-emerald-800">COMPLETED</code>), and confirmation timestamp.
                 </p>
                 <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-semibold text-[11px]">
-                  DEMO PAYMENT DISCLOSURE: KITS-EOS provides a demonstration UPI workflow clearly marked as <em>"DEMO PAYMENT • NO REAL MONEY WAS CHARGED"</em>. KITS-EOS is NOT a payment gateway or banking institution. KITS-EOS does NOT process real financial transactions through this demo flow and does NOT collect or store debit/credit card numbers, CVVs, bank passwords, or UPI PINs. Manual Cash-on-Desk (COD) payments are recorded directly at designated on-campus payment desks by authorized staff.
+                  PAYMENT INFORMATION NOTICE: KITS-EOS is not a banking institution or payment gateway. KITS-EOS does not collect or store debit/credit card numbers, CVVs, bank account login credentials, or UPI PINs. UPI payments are completed externally by students through their personal UPI applications, and Cash-on-Desk payments are settled in person at on-campus registration desks.
                 </div>
               </div>
             </div>
@@ -126,7 +127,7 @@ export function PrivacyPolicy() {
                 <span>D. Attendance, QR Verification & Check-In Data</span>
               </h3>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                Registration ID, participant identities, dynamic QR pass tokens, 10-digit manual attendance tokens, physical venue check-in timestamps, and coordinator attendance verification marks. This data is processed strictly to confirm physical presence, prevent duplicate admissions, and establish certificate eligibility.
+                Registration ID, participant identities, dynamic QR pass tokens, standardized 10-digit manual tokens, physical venue check-in timestamps, and coordinator attendance verification marks. This data is processed strictly to confirm physical presence, prevent duplicate admissions, and establish certificate eligibility.
               </p>
             </div>
 
@@ -137,7 +138,7 @@ export function PrivacyPolicy() {
                 <span>E. Digital Certificates & Public Credential Records</span>
               </h3>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                System-generated Participation and Achievement (Winner, Runner, Third Place) certificates containing recipient name, roll number, department, academic year, college, event name, competition track, unique Certificate ID (e.g. <code className="font-mono text-gray-800">KITS-EOS-CERT-XXXXXXXXXX</code>), issue date, and institutional signatory names.
+                System-generated Participation and Merit (1st, 2nd, 3rd Place) certificates containing recipient name, roll number, department, academic year, college, event name, competition track, unique Certificate ID (e.g., <code className="font-mono text-gray-800">KITS-EOS-CERT-XXXXXXXXXX</code>), issue date, and institutional signatory names.
               </p>
             </div>
 
@@ -148,7 +149,18 @@ export function PrivacyPolicy() {
                 <span>F. Participant-Uploaded Documents</span>
               </h3>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                Project abstracts, presentation slides (PPT/PDF), and verification files submitted for specialized technical competitions. Documents are stored in access-controlled private storage and made available solely to assigned competition evaluators and coordinators.
+                Project abstracts, presentation slides (PPT/PDF up to 20MB), and documentation submitted for specialized technical competitions. Documents are stored in access-controlled private cloud storage and made available solely to assigned competition evaluators and coordinators.
+              </p>
+            </div>
+
+            {/* 2.7 Feedback & Grievances */}
+            <div className="p-4 rounded-2xl bg-gray-50/80 border border-gray-200/80 space-y-1.5">
+              <h3 className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-kits-blue" />
+                <span>G. Post-Event Feedback & Grievance Tickets</span>
+              </h3>
+              <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
+                Event ratings, constructive feedback submitted by participants (required to unlock participation certificates), and formal grievance tickets submitted under [ Help & Grievances ] (/complaints), including ticket descriptions, issue categories, status updates, and administrative resolutions.
               </p>
             </div>
           </div>
@@ -178,13 +190,13 @@ export function PrivacyPolicy() {
                 <span className="text-[10px] font-black uppercase bg-gray-200 text-gray-700 px-2 py-0.5 rounded">Required</span>
               </div>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                <strong>Authentication & Session Tokens:</strong> KITS-EOS maintains active student and administrator login sessions securely in browser <code>localStorage</code> (via Supabase authentication client session tokens). Coordinator authentication utilizes secure <code>HttpOnly</code> session cookies to prevent unauthorized cross-site access.
+                <strong>Authentication & Session Tokens:</strong> KITS-EOS maintains active student and administrator login sessions securely in browser local storage and session storage via secure authentication session tokens. Coordinator authentication utilizes secure session cookies to prevent unauthorized access.
               </p>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                <strong>Consent Preference Storage:</strong> Stores your current consent choice and policy version in <code>localStorage</code> under <code>kits_eos_cookie_consent_v1</code> (Version 2.0) so the banner does not repeatedly prompt you on subsequent visits.
+                <strong>Consent Preference Storage:</strong> Stores your current cookie consent choice and policy version in local storage under <code>kits_eos_cookie_consent_v1</code> (Version 2.0) so the banner does not repeatedly prompt you on subsequent visits.
               </p>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                <strong>Service Worker & PWA Application Shell Caching:</strong> KITS-EOS utilizes a service worker to cache static web application assets (HTML markup, stylesheets, JavaScript bundles, fonts, and institutional logos) locally on your device to accelerate page loading. <em>IMPORTANT DISCLOSURE: The service worker caches static assets only. It does NOT cache sensitive Supabase database records, authentication credentials, dynamic API responses, or private participant documents. KITS-EOS is NOT a fully offline application; real-time operations (registration, payment verification, live attendance scanning) require active network connectivity.</em>
+                <strong>Service Worker & Static Asset Caching:</strong> KITS-EOS utilizes a service worker to cache static web application assets (HTML markup, stylesheets, JavaScript bundles, fonts, and institutional logos) locally on your device to accelerate page loading. <em>IMPORTANT DISCLOSURE: The service worker caches static assets only. It does not cache sensitive database records, authentication credentials, dynamic API responses, or private participant documents. KITS-EOS is not a fully offline application; real-time operations (registration, payment verification, live attendance scanning) require active network connectivity.</em>
               </p>
             </div>
 
@@ -200,7 +212,7 @@ export function PrivacyPolicy() {
             <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-1.5">
               <strong className="text-gray-900 text-xs sm:text-sm block">3. Operational Telemetry & Diagnostics (Optional)</strong>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                A consent-gated telemetry interface used solely to monitor client-side load performance and troubleshoot application errors. <strong>KITS-EOS does NOT bundle Google Analytics, Facebook Pixel, tracking pixels, or commercial third-party trackers.</strong>
+                A consent-gated telemetry interface used solely to monitor client-side load performance and troubleshoot application errors. <strong>KITS-EOS does not bundle commercial third-party ad networks, social tracking pixels, or cross-site behavioral trackers.</strong>
               </p>
             </div>
           </div>
@@ -220,25 +232,25 @@ export function PrivacyPolicy() {
           </div>
         </section>
 
-        {/* Section 4: Third-Party Infrastructure Services */}
+        {/* Section 4: Verified Cloud Infrastructure */}
         <section className="space-y-3 border-t border-gray-100 pt-6">
           <h2 className="text-base sm:text-lg font-black text-gray-900 tracking-tight flex items-center gap-2">
             <span className="h-6 w-6 rounded-lg bg-blue-50 text-kits-blue flex items-center justify-center text-xs font-bold shrink-0">4</span>
             <span className="flex items-center gap-2">
               <Server className="h-4 w-4 text-kits-blue" />
-              <span>Verified Third-Party Service Providers</span>
+              <span>Verified Cloud Infrastructure & Service Providers</span>
             </span>
           </h2>
           <p>
             To reliably operate the cloud application, KITS-EOS utilizes verified technology infrastructure providers under institutional data processing configurations:
           </p>
           <ul className="list-disc pl-5 space-y-1.5 text-gray-600 text-xs sm:text-sm">
-            <li><strong>Supabase:</strong> Provides managed PostgreSQL database infrastructure, authentication services, and encrypted private object storage for uploaded participant documents.</li>
-            <li><strong>Google OAuth:</strong> Facilitates secure single sign-on authentication for verified student and institutional email domains.</li>
-            <li><strong>Firebase Hosting (Google Cloud):</strong> High-availability Content Delivery Network (CDN) serving static web application bundles, stylesheets, and progressive web app manifests.</li>
+            <li><strong>Managed Cloud Database & Authentication Infrastructure:</strong> Provides secure cloud database storage, authentication identity management, and encrypted private object storage for uploaded participant documents.</li>
+            <li><strong>Single Sign-On (SSO) & Email Services:</strong> Facilitates secure sign-in and institutional password-reset email delivery for verified student accounts.</li>
+            <li><strong>Content Delivery Network (CDN):</strong> High-availability Content Delivery Network serving static web application bundles, stylesheets, and progressive web app manifests.</li>
           </ul>
           <p className="text-[11px] text-gray-500">
-            No other third-party analytics services, advertisement brokers, or tracking networks are utilized by KITS-EOS.
+            No commercial third-party marketing networks, advertising brokers, or external tracking services are utilized by KITS-EOS.
           </p>
         </section>
 
@@ -253,7 +265,7 @@ export function PrivacyPolicy() {
               <strong>Contactless Check-In:</strong> Upon registering for an event, KITS-EOS issues a digital QR pass and a 10-digit manual token. At the venue, authorized coordinators scan the pass using the internal coordinator portal to verify identity and record attendance stamps in real time. Attendance data is used solely to record participation and validate certificate eligibility.
             </p>
             <p>
-              <strong>Public Certificate Verification:</strong> All digital certificates generated by KITS-EOS include an immutable, unique Certificate ID (e.g. <code className="font-mono text-gray-800">KITS-EOS-CERT-XXXXXXXXXX</code>) and an embedded verification QR code linking to <code>https://kits-akshar-eos.web.app/verify/:certId</code>. The verification portal confirms the authenticity of the award, recipient name, sub-event, and date. <strong>The verification portal does NOT expose private student email addresses, mobile numbers, passwords, or authentication credentials to the public.</strong>
+              <strong>Public Certificate Verification:</strong> All digital certificates generated by KITS-EOS include an immutable, unique Certificate ID (e.g., <code className="font-mono text-gray-800">KITS-EOS-CERT-XXXXXXXXXX</code>) and an embedded verification link leading to <code>https://kits-akshar-eos.web.app/verify/:certId</code>. The verification portal confirms the authenticity of the award, recipient name, sub-event, and date. <strong>The verification portal does not expose private student email addresses, mobile numbers, passwords, or authentication credentials to the public.</strong>
             </p>
           </div>
         </section>
@@ -314,10 +326,10 @@ export function PrivacyPolicy() {
             <span>Security Architecture & Data Retention</span>
           </h2>
           <p>
-            KITS-EOS protects personal data through multi-layered safeguards including authenticated access controls, database-level Row Level Security (RLS), cryptographically signed session tokens, encrypted object storage for participant attachments, and server-side validation.
+            KITS-EOS protects personal data through multi-layered safeguards including authenticated access controls, server-side data access policies, cryptographically signed session tokens, encrypted object storage for participant attachments, and strict input validation.
           </p>
           <p>
-            <strong>Data Retention Policy:</strong> KITS-EOS retains personal information for as long as reasonably necessary for the operational purposes for which it was collected, including fest administration, credential verification, institutional academic records (e.g. NAAC / NIRF accreditation audits), financial accountability, and compliance with institutional policies.
+            <strong>Data Retention Policy:</strong> KITS-EOS retains personal information for as long as reasonably necessary for the operational purposes for which it was collected, including fest administration, credential verification, institutional academic records (e.g., NAAC / NIRF accreditation audits), financial accountability, and compliance with institutional policies.
           </p>
         </section>
 
