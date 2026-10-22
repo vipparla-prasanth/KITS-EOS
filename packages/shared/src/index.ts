@@ -1,6 +1,7 @@
 export * from './types/api';
 export * from './types/models';
 export * from './api/client';
+export * from './api/assessmentService';
 
 export * from './utils/date';
 export * from './utils/export';
@@ -27,3 +28,12 @@ export * from './components/DraftSaveIndicator';
 export * from './components/ResumeDraftModal';
 export * from './utils/credentialExport';
 export * from './components/NotificationCenter';
+export * from './utils/assessmentResultRenderer';
+export * from './utils/questionBankCsv';
+export * from './utils/assessmentMessages';
+export * from './utils/speedBonus';
+export * from './utils/assessmentReportExport';
+export * from './utils/errorUtils';
+export * from './utils/documentDeletion';
+export * from './utils/documentOrphanDiagnostic';
+export * from './utils/privacyNotice';

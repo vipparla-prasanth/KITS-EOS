@@ -482,3 +482,468 @@ export interface PublishedResultCorrectionPreview {
   }>;
   participation_certificates_affected: number;
 }
+
+// ============================================================================
+// Assessment System Models & Interfaces
+// ============================================================================
+
+export type AssessmentStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'ARCHIVED';
+export type QuestionType = 'MCQ' | 'TRUE_FALSE';
+export type AttemptStatus = 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED' | 'TERMINATED';
+
+export interface SpeedBonusTier {
+  rank?: number;
+  min_rank?: number;
+  max_rank?: number;
+  points: number;
+}
+
+export interface SpeedBonusConfig {
+  enabled: boolean;
+  max_eos_points?: number;
+  default_time_limit_seconds?: number;
+  tiers?: SpeedBonusTier[];
+}
+
+export interface Assessment {
+  id: string;
+  title: string;
+  description: string;
+  instructions: string;
+  duration_minutes: number;
+  start_time: string;
+  end_time: string;
+  status: AssessmentStatus;
+  include_in_global_leaderboard: boolean;
+  randomize_questions?: boolean;
+  randomize_options?: boolean;
+  speed_bonus_config?: SpeedBonusConfig;
+  event_id?: string | null;
+  sub_event_id?: string | null;
+  passing_percentage: number;
+  total_questions_count: number;
+  created_by?: string | null;
+  coordinator_id?: string | null;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
+  reopen_count?: number;
+  last_reopened_at?: string | null;
+  last_reopened_by?: string | null;
+  current_revision_number?: number;
+  has_draft_revision?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AssessmentRevisionStatus = 'DRAFT' | 'PUBLISHED' | 'SUPERSEDED';
+
+export interface AssessmentRevisionQuestionData {
+  id?: string;
+  question_text: string;
+  question_type: QuestionType;
+  points: number;
+  time_limit_seconds?: number;
+  sort_order: number;
+  options?: AssessmentQuestionOption[];
+  correct_boolean?: boolean | null;
+}
+
+export interface AssessmentRevision {
+  id: string;
+  assessment_id: string;
+  revision_number: number;
+  status: AssessmentRevisionStatus;
+  title: string;
+  description: string;
+  instructions: string;
+  duration_minutes: number;
+  start_time: string;
+  end_time: string;
+  passing_percentage: number;
+  total_questions_count: number;
+  include_in_global_leaderboard: boolean;
+  randomize_questions: boolean;
+  randomize_options: boolean;
+  speed_bonus_config?: SpeedBonusConfig;
+  questions_data: AssessmentRevisionQuestionData[];
+  change_summary?: string;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  published_at?: string | null;
+  published_by?: string | null;
+}
+
+export interface AssessmentRevisionStatusResponse {
+  assessment_id: string;
+  title: string;
+  status: AssessmentStatus;
+  current_revision_number: number;
+  has_draft_revision: boolean;
+  can_edit: boolean;
+  block_reason?: string | null;
+  active_attempts_count: number;
+  total_attempts_count: number;
+  draft_revision?: AssessmentRevision | null;
+  published_revisions: Array<{
+    id: string;
+    revision_number: number;
+    status: AssessmentRevisionStatus;
+    title: string;
+    duration_minutes: number;
+    passing_percentage: number;
+    total_questions_count: number;
+    published_at: string | null;
+    change_summary?: string;
+  }>;
+}
+
+export interface AssessmentQuestionOption {
+  id?: string;
+  question_id?: string;
+  option_text: string;
+  sort_order: number;
+  created_at?: string;
+  is_correct?: boolean; // Available only in admin context via admin_get_assessment_questions
+}
+
+export interface AssessmentQuestion {
+  id: string;
+  assessment_id: string;
+  question_text: string;
+  question_type: QuestionType;
+  points: number;
+  time_limit_seconds?: number;
+  sort_order: number;
+  options?: AssessmentQuestionOption[];
+  correct_boolean?: boolean | null; // Available only in admin context via admin_get_assessment_questions
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AssessmentAttempt {
+  id: string;
+  assessment_id: string;
+  student_id: string;
+  status: AttemptStatus;
+  started_at: string;
+  deadline: string;
+  submitted_at?: string | null;
+  score: number;
+  question_score?: number;
+  eos_points?: number;
+  speed_bonus_score?: number;
+  total_response_time_seconds?: number;
+  correct_answers_count: number;
+  strike_count: number;
+  question_order?: string[] | null;
+  option_orders?: Record<string, string[]> | null;
+  leaderboard_event_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  assessments?: Assessment;
+}
+
+export interface AssessmentAttemptAnswer {
+  id: string;
+  attempt_id: string;
+  question_id: string;
+  selected_option_id?: string | null;
+  selected_boolean?: boolean | null;
+  is_correct?: boolean | null;
+  points_awarded?: number;
+  eos_points?: number;
+  speed_bonus_awarded?: number;
+  speed_bonus_rank?: number | null;
+  response_time_seconds?: number | null;
+  question_started_at?: string | null;
+  answered_at: string;
+}
+
+export interface AssessmentAttemptViolation {
+  id: string;
+  attempt_id: string;
+  episode_id: string;
+  violation_type: string;
+  violation_number?: number;
+  question_id?: string | null;
+  question_text?: string | null;
+  attempted_questions_count?: number;
+  recorded_at: string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  student_name: string;
+  score?: number;
+  total_score?: number;
+  question_score?: number;
+  eos_points?: number;
+  speed_bonus_score?: number;
+  correct_answers_count?: number;
+  total_response_time_seconds?: number;
+}
+
+export type AssessmentAwardType = 'FIRST_PLACE' | 'SECOND_PLACE' | 'THIRD_PLACE' | 'ACHIEVEMENT';
+
+export interface AssessmentCertificate {
+  id: string;
+  assessment_id: string;
+  student_id: string;
+  attempt_id: string;
+  award_type: AssessmentAwardType;
+  rank: number;
+  certificate_code: string;
+  score: number;
+  total_points: number;
+  percentage: number;
+  template_version: string;
+  issued_at: string;
+  revoked: boolean;
+  revoked_at?: string | null;
+  revocation_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined or RPC hydrated fields
+  assessment_title?: string;
+  student_name?: string;
+  roll_number?: string;
+  department?: string;
+  college?: string;
+  year?: number;
+}
+
+export interface AssessmentCoordinatorAssignment {
+  id: string;
+  assessment_id: string;
+  coordinator_id: string;
+  assigned_by?: string | null;
+  assigned_at: string;
+  coordinators?: {
+    id: string;
+    username: string;
+    display_name: string;
+    phone_number?: string | null;
+    coordinator_type: string;
+    status: string;
+  };
+}
+
+export type AssessmentLiveEventType = 
+  | 'ATTEMPT_STARTED'
+  | 'ANSWER_SAVED'
+  | 'ATTEMPT_SUBMITTED'
+  | 'ATTEMPT_EXPIRED'
+  | 'ATTEMPT_TERMINATED'
+  | 'STRIKE_RECORDED'
+  | 'ATTEMPT_RESUMED'
+  | 'ASSESSMENT_CLOSED'
+  | 'ASSESSMENT_REOPENED';
+
+export interface AssessmentLiveEvent {
+  id: string;
+  assessment_id: string;
+  student_id?: string | null;
+  student_name: string;
+  event_type: AssessmentLiveEventType;
+  question_context?: string | null;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface AssessmentLiveParticipant {
+  attempt_id: string;
+  student_id: string;
+  student_name: string;
+  roll_number: string;
+  college: string;
+  status: AttemptStatus;
+  started_at: string;
+  submitted_at?: string | null;
+  deadline: string;
+  elapsed_seconds: number;
+  strike_count: number;
+  answered_count: number;
+  total_questions: number;
+  score?: number | null;
+  question_score?: number | null;
+  eos_points?: number | null;
+  speed_bonus_score?: number | null;
+  percentage?: number | null;
+  is_passed?: boolean;
+  rank?: number | null;
+}
+
+export interface AssessmentQuestionProgress {
+  question_id: string;
+  question_text: string;
+  question_type: QuestionType;
+  sort_order: number;
+  points: number;
+  answered_count: number;
+  total_attempts: number;
+  participation_pct: number;
+}
+
+export interface AssessmentLiveHostSnapshot {
+  assessment: {
+    id: string;
+    title: string;
+    description: string;
+    status: AssessmentStatus;
+    duration_minutes: number;
+    start_time: string;
+    end_time: string;
+    passing_percentage: number;
+    total_questions_count: number;
+    coordinator_name?: string | null;
+    coordinator_username?: string | null;
+    speed_bonus_config?: SpeedBonusConfig;
+  };
+  overview: {
+    total_eligible: number;
+    started_count: number;
+    in_progress_count: number;
+    submitted_count: number;
+    expired_count: number;
+    terminated_count: number;
+    not_started_count: number;
+    completion_rate: number;
+  };
+  participants: AssessmentLiveParticipant[];
+  question_progress: AssessmentQuestionProgress[];
+  recent_activity: AssessmentLiveEvent[];
+  recent_events?: AssessmentLiveEvent[];
+  scoreboard: Array<{
+    rank: number;
+    student_name: string;
+    score: number;
+    question_score?: number;
+    eos_points?: number;
+    speed_bonus_score?: number;
+    status: AttemptStatus;
+    submitted_at?: string | null;
+    correct_answers_count?: number;
+    total_response_time_seconds?: number;
+  }>;
+  server_time: string;
+}
+
+export interface AssessmentReportSummary {
+  total_eligible: number;
+  total_participants: number;
+  completed_attempts: number;
+  expired_attempts: number;
+  terminated_attempts: number;
+  in_progress_attempts: number;
+  completion_rate: number;
+  avg_academic_score: number;
+  avg_academic_percentage: number;
+  highest_academic_score: number;
+  lowest_academic_score: number;
+  avg_eos_points: number;
+  highest_eos_points: number;
+  avg_response_time_seconds: number;
+  total_answers_submitted: number;
+  total_correct_answers: number;
+  avg_accuracy_percentage: number;
+}
+
+export interface AssessmentReportStudent {
+  rank: number;
+  student_id: string;
+  student_name: string;
+  roll_number: string;
+  college_name: string;
+  email?: string | null;
+  attempt_id: string;
+  attempt_status: AttemptStatus;
+  academic_score: number;
+  max_score: number;
+  academic_percentage: number;
+  eos_points: number;
+  correct_count: number;
+  incorrect_count: number;
+  unanswered_count: number;
+  total_response_time_seconds: number;
+  started_at: string;
+  submitted_at?: string | null;
+  is_passed: boolean;
+}
+
+export interface AssessmentReportQuestionOption {
+  option_id: string;
+  option_text: string;
+  sort_order: number;
+  is_correct: boolean;
+  selected_count: number;
+}
+
+export interface AssessmentReportQuestion {
+  question_id: string;
+  question_number: number;
+  sort_order: number;
+  question_text: string;
+  question_type: QuestionType;
+  points: number;
+  time_limit_seconds: number;
+  total_responses: number;
+  correct_count: number;
+  incorrect_count: number;
+  unanswered_count: number;
+  correct_percentage: number;
+  incorrect_percentage: number;
+  avg_response_time_seconds: number;
+  is_difficult: boolean;
+  correct_answer_preview?: string | null;
+  options_breakdown: AssessmentReportQuestionOption[];
+}
+
+export interface AssessmentReportFeedback {
+  has_feedback: boolean;
+  total_responses: number;
+  avg_rating: number;
+  rating_1_avg: number;
+  rating_2_avg: number;
+  rating_3_avg: number;
+  rating_4_avg: number;
+  rating_5_avg: number;
+  sample_comments: string[];
+}
+
+export interface AssessmentReportData {
+  assessment: {
+    id: string;
+    title: string;
+    description: string;
+    instructions: string;
+    status: AssessmentStatus;
+    duration_minutes: number;
+    start_time: string;
+    end_time: string;
+    actual_start_time: string;
+    actual_end_time: string;
+    passing_percentage: number;
+    total_questions_count: number;
+    total_points: number;
+    report_finalized_at: string;
+    closed_at?: string | null;
+    closed_by?: string | null;
+    is_closed: boolean;
+  };
+  summary: AssessmentReportSummary;
+  students: AssessmentReportStudent[];
+  questions: AssessmentReportQuestion[];
+  feedback: AssessmentReportFeedback | null;
+  generated_at: string;
+}
+
+export interface AssessmentReportResponse {
+  success: boolean;
+  assessment: AssessmentReportData['assessment'];
+  summary: AssessmentReportSummary;
+  students: AssessmentReportStudent[];
+  questions: AssessmentReportQuestion[];
+  feedback: AssessmentReportFeedback | null;
+  generated_at: string;
+}

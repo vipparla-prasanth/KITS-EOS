@@ -44,7 +44,7 @@
             },
             {
               "key": "Content-Security-Policy",
-              "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://jngmmjbmimxpndpoloib.supabase.co https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://jngmmjbmimxpndpoloib.supabase.co https://*.supabase.co wss://jngmmjbmimxpndpoloib.supabase.co wss://*.supabase.co https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com; frame-src 'self' https://www.google.com https://*.google.com https://accounts.google.com https://*.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self';"
+              "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://jngmmjbmimxpndpoloib.supabase.co https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://jngmmjbmimxpndpoloib.supabase.co https://*.supabase.co wss://jngmmjbmimxpndpoloib.supabase.co wss://*.supabase.co https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com; frame-src 'self' https://www.google.com https://*.google.com https://accounts.google.com https://*.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self';"
             }
           ]
         },
@@ -86,6 +86,15 @@
         },
         {
           "source": "/manifest.webmanifest",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, must-revalidate"
+            }
+          ]
+        },
+        {
+          "source": "/version.json",
           "headers": [
             {
               "key": "Cache-Control",
@@ -139,7 +148,7 @@
             },
             {
               "key": "Content-Security-Policy",
-              "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://jngmmjbmimxpndpoloib.supabase.co https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://jngmmjbmimxpndpoloib.supabase.co https://*.supabase.co wss://jngmmjbmimxpndpoloib.supabase.co wss://*.supabase.co https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com; frame-src 'self' https://www.google.com https://*.google.com https://accounts.google.com https://*.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self';"
+              "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://jngmmjbmimxpndpoloib.supabase.co https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://jngmmjbmimxpndpoloib.supabase.co https://*.supabase.co wss://jngmmjbmimxpndpoloib.supabase.co wss://*.supabase.co https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com; frame-src 'self' https://www.google.com https://*.google.com https://accounts.google.com https://*.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self';"
             }
           ]
         },
@@ -181,6 +190,15 @@
         },
         {
           "source": "/manifest.webmanifest",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, must-revalidate"
+            }
+          ]
+        },
+        {
+          "source": "/version.json",
           "headers": [
             {
               "key": "Cache-Control",
@@ -234,7 +252,7 @@
             },
             {
               "key": "Content-Security-Policy",
-              "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://jngmmjbmimxpndpoloib.supabase.co https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://jngmmjbmimxpndpoloib.supabase.co https://*.supabase.co wss://jngmmjbmimxpndpoloib.supabase.co wss://*.supabase.co https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com; frame-src 'self' https://www.google.com https://*.google.com https://accounts.google.com https://*.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self';"
+              "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://jngmmjbmimxpndpoloib.supabase.co https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' blob: data: https://jngmmjbmimxpndpoloib.supabase.co https://*.supabase.co wss://jngmmjbmimxpndpoloib.supabase.co wss://*.supabase.co https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com; frame-src 'self' https://www.google.com https://*.google.com https://accounts.google.com https://*.firebaseapp.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self';"
             }
           ]
         },
@@ -262,6 +280,15 @@
             {
               "key": "Cache-Control",
               "value": "public, max-age=86400, stale-while-revalidate=604800"
+            }
+          ]
+        },
+        {
+          "source": "/version.json",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, no-store, must-revalidate"
             }
           ]
         }

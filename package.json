@@ -1,6 +1,6 @@
 {
   "name": "kits-eos-v3",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "private": true,
   "description": "KITS-EOS v3 Platform",
   "workspaces": [
@@ -15,5 +15,9 @@
   },
   "overrides": {
     "source-map-js": "^1.2.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "vitest": "^5.0.5"
   }
 }

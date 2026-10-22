@@ -9,6 +9,8 @@
  * 6. User-friendly error messages (distinguishing network, auth, size, and storage errors).
  */
 
+import { executeDocumentDeletion, normalizeDocumentStoragePath } from './documentDeletion';
+
 export const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024; // 20 MB in bytes
 
 export class DocumentUploadError extends Error {
@@ -180,17 +182,20 @@ export async function uploadRegistrationDocument({
     }
     documentId = insertedDoc?.id;
 
-    // Document replacement cleanup: If replacing an existing document record, clean up old metadata and storage object
+    // Document replacement cleanup: If replacing an existing document record, clean up via authorized backend
     if (replaceDocumentId) {
       try {
-        await supabaseClient.from('documents').delete().eq('id', replaceDocumentId);
+        await executeDocumentDeletion({
+          documentId: replaceDocumentId,
+          customClient: supabaseClient,
+        });
       } catch (delErr) {
-        console.warn('Failed to delete replaced document database record:', delErr);
+        console.warn('Backend deletion for replaced document failed:', delErr);
       }
-    }
-    if (replaceStoragePath && replaceStoragePath !== finalPath) {
+    } else if (replaceStoragePath && replaceStoragePath !== finalPath) {
       try {
-        await supabaseClient.storage.from('documents').remove([replaceStoragePath]);
+        const { bucket, path: cleanSubPath } = normalizeDocumentStoragePath(replaceStoragePath);
+        await supabaseClient.storage.from(bucket).remove([cleanSubPath]);
       } catch (delErr) {
         console.warn('Failed to remove replaced document storage object:', delErr);
       }

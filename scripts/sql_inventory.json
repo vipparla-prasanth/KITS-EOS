@@ -1,0 +1,4653 @@
+[
+  {
+    "relPath": "scratch/batch_01.sql",
+    "filename": "batch_01.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [
+      "events",
+      "categories",
+      "sub_events",
+      "coordinators",
+      "coordinator_assignments",
+      "registrations",
+      "teams",
+      "team_members",
+      "payments",
+      "attendance_records",
+      "documents",
+      "certificates",
+      "certificate_corrections",
+      "feedback_responses",
+      "complaints",
+      "audit_logs",
+      "notifications"
+    ],
+    "functions": [
+      "is_admin"
+    ],
+    "indexes": [
+      "idx_registrations_sub_event_leader",
+      "idx_team_members_qr_identity",
+      "idx_team_members_manual_token",
+      "idx_registrations_leader",
+      "idx_teams_registration",
+      "idx_attendance_team_sub_event",
+      "idx_certificates_team_member"
+    ],
+    "policies": [],
+    "alters": [
+      "users",
+      "student_profiles",
+      "coordinators",
+      "events",
+      "categories",
+      "sub_events",
+      "coordinator_assignments",
+      "registrations",
+      "teams",
+      "team_members",
+      "payments",
+      "attendance_records",
+      "certificates",
+      "certificate_corrections",
+      "documents",
+      "feedback_responses",
+      "complaints",
+      "audit_logs",
+      "notifications"
+    ],
+    "drops": [],
+    "lineCount": 313,
+    "byteSize": 12678
+  },
+  {
+    "relPath": "scratch/batch_02.sql",
+    "filename": "batch_02.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.handle_new_user"
+    ],
+    "indexes": [
+      "audit_logs_admin_login_email_idx"
+    ],
+    "policies": [],
+    "alters": [
+      "public.student_profiles",
+      "public.events"
+    ],
+    "drops": [],
+    "lineCount": 164,
+    "byteSize": 7035
+  },
+  {
+    "relPath": "scratch/batch_03.sql",
+    "filename": "batch_03.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.verify_certificate",
+      "public.get_sub_event_coordinators"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.categories",
+      "public.sub_events",
+      "public.coordinators",
+      "public.team_members"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 344,
+    "byteSize": 13889
+  },
+  {
+    "relPath": "scratch/batch_04.sql",
+    "filename": "batch_04.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "confirm_cod_payment",
+      "public.lock_sub_event_podium_position",
+      "public.publish_sub_event_results_and_certificates",
+      "public.verify_certificate",
+      "public.submit_event_feedback_and_unlock_certificate",
+      "public.admin_bulk_delete_students",
+      "public.admin_calculate_historical_deletion_impact",
+      "public.admin_delete_historical_data",
+      "public.admin_get_notification_recipient_counts",
+      "public.admin_send_broadcast_notification",
+      "public.get_coordinator_notifications",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read",
+      "public.get_coordinator_unread_count"
+    ],
+    "indexes": [
+      "idx_certificates_code",
+      "idx_notifications_user_id",
+      "idx_notifications_coordinator_id",
+      "idx_notifications_created_at",
+      "idx_notifications_is_read"
+    ],
+    "policies": [],
+    "alters": [
+      "certificate_type",
+      "public.sub_events",
+      "public.certificates",
+      "public.notifications"
+    ],
+    "drops": [],
+    "lineCount": 1467,
+    "byteSize": 51797
+  },
+  {
+    "relPath": "scratch/batch_05.sql",
+    "filename": "batch_05.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_assignment_state",
+      "public.admin_get_notification_recipient_counts",
+      "public.admin_send_broadcast_notification",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_sub_event_roster",
+      "public.publish_sub_event_results_and_certificates",
+      "public.confirm_cod_payment",
+      "public.unlock_student_certificate",
+      "public.get_sub_event_documents_for_coordinator"
+    ],
+    "indexes": [
+      "idx_unique_active_leader_sub_event",
+      "idx_unique_successful_payment_per_registration",
+      "idx_attendance_sub_event_team",
+      "idx_payments_payment_method"
+    ],
+    "policies": [],
+    "alters": [
+      "public.attendance_records",
+      "public.coordinators",
+      "public.payments"
+    ],
+    "drops": [],
+    "lineCount": 1601,
+    "byteSize": 57157
+  },
+  {
+    "relPath": "scratch/batch_06.sql",
+    "filename": "batch_06.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.publish_sub_event_results_and_certificates",
+      "public.get_coordinator_sub_event_roster",
+      "public.admin_calculate_historical_deletion_impact",
+      "public.admin_delete_historical_data"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 876,
+    "byteSize": 34434
+  },
+  {
+    "relPath": "scratch/batch_07.sql",
+    "filename": "batch_07.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.get_active_coordinators_count",
+      "public.is_admin",
+      "public.handle_new_user",
+      "public.admin_archive_event",
+      "public.admin_restore_event",
+      "public.admin_delete_event",
+      "public.admin_archive_category",
+      "public.admin_restore_category",
+      "public.admin_delete_category",
+      "public.admin_archive_sub_event",
+      "public.admin_restore_sub_event",
+      "public.admin_delete_sub_event",
+      "public.confirm_cod_payment",
+      "public.get_sub_event_coordinators",
+      "public.admin_delete_notifications",
+      "public.enforce_student_profile_update_rules",
+      "public.admin_send_broadcast_notification",
+      "public.admin_get_broadcast_notifications"
+    ],
+    "indexes": [
+      "idx_notifications_broadcast_id"
+    ],
+    "policies": [],
+    "alters": [
+      "public.student_profiles",
+      "public.documents",
+      "public.notifications"
+    ],
+    "drops": [],
+    "lineCount": 1617,
+    "byteSize": 57307
+  },
+  {
+    "relPath": "scratch/batch_08.sql",
+    "filename": "batch_08.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.handle_new_user",
+      "public.get_current_coordinator_id",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_sub_event_roster",
+      "public.get_coordinator_notifications",
+      "public.get_coordinator_unread_count",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.admin_get_sub_event_roster",
+      "public.set_coordinator_auth_email",
+      "public.get_current_user_profile",
+      "public.acknowledge_privacy_notice",
+      "public.get_student_personal_data_export",
+      "public.admin_update_privacy_request",
+      "public.is_admin"
+    ],
+    "indexes": [
+      "idx_coordinators_auth_user_id",
+      "idx_privacy_requests_user_id",
+      "idx_privacy_requests_status",
+      "idx_privacy_requests_created_at"
+    ],
+    "policies": [],
+    "alters": [
+      "user_role",
+      "public.coordinators",
+      "public.student_profiles",
+      "public.privacy_requests"
+    ],
+    "drops": [
+      "IF",
+      "public.get_coordinator_notifications",
+      "public.get_coordinator_sub_event_roster",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_assignment_state",
+      "public.get_coordinator_unread_count"
+    ],
+    "lineCount": 1476,
+    "byteSize": 52207
+  },
+  {
+    "relPath": "scratch/batch_09.sql",
+    "filename": "batch_09.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.get_coordinator_id_by_token",
+      "public.invalidate_coordinator_session",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_sub_event_roster",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.get_coordinator_notifications",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read",
+      "public.get_current_user_profile",
+      "public.admin_delete_notifications"
+    ],
+    "indexes": [
+      "idx_coordinator_sessions_token_hash",
+      "idx_coordinator_sessions_coordinator_id",
+      "idx_coordinator_sessions_expires_at",
+      "idx_documents_entity_id_type",
+      "idx_payments_success_revenue",
+      "idx_payments_registration_id",
+      "idx_team_members_team_id",
+      "idx_team_members_user_id",
+      "idx_team_members_roll_upper",
+      "idx_notifications_user_unread",
+      "idx_notifications_user_feed",
+      "idx_sub_events_event_id_status",
+      "idx_categories_event_id_status",
+      "idx_audit_logs_created_at"
+    ],
+    "policies": [],
+    "alters": [
+      "public.coordinators",
+      "public.coordinator_sessions"
+    ],
+    "drops": [
+      "public.set_coordinator_auth_email",
+      "IF",
+      "public.get_current_coordinator_id",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_sub_event_roster",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.get_coordinator_notifications",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read",
+      "public.admin_delete_notifications",
+      "public.idx_coordinator_sessions_token_hash",
+      "public.idx_team_members_manual_token",
+      "public.idx_team_members_qr_identity",
+      "public.idx_teams_registration"
+    ],
+    "lineCount": 885,
+    "byteSize": 33161
+  },
+  {
+    "relPath": "scratch/batch_10.sql",
+    "filename": "batch_10.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.generate_attendance_token",
+      "public.student_register_atomic",
+      "public.cancel_registration_idempotent",
+      "public.trig_sync_registration_delete_capacity",
+      "public.admin_get_dashboard_metrics",
+      "public.get_coordinator_sub_event_roster",
+      "public.admin_reconcile_sub_event_capacity",
+      "public.admin_delete_registration",
+      "public.admin_bulk_delete_registrations"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.sub_events"
+    ],
+    "drops": [],
+    "lineCount": 1305,
+    "byteSize": 51863
+  },
+  {
+    "relPath": "scratch/batch_11.sql",
+    "filename": "batch_11.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.extract_event_storage_path",
+      "public.admin_delete_historical_data",
+      "public.admin_delete_event",
+      "public.admin_delete_sub_event",
+      "public.get_coordinator_sub_event_roster",
+      "public.claim_storage_cleanup_jobs",
+      "public.complete_storage_cleanup_job"
+    ],
+    "indexes": [
+      "idx_audit_logs_admin_login_session",
+      "idx_storage_cleanup_queue_claimable"
+    ],
+    "policies": [],
+    "alters": [
+      "public.categories",
+      "public.storage_cleanup_queue"
+    ],
+    "drops": [
+      "public.audit_logs_admin_login_email_idx",
+      "IF"
+    ],
+    "lineCount": 1329,
+    "byteSize": 51797
+  },
+  {
+    "relPath": "scratch/batch_12.sql",
+    "filename": "batch_12.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_historical_data",
+      "public.admin_purge_completed_storage_cleanup_jobs",
+      "public.admin_get_storage_cleanup_failures",
+      "public.check_storage_cleanup_indexes",
+      "public.sync_service_role_key_to_vault",
+      "public.invoke_storage_cleanup_worker",
+      "public.get_coordinator_sub_event_roster",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.admin_get_sub_event_roster"
+    ],
+    "indexes": [
+      "idx_storage_cleanup_queue_active_path",
+      "idx_storage_cleanup_queue_claimable_fifo"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1111,
+    "byteSize": 42648
+  },
+  {
+    "relPath": "scratch/batch_13.sql",
+    "filename": "batch_13.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_historical_data",
+      "public.publish_sub_event_results_and_certificates",
+      "public.get_pending_cod_payments",
+      "public.confirm_cod_payment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.user_role",
+      "public.documents"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 1425,
+    "byteSize": 53388
+  },
+  {
+    "relPath": "scratch/batch_14.sql",
+    "filename": "batch_14.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.verify_attendance_participant",
+      "public.commit_attendance_checkin"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1222,
+    "byteSize": 52270
+  },
+  {
+    "relPath": "scratch/batch_15.sql",
+    "filename": "batch_15.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.get_scope_analytics",
+      "public.publish_sub_event_results_and_certificates",
+      "public.is_admin",
+      "public.handle_new_user",
+      "public.admin_delete_notifications",
+      "public.trigger_issue_participation_certificate"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.certificates"
+    ],
+    "drops": [],
+    "lineCount": 1236,
+    "byteSize": 48389
+  },
+  {
+    "relPath": "scratch/batch_16.sql",
+    "filename": "batch_16.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.can_access_certificate_template",
+      "public.trigger_issue_participation_certificate",
+      "public.publish_sub_event_results_and_certificates",
+      "public.admin_save_certificate_template",
+      "public.admin_switch_certificate_template_mode",
+      "public.admin_update_template_field_positions",
+      "public.get_admin_event_certificate_configs",
+      "public.get_certificate_template_info"
+    ],
+    "indexes": [
+      "idx_cert_template_versions_lookup",
+      "idx_main_event_cert_configs_lookup",
+      "idx_certificates_template_version_id"
+    ],
+    "policies": [],
+    "alters": [
+      "public.certificates",
+      "public.main_event_certificate_configs",
+      "public.certificate_template_versions"
+    ],
+    "drops": [
+      "IF",
+      "public.main_event_certificate_configs",
+      "public.certificate_template_versions",
+      "public.admin_save_certificate_template",
+      "public.admin_switch_certificate_template_mode",
+      "public.admin_update_template_field_positions",
+      "public.get_admin_event_certificate_configs",
+      "public.get_certificate_template_info",
+      "public.can_access_certificate_template"
+    ],
+    "lineCount": 1412,
+    "byteSize": 58266
+  },
+  {
+    "relPath": "scratch/batch_17.sql",
+    "filename": "batch_17.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.effective_status",
+      "public.resolve_effective_event_status",
+      "public.resolve_effective_sub_event_status",
+      "public.admin_set_event_status",
+      "public.admin_set_sub_event_status",
+      "public.admin_archive_event",
+      "public.admin_restore_event",
+      "public.admin_archive_category",
+      "public.admin_restore_category",
+      "public.admin_archive_sub_event",
+      "public.admin_restore_sub_event",
+      "public.student_register_atomic",
+      "public.student_deactivate_account",
+      "public.student_reactivate_account",
+      "public.get_student_account_status",
+      "public.cleanup_expired_student_account_data",
+      "public.invoke_student_account_cleanup_worker"
+    ],
+    "indexes": [
+      "idx_users_scheduled_deletion"
+    ],
+    "policies": [],
+    "alters": [
+      "public.events",
+      "public.sub_events",
+      "public.users"
+    ],
+    "drops": [],
+    "lineCount": 1345,
+    "byteSize": 47098
+  },
+  {
+    "relPath": "scratch/batch_18.sql",
+    "filename": "batch_18.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.main_event_registration_gate",
+      "public.effective_status",
+      "public.sub_event_registration_available",
+      "public.resolve_effective_event_status",
+      "public.resolve_effective_sub_event_status",
+      "public.admin_set_event_status",
+      "public.student_register_atomic",
+      "public.check_sub_event_payment_type_immutable"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.sub_events"
+    ],
+    "drops": [],
+    "lineCount": 1407,
+    "byteSize": 54864
+  },
+  {
+    "relPath": "scratch/batch_19.sql",
+    "filename": "batch_19.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.get_scope_analytics",
+      "public.student_register_atomic"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.student_register_atomic"
+    ],
+    "lineCount": 1236,
+    "byteSize": 54054
+  },
+  {
+    "relPath": "scratch/batch_20.sql",
+    "filename": "batch_20.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.enforce_student_profile_update_rules",
+      "public.admin_suspend_student",
+      "public.admin_unsuspend_student",
+      "public.admin_review_unsuspension_request",
+      "public.student_submit_unsuspension_request",
+      "public.get_student_account_status",
+      "public.student_register_atomic",
+      "public.get_pending_cod_payments",
+      "public.admin_get_suspension_requests"
+    ],
+    "indexes": [
+      "idx_student_profiles_account_status",
+      "idx_unique_pending_suspension_request",
+      "idx_suspension_requests_status",
+      "idx_suspension_requests_created_at"
+    ],
+    "policies": [],
+    "alters": [
+      "public.student_profiles",
+      "public.student_account_suspension_requests"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 1574,
+    "byteSize": 58605
+  },
+  {
+    "relPath": "scratch/batch_21.sql",
+    "filename": "batch_21.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic",
+      "public.trigger_issue_participation_certificate",
+      "public.submit_event_feedback_and_unlock_certificate",
+      "public.unlock_student_certificate",
+      "public.get_pending_cod_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1135,
+    "byteSize": 46443
+  },
+  {
+    "relPath": "scratch/batch_22.sql",
+    "filename": "batch_22.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.confirm_cod_payment",
+      "public.get_pending_cod_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.get_coordinator_sub_event_roster",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.mark_all_coordinator_notifications_read",
+      "public.mark_coordinator_notification_read",
+      "public.get_pending_cod_payments",
+      "public.confirm_cod_payment",
+      "IF"
+    ],
+    "lineCount": 616,
+    "byteSize": 24777
+  },
+  {
+    "relPath": "scratch/deploy_indexes_concurrently.sql",
+    "filename": "deploy_indexes_concurrently.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [
+      "idx_documents_entity_id_type",
+      "idx_payments_success_revenue",
+      "idx_payments_registration_id",
+      "idx_team_members_team_id",
+      "idx_team_members_user_id",
+      "idx_team_members_roll_upper",
+      "idx_notifications_user_unread",
+      "idx_notifications_user_feed",
+      "idx_sub_events_event_id_status",
+      "idx_categories_event_id_status",
+      "idx_audit_logs_created_at"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "CONCURRENTLY"
+    ],
+    "lineCount": 44,
+    "byteSize": 1833
+  },
+  {
+    "relPath": "scratch/live_student_register_atomic.sql",
+    "filename": "live_student_register_atomic.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 524,
+    "byteSize": 24254
+  },
+  {
+    "relPath": "scratch/mig115_p1.sql",
+    "filename": "mig115_p1.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.confirm_bulk_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 263,
+    "byteSize": 10127
+  },
+  {
+    "relPath": "scratch/mig115_p2.sql",
+    "filename": "mig115_p2.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.get_pending_cod_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 169,
+    "byteSize": 6804
+  },
+  {
+    "relPath": "scratch/mig115_p3.sql",
+    "filename": "mig115_p3.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 22,
+    "byteSize": 427
+  },
+  {
+    "relPath": "scratch/mig115_p4.sql",
+    "filename": "mig115_p4.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.student_register_atomic_bench_tail",
+      "public.is_admin_test",
+      "public.test_fn"
+    ],
+    "lineCount": 4,
+    "byteSize": 213
+  },
+  {
+    "relPath": "scratch/migration_110_wrapped.sql",
+    "filename": "migration_110_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 27195
+  },
+  {
+    "relPath": "scratch/mig_117_wrapped.sql",
+    "filename": "mig_117_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 91959
+  },
+  {
+    "relPath": "scratch/part1_decoded.sql",
+    "filename": "part1_decoded.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_registrations"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 271,
+    "byteSize": 10556
+  },
+  {
+    "relPath": "scratch/part1_wrapped.sql",
+    "filename": "part1_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 14139
+  },
+  {
+    "relPath": "scratch/part2_wrapped.sql",
+    "filename": "part2_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 11563
+  },
+  {
+    "relPath": "scratch/part3_wrapped.sql",
+    "filename": "part3_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 703
+  },
+  {
+    "relPath": "scratch/partA_wrapped.sql",
+    "filename": "partA_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 45923
+  },
+  {
+    "relPath": "scratch/partB_wrapped.sql",
+    "filename": "partB_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 34363
+  },
+  {
+    "relPath": "scratch/query_migration_115.sql",
+    "filename": "query_migration_115.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.confirm_bulk_payments",
+      "public.get_pending_cod_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "IF",
+      "public.student_register_atomic_bench_tail",
+      "public.is_admin_test",
+      "public.test_fn"
+    ],
+    "lineCount": 473,
+    "byteSize": 18848
+  },
+  {
+    "relPath": "scratch/run_full_validation.sql",
+    "filename": "run_full_validation.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 8971
+  },
+  {
+    "relPath": "scratch/step2_wrapped.sql",
+    "filename": "step2_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 8523
+  },
+  {
+    "relPath": "scratch/step3_wrapped.sql",
+    "filename": "step3_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 1171
+  },
+  {
+    "relPath": "scratch/step4_hex.sql",
+    "filename": "step4_hex.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 17674
+  },
+  {
+    "relPath": "scratch/step4_wrapped.sql",
+    "filename": "step4_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 11811
+  },
+  {
+    "relPath": "scratch/step5_hex.sql",
+    "filename": "step5_hex.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 21154
+  },
+  {
+    "relPath": "scratch/step5_wrapped.sql",
+    "filename": "step5_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 14131
+  },
+  {
+    "relPath": "scratch/step6_hex.sql",
+    "filename": "step6_hex.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 37998
+  },
+  {
+    "relPath": "scratch/step6_raw.sql",
+    "filename": "step6_raw.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_sub_event_result_status"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 412,
+    "byteSize": 18958
+  },
+  {
+    "relPath": "scratch/step6_wrapped.sql",
+    "filename": "step6_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 25359
+  },
+  {
+    "relPath": "scratch/step7_hex.sql",
+    "filename": "step7_hex.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 21214
+  },
+  {
+    "relPath": "scratch/step7_raw.sql",
+    "filename": "step7_raw.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.publish_sub_event_results_and_certificates"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 277,
+    "byteSize": 10573
+  },
+  {
+    "relPath": "scratch/step7_wrapped.sql",
+    "filename": "step7_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 14171
+  },
+  {
+    "relPath": "scratch/step8_hex.sql",
+    "filename": "step8_hex.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 1232
+  },
+  {
+    "relPath": "scratch/step8_raw.sql",
+    "filename": "step8_raw.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 16,
+    "byteSize": 582
+  },
+  {
+    "relPath": "scratch/step8_wrapped.sql",
+    "filename": "step8_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 847
+  },
+  {
+    "relPath": "scratch/test_decl.sql",
+    "filename": "test_decl.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_registrations"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 39,
+    "byteSize": 1070
+  },
+  {
+    "relPath": "scratch/test_full_wrapped.sql",
+    "filename": "test_full_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 14147
+  },
+  {
+    "relPath": "scratch/test_live_events_fix.sql",
+    "filename": "test_live_events_fix.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.assessment_live_events"
+    ],
+    "drops": [],
+    "lineCount": 238,
+    "byteSize": 9327
+  },
+  {
+    "relPath": "scratch/test_stage1.sql",
+    "filename": "test_stage1.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_registrations"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 39,
+    "byteSize": 1111
+  },
+  {
+    "relPath": "scratch/test_stage1_wrapped.sql",
+    "filename": "test_stage1_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 1555
+  },
+  {
+    "relPath": "scratch/test_stage2.sql",
+    "filename": "test_stage2.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_registrations"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 71,
+    "byteSize": 2456
+  },
+  {
+    "relPath": "scratch/test_stage2_wrapped.sql",
+    "filename": "test_stage2_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 3347
+  },
+  {
+    "relPath": "scratch/test_stage3.sql",
+    "filename": "test_stage3.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_registrations"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 134,
+    "byteSize": 4824
+  },
+  {
+    "relPath": "scratch/test_stage3_wrapped.sql",
+    "filename": "test_stage3_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 6503
+  },
+  {
+    "relPath": "scratch/test_stage4.sql",
+    "filename": "test_stage4.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_registrations"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 209,
+    "byteSize": 8093
+  },
+  {
+    "relPath": "scratch/test_stage4_wrapped.sql",
+    "filename": "test_stage4_wrapped.sql",
+    "isTracked": false,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 1,
+    "byteSize": 10863
+  },
+  {
+    "relPath": "scripts/qa/01_bootstrap_qa_assessment_schema.sql",
+    "filename": "01_bootstrap_qa_assessment_schema.sql",
+    "isTracked": false,
+    "category": "4. Local-only QA or benchmark script",
+    "purpose": "QA bootstrapping, synthetic seed data, or test verification proposal",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.is_admin",
+      "public.calculate_dynamic_eos_points",
+      "public.student_view_question",
+      "public.internal_finalize_attempt",
+      "public.student_submit_attempt",
+      "public.student_autosave_answer",
+      "public.verify_assessment_coordinator_access",
+      "public.get_assessment_live_host_snapshot",
+      "public.admin_process_assessment_awards",
+      "public.get_my_assessment_certificate",
+      "public.admin_get_assessment_certificates"
+    ],
+    "indexes": [
+      "idx_users_active_admin",
+      "idx_assessment_attempt_answers_scoring_cov",
+      "idx_assessment_attempts_assessment_status",
+      "idx_assessment_attempts_student_active",
+      "idx_assessment_live_events_lookup",
+      "idx_assessment_questions_order",
+      "idx_assessment_revisions_lookup"
+    ],
+    "policies": [],
+    "alters": [
+      "public.assessments",
+      "public.assessment_questions",
+      "public.assessment_question_options",
+      "public.assessment_question_keys",
+      "public.assessment_attempts",
+      "public.assessment_attempt_answers",
+      "public.assessment_attempt_violations",
+      "public.assessment_live_events",
+      "public.assessment_coordinator_assignments",
+      "public.assessment_leaderboard_events",
+      "public.assessment_revisions",
+      "public.assessment_certificates"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 1098,
+    "byteSize": 45857
+  },
+  {
+    "relPath": "scripts/qa/02_seed_qa_synthetic_test_data.sql",
+    "filename": "02_seed_qa_synthetic_test_data.sql",
+    "isTracked": false,
+    "category": "4. Local-only QA or benchmark script",
+    "purpose": "QA bootstrapping, synthetic seed data, or test verification proposal",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 233,
+    "byteSize": 9168
+  },
+  {
+    "relPath": "scripts/qa/03_proposal_deadline_fairness_and_grace_patch.sql",
+    "filename": "03_proposal_deadline_fairness_and_grace_patch.sql",
+    "isTracked": false,
+    "category": "4. Local-only QA or benchmark script",
+    "purpose": "QA bootstrapping, synthetic seed data, or test verification proposal",
+    "tables": [],
+    "functions": [
+      "public.student_autosave_answer",
+      "public.student_submit_attempt"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 294,
+    "byteSize": 12637
+  },
+  {
+    "relPath": "scripts/qa/04_proposal_reconcile_migration_ledger.sql",
+    "filename": "04_proposal_reconcile_migration_ledger.sql",
+    "isTracked": false,
+    "category": "4. Local-only QA or benchmark script",
+    "purpose": "QA bootstrapping, synthetic seed data, or test verification proposal",
+    "tables": [
+      "IF"
+    ],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 53,
+    "byteSize": 2203
+  },
+  {
+    "relPath": "supabase/migrations/00000000000000_init.sql",
+    "filename": "00000000000000_init.sql",
+    "isTracked": true,
+    "category": "5. Standalone or Maintenance script",
+    "purpose": "Standalone utility or maintenance script",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 3,
+    "byteSize": 117
+  },
+  {
+    "relPath": "supabase/migrations/001_core_users.sql",
+    "filename": "001_core_users.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "users",
+      "student_profiles"
+    ],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 24,
+    "byteSize": 812
+  },
+  {
+    "relPath": "supabase/migrations/002_events.sql",
+    "filename": "002_events.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "events",
+      "categories",
+      "sub_events"
+    ],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 43,
+    "byteSize": 1517
+  },
+  {
+    "relPath": "supabase/migrations/003_coordinators.sql",
+    "filename": "003_coordinators.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "coordinators",
+      "coordinator_assignments"
+    ],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 20,
+    "byteSize": 699
+  },
+  {
+    "relPath": "supabase/migrations/004_registrations_teams.sql",
+    "filename": "004_registrations_teams.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "registrations",
+      "teams",
+      "team_members"
+    ],
+    "functions": [],
+    "indexes": [
+      "idx_registrations_sub_event_leader",
+      "idx_team_members_qr_identity",
+      "idx_team_members_manual_token",
+      "idx_registrations_leader",
+      "idx_teams_registration"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 41,
+    "byteSize": 1763
+  },
+  {
+    "relPath": "supabase/migrations/005_payments_attendance.sql",
+    "filename": "005_payments_attendance.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "payments",
+      "attendance_records"
+    ],
+    "functions": [],
+    "indexes": [
+      "idx_attendance_team_sub_event"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 25,
+    "byteSize": 1011
+  },
+  {
+    "relPath": "supabase/migrations/006_documents_certificates.sql",
+    "filename": "006_documents_certificates.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "documents",
+      "certificates",
+      "certificate_corrections"
+    ],
+    "functions": [],
+    "indexes": [
+      "idx_certificates_team_member"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 40,
+    "byteSize": 1588
+  },
+  {
+    "relPath": "supabase/migrations/007_feedback_complaints.sql",
+    "filename": "007_feedback_complaints.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "feedback_responses",
+      "complaints"
+    ],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 25,
+    "byteSize": 1005
+  },
+  {
+    "relPath": "supabase/migrations/008_system_audit_notifications.sql",
+    "filename": "008_system_audit_notifications.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "audit_logs",
+      "notifications"
+    ],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 21,
+    "byteSize": 601
+  },
+  {
+    "relPath": "supabase/migrations/009_rls.sql",
+    "filename": "009_rls.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "is_admin"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "users",
+      "student_profiles",
+      "coordinators",
+      "events",
+      "categories",
+      "sub_events",
+      "coordinator_assignments",
+      "registrations",
+      "teams",
+      "team_members",
+      "payments",
+      "attendance_records",
+      "certificates",
+      "certificate_corrections",
+      "documents",
+      "feedback_responses",
+      "complaints",
+      "audit_logs",
+      "notifications"
+    ],
+    "drops": [],
+    "lineCount": 83,
+    "byteSize": 4210
+  },
+  {
+    "relPath": "supabase/migrations/010_storage.sql",
+    "filename": "010_storage.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 22,
+    "byteSize": 1701
+  },
+  {
+    "relPath": "supabase/migrations/011_auth_provisioning.sql",
+    "filename": "011_auth_provisioning.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.handle_new_user"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 19,
+    "byteSize": 581
+  },
+  {
+    "relPath": "supabase/migrations/012_student_other_department.sql",
+    "filename": "012_student_other_department.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.student_profiles"
+    ],
+    "drops": [],
+    "lineCount": 22,
+    "byteSize": 704
+  },
+  {
+    "relPath": "supabase/migrations/013_audit_log_idempotency.sql",
+    "filename": "013_audit_log_idempotency.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [
+      "audit_logs_admin_login_email_idx"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 9,
+    "byteSize": 414
+  },
+  {
+    "relPath": "supabase/migrations/014_fix_users_permission.sql",
+    "filename": "014_fix_users_permission.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 7,
+    "byteSize": 286
+  },
+  {
+    "relPath": "supabase/migrations/015_grant_public_tables.sql",
+    "filename": "015_grant_public_tables.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 24,
+    "byteSize": 1137
+  },
+  {
+    "relPath": "supabase/migrations/016_least_privilege_grants.sql",
+    "filename": "016_least_privilege_grants.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 33,
+    "byteSize": 1445
+  },
+  {
+    "relPath": "supabase/migrations/017_event_schema_update.sql",
+    "filename": "017_event_schema_update.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.events"
+    ],
+    "drops": [],
+    "lineCount": 13,
+    "byteSize": 460
+  },
+  {
+    "relPath": "supabase/migrations/018_grant_backend_least_privilege.sql",
+    "filename": "018_grant_backend_least_privilege.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 10,
+    "byteSize": 362
+  },
+  {
+    "relPath": "supabase/migrations/019_workflow_and_coordinator_grants.sql",
+    "filename": "019_workflow_and_coordinator_grants.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.categories",
+      "public.sub_events",
+      "public.coordinators"
+    ],
+    "drops": [],
+    "lineCount": 25,
+    "byteSize": 1076
+  },
+  {
+    "relPath": "supabase/migrations/020_coordinators_registrations_payments_access.sql",
+    "filename": "020_coordinators_registrations_payments_access.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 37,
+    "byteSize": 1724
+  },
+  {
+    "relPath": "supabase/migrations/021_student_profile_documents_grants.sql",
+    "filename": "021_student_profile_documents_grants.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 43,
+    "byteSize": 1938
+  },
+  {
+    "relPath": "supabase/migrations/022_admin_operations_rls_policies.sql",
+    "filename": "022_admin_operations_rls_policies.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 77,
+    "byteSize": 3380
+  },
+  {
+    "relPath": "supabase/migrations/023_expand_manual_token_length.sql",
+    "filename": "023_expand_manual_token_length.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.team_members"
+    ],
+    "drops": [],
+    "lineCount": 6,
+    "byteSize": 223
+  },
+  {
+    "relPath": "supabase/migrations/024_student_portal_policies_and_verification_rpc.sql",
+    "filename": "024_student_portal_policies_and_verification_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.verify_certificate"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 77,
+    "byteSize": 2824
+  },
+  {
+    "relPath": "supabase/migrations/025_public_coordinator_contacts_rpc.sql",
+    "filename": "025_public_coordinator_contacts_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_sub_event_coordinators"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 54,
+    "byteSize": 1940
+  },
+  {
+    "relPath": "supabase/migrations/026_confirm_cod_payment_rpc.sql",
+    "filename": "026_confirm_cod_payment_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "confirm_cod_payment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 81,
+    "byteSize": 2194
+  },
+  {
+    "relPath": "supabase/migrations/027_grant_authenticated_crud.sql",
+    "filename": "027_grant_authenticated_crud.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 8,
+    "byteSize": 423
+  },
+  {
+    "relPath": "supabase/migrations/028_results_and_certificates_unification.sql",
+    "filename": "028_results_and_certificates_unification.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.lock_sub_event_podium_position",
+      "public.publish_sub_event_results_and_certificates",
+      "public.verify_certificate",
+      "public.submit_event_feedback_and_unlock_certificate"
+    ],
+    "indexes": [
+      "idx_certificates_code"
+    ],
+    "policies": [],
+    "alters": [
+      "certificate_type",
+      "public.sub_events",
+      "public.certificates"
+    ],
+    "drops": [],
+    "lineCount": 580,
+    "byteSize": 19706
+  },
+  {
+    "relPath": "supabase/migrations/029_admin_bulk_delete_students_rpc.sql",
+    "filename": "029_admin_bulk_delete_students_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_students"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 126,
+    "byteSize": 4360
+  },
+  {
+    "relPath": "supabase/migrations/030_admin_historical_data_deletion_system.sql",
+    "filename": "030_admin_historical_data_deletion_system.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_calculate_historical_deletion_impact",
+      "public.admin_delete_historical_data"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 399,
+    "byteSize": 16405
+  },
+  {
+    "relPath": "supabase/migrations/031_notifications_system_reconstruction.sql",
+    "filename": "031_notifications_system_reconstruction.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_get_notification_recipient_counts",
+      "public.admin_send_broadcast_notification",
+      "public.get_coordinator_notifications",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read",
+      "public.get_coordinator_unread_count"
+    ],
+    "indexes": [
+      "idx_notifications_user_id",
+      "idx_notifications_coordinator_id",
+      "idx_notifications_created_at",
+      "idx_notifications_is_read"
+    ],
+    "policies": [],
+    "alters": [
+      "public.notifications"
+    ],
+    "drops": [],
+    "lineCount": 262,
+    "byteSize": 8406
+  },
+  {
+    "relPath": "supabase/migrations/032_coordinator_assignment_state_and_recipient_accuracy.sql",
+    "filename": "032_coordinator_assignment_state_and_recipient_accuracy.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_assignment_state",
+      "public.admin_get_notification_recipient_counts",
+      "public.admin_send_broadcast_notification"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 250,
+    "byteSize": 8767
+  },
+  {
+    "relPath": "supabase/migrations/033_coordinator_portal_assignments_and_roster_rpcs.sql",
+    "filename": "033_coordinator_portal_assignments_and_roster_rpcs.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_sub_event_roster"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 178,
+    "byteSize": 6601
+  },
+  {
+    "relPath": "supabase/migrations/034_authoritative_event_lifecycle_and_integrity.sql",
+    "filename": "034_authoritative_event_lifecycle_and_integrity.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_sub_event_roster",
+      "public.publish_sub_event_results_and_certificates"
+    ],
+    "indexes": [
+      "idx_unique_active_leader_sub_event",
+      "idx_unique_successful_payment_per_registration",
+      "idx_attendance_sub_event_team"
+    ],
+    "policies": [],
+    "alters": [
+      "public.attendance_records"
+    ],
+    "drops": [],
+    "lineCount": 434,
+    "byteSize": 16053
+  },
+  {
+    "relPath": "supabase/migrations/035_critical_workflow_payment_certificate_hardening.sql",
+    "filename": "035_critical_workflow_payment_certificate_hardening.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.confirm_cod_payment",
+      "public.unlock_student_certificate",
+      "public.publish_sub_event_results_and_certificates",
+      "public.get_sub_event_documents_for_coordinator"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.coordinators"
+    ],
+    "drops": [],
+    "lineCount": 678,
+    "byteSize": 23709
+  },
+  {
+    "relPath": "supabase/migrations/036_add_payment_method_to_payments.sql",
+    "filename": "036_add_payment_method_to_payments.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [
+      "idx_payments_payment_method"
+    ],
+    "policies": [],
+    "alters": [
+      "public.payments"
+    ],
+    "drops": [],
+    "lineCount": 52,
+    "byteSize": 1712
+  },
+  {
+    "relPath": "supabase/migrations/036_individual_attendance_certificate_enforcement.sql",
+    "filename": "036_individual_attendance_certificate_enforcement.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.publish_sub_event_results_and_certificates"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 278,
+    "byteSize": 10129
+  },
+  {
+    "relPath": "supabase/migrations/037_coordinator_roster_full_fields.sql",
+    "filename": "037_coordinator_roster_full_fields.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_sub_event_roster"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 169,
+    "byteSize": 6853
+  },
+  {
+    "relPath": "supabase/migrations/038_admin_event_deletion_confirm_phrase.sql",
+    "filename": "038_admin_event_deletion_confirm_phrase.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_calculate_historical_deletion_impact",
+      "public.admin_delete_historical_data"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 390,
+    "byteSize": 15518
+  },
+  {
+    "relPath": "supabase/migrations/039_admin_student_identity_linking.sql",
+    "filename": "039_admin_student_identity_linking.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 32,
+    "byteSize": 1716
+  },
+  {
+    "relPath": "supabase/migrations/040_security_hardening_and_active_coordinators_kpi.sql",
+    "filename": "040_security_hardening_and_active_coordinators_kpi.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_active_coordinators_count",
+      "public.is_admin",
+      "public.handle_new_user",
+      "public.admin_archive_event",
+      "public.admin_restore_event",
+      "public.admin_delete_event",
+      "public.admin_archive_category",
+      "public.admin_restore_category",
+      "public.admin_delete_category",
+      "public.admin_archive_sub_event",
+      "public.admin_restore_sub_event",
+      "public.admin_delete_sub_event",
+      "public.confirm_cod_payment",
+      "public.get_sub_event_coordinators"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 891,
+    "byteSize": 31600
+  },
+  {
+    "relPath": "supabase/migrations/041_admin_delete_notifications_rpc.sql",
+    "filename": "041_admin_delete_notifications_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_notifications"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 134,
+    "byteSize": 4722
+  },
+  {
+    "relPath": "supabase/migrations/042_admin_oauth_allowlist_and_prasanth_student_separation.sql",
+    "filename": "042_admin_oauth_allowlist_and_prasanth_student_separation.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.is_admin",
+      "public.handle_new_user"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 96,
+    "byteSize": 3073
+  },
+  {
+    "relPath": "supabase/migrations/043_student_profile_field_permissions_and_name_lock.sql",
+    "filename": "043_student_profile_field_permissions_and_name_lock.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.enforce_student_profile_update_rules"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.student_profiles"
+    ],
+    "drops": [],
+    "lineCount": 96,
+    "byteSize": 4082
+  },
+  {
+    "relPath": "supabase/migrations/044_complaints_admin_update_delete_grants.sql",
+    "filename": "044_complaints_admin_update_delete_grants.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 8,
+    "byteSize": 436
+  },
+  {
+    "relPath": "supabase/migrations/045_document_storage_and_table_size_enforcement.sql",
+    "filename": "045_document_storage_and_table_size_enforcement.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.documents"
+    ],
+    "drops": [],
+    "lineCount": 17,
+    "byteSize": 668
+  },
+  {
+    "relPath": "supabase/migrations/046_unified_admin_notification_broadcasts.sql",
+    "filename": "046_unified_admin_notification_broadcasts.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_send_broadcast_notification",
+      "public.admin_get_broadcast_notifications",
+      "public.admin_delete_notifications"
+    ],
+    "indexes": [
+      "idx_notifications_broadcast_id"
+    ],
+    "policies": [],
+    "alters": [
+      "public.notifications"
+    ],
+    "drops": [],
+    "lineCount": 362,
+    "byteSize": 12295
+  },
+  {
+    "relPath": "supabase/migrations/047_coordinator_auth_identity_and_jwt_derivation.sql",
+    "filename": "047_coordinator_auth_identity_and_jwt_derivation.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.handle_new_user",
+      "public.get_current_coordinator_id",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_sub_event_roster",
+      "public.get_coordinator_notifications",
+      "public.get_coordinator_unread_count",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.admin_get_sub_event_roster"
+    ],
+    "indexes": [
+      "idx_coordinators_auth_user_id"
+    ],
+    "policies": [],
+    "alters": [
+      "user_role",
+      "public.coordinators"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 697,
+    "byteSize": 24910
+  },
+  {
+    "relPath": "supabase/migrations/048_coordinator_auth_email_and_users_role.sql",
+    "filename": "048_coordinator_auth_email_and_users_role.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.set_coordinator_auth_email",
+      "public.get_current_user_profile",
+      "public.get_coordinator_notifications",
+      "public.get_coordinator_unread_count",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.coordinators"
+    ],
+    "drops": [
+      "IF",
+      "public.get_coordinator_notifications"
+    ],
+    "lineCount": 206,
+    "byteSize": 6087
+  },
+  {
+    "relPath": "supabase/migrations/049_dpdp_privacy_governance.sql",
+    "filename": "049_dpdp_privacy_governance.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.acknowledge_privacy_notice",
+      "public.get_student_personal_data_export",
+      "public.admin_update_privacy_request"
+    ],
+    "indexes": [
+      "idx_privacy_requests_user_id",
+      "idx_privacy_requests_status",
+      "idx_privacy_requests_created_at"
+    ],
+    "policies": [],
+    "alters": [
+      "public.student_profiles",
+      "public.privacy_requests"
+    ],
+    "drops": [
+      "public.get_coordinator_sub_event_roster",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_assignment_state",
+      "public.get_coordinator_notifications",
+      "public.get_coordinator_unread_count",
+      "IF"
+    ],
+    "lineCount": 476,
+    "byteSize": 18233
+  },
+  {
+    "relPath": "supabase/migrations/050_admin_login_allowlist_and_auth_hardening.sql",
+    "filename": "050_admin_login_allowlist_and_auth_hardening.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.is_admin",
+      "public.handle_new_user"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 90,
+    "byteSize": 2755
+  },
+  {
+    "relPath": "supabase/migrations/050_coordinator_custom_session_architecture.sql",
+    "filename": "050_coordinator_custom_session_architecture.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.get_coordinator_id_by_token",
+      "public.invalidate_coordinator_session",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_sub_event_roster",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.get_coordinator_notifications",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read",
+      "public.get_current_user_profile"
+    ],
+    "indexes": [
+      "idx_coordinator_sessions_token_hash",
+      "idx_coordinator_sessions_coordinator_id",
+      "idx_coordinator_sessions_expires_at"
+    ],
+    "policies": [],
+    "alters": [
+      "public.coordinators",
+      "public.coordinator_sessions"
+    ],
+    "drops": [
+      "public.set_coordinator_auth_email",
+      "IF",
+      "public.get_current_coordinator_id",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_assigned_sub_events",
+      "public.get_coordinator_sub_event_roster",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.get_coordinator_notifications",
+      "public.mark_coordinator_notification_read",
+      "public.mark_all_coordinator_notifications_read"
+    ],
+    "lineCount": 663,
+    "byteSize": 24129
+  },
+  {
+    "relPath": "supabase/migrations/051_fix_admin_delete_notifications_rpc.sql",
+    "filename": "051_fix_admin_delete_notifications_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_notifications"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.admin_delete_notifications"
+    ],
+    "lineCount": 146,
+    "byteSize": 5267
+  },
+  {
+    "relPath": "supabase/migrations/052_backend_scalability_indexes.sql",
+    "filename": "052_backend_scalability_indexes.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [
+      "idx_documents_entity_id_type",
+      "idx_payments_success_revenue",
+      "idx_payments_registration_id",
+      "idx_team_members_team_id",
+      "idx_team_members_user_id",
+      "idx_team_members_roll_upper",
+      "idx_notifications_user_unread",
+      "idx_notifications_user_feed",
+      "idx_sub_events_event_id_status",
+      "idx_categories_event_id_status",
+      "idx_audit_logs_created_at"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.idx_coordinator_sessions_token_hash",
+      "public.idx_team_members_manual_token",
+      "public.idx_team_members_qr_identity",
+      "public.idx_teams_registration"
+    ],
+    "lineCount": 71,
+    "byteSize": 3607
+  },
+  {
+    "relPath": "supabase/migrations/053_high_concurrency_atomic_registration_and_kpi.sql",
+    "filename": "053_high_concurrency_atomic_registration_and_kpi.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.generate_attendance_token",
+      "public.student_register_atomic",
+      "public.cancel_registration_idempotent",
+      "public.trig_sync_registration_delete_capacity",
+      "public.admin_get_dashboard_metrics",
+      "public.get_coordinator_sub_event_roster",
+      "public.admin_reconcile_sub_event_capacity"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.sub_events"
+    ],
+    "drops": [],
+    "lineCount": 830,
+    "byteSize": 33500
+  },
+  {
+    "relPath": "supabase/migrations/054_admin_registration_deletion.sql",
+    "filename": "054_admin_registration_deletion.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_registration"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 221,
+    "byteSize": 8436
+  },
+  {
+    "relPath": "supabase/migrations/055_admin_bulk_registration_deletion.sql",
+    "filename": "055_admin_bulk_registration_deletion.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_registrations"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 249,
+    "byteSize": 9766
+  },
+  {
+    "relPath": "supabase/migrations/055_production_asset_lifecycle_and_category_cleanup.sql",
+    "filename": "055_production_asset_lifecycle_and_category_cleanup.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.extract_event_storage_path",
+      "public.admin_delete_historical_data",
+      "public.admin_delete_event",
+      "public.admin_delete_sub_event"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.categories"
+    ],
+    "drops": [],
+    "lineCount": 522,
+    "byteSize": 20191
+  },
+  {
+    "relPath": "supabase/migrations/056_fix_production_schema_and_indexes.sql",
+    "filename": "056_fix_production_schema_and_indexes.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_sub_event_roster"
+    ],
+    "indexes": [
+      "idx_audit_logs_admin_login_session"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.audit_logs_admin_login_email_idx"
+    ],
+    "lineCount": 165,
+    "byteSize": 6832
+  },
+  {
+    "relPath": "supabase/migrations/057_backend_authoritative_storage_cleanup_queue.sql",
+    "filename": "057_backend_authoritative_storage_cleanup_queue.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.claim_storage_cleanup_jobs",
+      "public.complete_storage_cleanup_job",
+      "public.admin_delete_historical_data",
+      "public.admin_delete_event",
+      "public.admin_delete_sub_event"
+    ],
+    "indexes": [
+      "idx_storage_cleanup_queue_claimable"
+    ],
+    "policies": [],
+    "alters": [
+      "public.storage_cleanup_queue"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 637,
+    "byteSize": 24593
+  },
+  {
+    "relPath": "supabase/migrations/058_final_asset_lifecycle_production_hardening.sql",
+    "filename": "058_final_asset_lifecycle_production_hardening.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_historical_data",
+      "public.admin_purge_completed_storage_cleanup_jobs",
+      "public.admin_get_storage_cleanup_failures",
+      "public.check_storage_cleanup_indexes"
+    ],
+    "indexes": [
+      "idx_storage_cleanup_queue_active_path",
+      "idx_storage_cleanup_queue_claimable_fifo"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 570,
+    "byteSize": 21830
+  },
+  {
+    "relPath": "supabase/migrations/059_autonomous_storage_cleanup_scheduler.sql",
+    "filename": "059_autonomous_storage_cleanup_scheduler.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.sync_service_role_key_to_vault",
+      "public.invoke_storage_cleanup_worker"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 133,
+    "byteSize": 5091
+  },
+  {
+    "relPath": "supabase/migrations/060_fix_coordinator_roster_and_docs_rpc_columns.sql",
+    "filename": "060_fix_coordinator_roster_and_docs_rpc_columns.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_sub_event_roster",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.admin_get_sub_event_roster"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 403,
+    "byteSize": 15548
+  },
+  {
+    "relPath": "supabase/migrations/061_fix_sub_event_deletion_lifecycle.sql",
+    "filename": "061_fix_sub_event_deletion_lifecycle.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_historical_data"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 472,
+    "byteSize": 18963
+  },
+  {
+    "relPath": "supabase/migrations/062_fix_publish_results_sub_events_columns.sql",
+    "filename": "062_fix_publish_results_sub_events_columns.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.publish_sub_event_results_and_certificates"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 284,
+    "byteSize": 10423
+  },
+  {
+    "relPath": "supabase/migrations/063_cod_payment_management_role_and_rpcs.sql",
+    "filename": "063_cod_payment_management_role_and_rpcs.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_pending_cod_payments",
+      "public.confirm_cod_payment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.user_role"
+    ],
+    "drops": [],
+    "lineCount": 328,
+    "byteSize": 11785
+  },
+  {
+    "relPath": "supabase/migrations/064_document_permissions_and_storage_lifecycle.sql",
+    "filename": "064_document_permissions_and_storage_lifecycle.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.documents"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 140,
+    "byteSize": 4687
+  },
+  {
+    "relPath": "supabase/migrations/064_fix_payment_manager_cod_confirmation_authorization.sql",
+    "filename": "064_fix_payment_manager_cod_confirmation_authorization.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.confirm_cod_payment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 192,
+    "byteSize": 7234
+  },
+  {
+    "relPath": "supabase/migrations/065_atomic_attendance_verification_and_checkin_rpcs.sql",
+    "filename": "065_atomic_attendance_verification_and_checkin_rpcs.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.verify_attendance_participant",
+      "public.commit_attendance_checkin"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 712,
+    "byteSize": 30233
+  },
+  {
+    "relPath": "supabase/migrations/066_fix_uuid_aggregation_in_attendance_rpcs.sql",
+    "filename": "066_fix_uuid_aggregation_in_attendance_rpcs.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.verify_attendance_participant"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 507,
+    "byteSize": 21913
+  },
+  {
+    "relPath": "supabase/migrations/067_scope_analytics_rpc.sql",
+    "filename": "067_scope_analytics_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_scope_analytics"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 221,
+    "byteSize": 10161
+  },
+  {
+    "relPath": "supabase/migrations/068_fewer_than_two_competitors_certificate_workflow.sql",
+    "filename": "068_fewer_than_two_competitors_certificate_workflow.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.publish_sub_event_results_and_certificates"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 344,
+    "byteSize": 13681
+  },
+  {
+    "relPath": "supabase/migrations/069_add_admin_jnvsravankumar.sql",
+    "filename": "069_add_admin_jnvsravankumar.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.is_admin",
+      "public.handle_new_user",
+      "public.admin_delete_notifications"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 237,
+    "byteSize": 7717
+  },
+  {
+    "relPath": "supabase/migrations/070_immediate_participation_certificates.sql",
+    "filename": "070_immediate_participation_certificates.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.trigger_issue_participation_certificate",
+      "public.publish_sub_event_results_and_certificates"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.certificates"
+    ],
+    "drops": [],
+    "lineCount": 427,
+    "byteSize": 16626
+  },
+  {
+    "relPath": "supabase/migrations/071_main_event_certificate_templates.sql",
+    "filename": "071_main_event_certificate_templates.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.can_access_certificate_template",
+      "public.trigger_issue_participation_certificate",
+      "public.publish_sub_event_results_and_certificates",
+      "public.admin_save_certificate_template",
+      "public.admin_switch_certificate_template_mode",
+      "public.admin_update_template_field_positions",
+      "public.get_admin_event_certificate_configs",
+      "public.get_certificate_template_info"
+    ],
+    "indexes": [
+      "idx_cert_template_versions_lookup",
+      "idx_main_event_cert_configs_lookup",
+      "idx_certificates_template_version_id"
+    ],
+    "policies": [],
+    "alters": [
+      "public.certificates",
+      "public.main_event_certificate_configs",
+      "public.certificate_template_versions"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 999,
+    "byteSize": 41189
+  },
+  {
+    "relPath": "supabase/migrations/072_remove_custom_certificate_templates.sql",
+    "filename": "072_remove_custom_certificate_templates.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.trigger_issue_participation_certificate",
+      "public.publish_sub_event_results_and_certificates"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.certificates"
+    ],
+    "drops": [
+      "public.main_event_certificate_configs",
+      "public.certificate_template_versions",
+      "IF",
+      "public.admin_save_certificate_template",
+      "public.admin_switch_certificate_template_mode",
+      "public.admin_update_template_field_positions",
+      "public.get_admin_event_certificate_configs",
+      "public.get_certificate_template_info",
+      "public.can_access_certificate_template"
+    ],
+    "lineCount": 410,
+    "byteSize": 16972
+  },
+  {
+    "relPath": "supabase/migrations/073_event_lifecycle_archiving_and_student_deactivation.sql",
+    "filename": "073_event_lifecycle_archiving_and_student_deactivation.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.effective_status",
+      "public.resolve_effective_event_status",
+      "public.resolve_effective_sub_event_status",
+      "public.admin_set_event_status",
+      "public.admin_set_sub_event_status",
+      "public.admin_archive_event",
+      "public.admin_restore_event",
+      "public.admin_archive_category",
+      "public.admin_restore_category",
+      "public.admin_archive_sub_event",
+      "public.admin_restore_sub_event",
+      "public.student_register_atomic",
+      "public.student_deactivate_account",
+      "public.student_reactivate_account",
+      "public.get_student_account_status",
+      "public.cleanup_expired_student_account_data",
+      "public.invoke_student_account_cleanup_worker"
+    ],
+    "indexes": [
+      "idx_users_scheduled_deletion"
+    ],
+    "policies": [],
+    "alters": [
+      "public.events",
+      "public.sub_events",
+      "public.users"
+    ],
+    "drops": [],
+    "lineCount": 1344,
+    "byteSize": 47030
+  },
+  {
+    "relPath": "supabase/migrations/074_main_event_lifecycle_and_subevent_gate.sql",
+    "filename": "074_main_event_lifecycle_and_subevent_gate.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.main_event_registration_gate",
+      "public.effective_status",
+      "public.sub_event_registration_available",
+      "public.resolve_effective_event_status",
+      "public.resolve_effective_sub_event_status",
+      "public.admin_set_event_status",
+      "public.student_register_atomic"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 736,
+    "byteSize": 28530
+  },
+  {
+    "relPath": "supabase/migrations/075_registration_lifecycle_and_free_paid_subevents.sql",
+    "filename": "075_registration_lifecycle_and_free_paid_subevents.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.main_event_registration_gate",
+      "public.sub_event_registration_available",
+      "public.effective_status",
+      "public.student_register_atomic",
+      "public.check_sub_event_payment_type_immutable"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.sub_events"
+    ],
+    "drops": [],
+    "lineCount": 668,
+    "byteSize": 26212
+  },
+  {
+    "relPath": "supabase/migrations/076_fix_revenue_consistency_analytics_rpc.sql",
+    "filename": "076_fix_revenue_consistency_analytics_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_scope_analytics"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 258,
+    "byteSize": 11938
+  },
+  {
+    "relPath": "supabase/migrations/077_unify_student_register_atomic_rpc.sql",
+    "filename": "077_unify_student_register_atomic_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.student_register_atomic"
+    ],
+    "lineCount": 440,
+    "byteSize": 18892
+  },
+  {
+    "relPath": "supabase/migrations/078_team_registration_duplicate_roll_validation.sql",
+    "filename": "078_team_registration_duplicate_roll_validation.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 533,
+    "byteSize": 23053
+  },
+  {
+    "relPath": "supabase/migrations/079_student_account_suspension_system.sql",
+    "filename": "079_student_account_suspension_system.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.enforce_student_profile_update_rules",
+      "public.admin_suspend_student",
+      "public.admin_unsuspend_student",
+      "public.admin_review_unsuspension_request",
+      "public.student_submit_unsuspension_request",
+      "public.get_student_account_status",
+      "public.student_register_atomic"
+    ],
+    "indexes": [
+      "idx_student_profiles_account_status",
+      "idx_unique_pending_suspension_request",
+      "idx_suspension_requests_status",
+      "idx_suspension_requests_created_at"
+    ],
+    "policies": [],
+    "alters": [
+      "public.student_profiles",
+      "public.student_account_suspension_requests"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 1233,
+    "byteSize": 43802
+  },
+  {
+    "relPath": "supabase/migrations/080_payment_manager_main_event_filtering.sql",
+    "filename": "080_payment_manager_main_event_filtering.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_pending_cod_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 188,
+    "byteSize": 8423
+  },
+  {
+    "relPath": "supabase/migrations/081_fix_student_suspension_requests_authorization.sql",
+    "filename": "081_fix_student_suspension_requests_authorization.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_get_suspension_requests"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.student_account_suspension_requests"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 148,
+    "byteSize": 6208
+  },
+  {
+    "relPath": "supabase/migrations/082_fix_registration_participation_type_and_schema_integrity.sql",
+    "filename": "082_fix_registration_participation_type_and_schema_integrity.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 547,
+    "byteSize": 24130
+  },
+  {
+    "relPath": "supabase/migrations/083_feedback_gated_participation_certificates.sql",
+    "filename": "083_feedback_gated_participation_certificates.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.trigger_issue_participation_certificate",
+      "public.submit_event_feedback_and_unlock_certificate",
+      "public.unlock_student_certificate"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 401,
+    "byteSize": 14193
+  },
+  {
+    "relPath": "supabase/migrations/084_fix_payment_manager_event_scoping_and_permissions.sql",
+    "filename": "084_fix_payment_manager_event_scoping_and_permissions.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_pending_cod_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 182,
+    "byteSize": 7916
+  },
+  {
+    "relPath": "supabase/migrations/085_security_hardening_and_rpc_remediation.sql",
+    "filename": "085_security_hardening_and_rpc_remediation.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.confirm_cod_payment",
+      "public.get_pending_cod_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.get_coordinator_sub_event_roster",
+      "public.get_sub_event_documents_for_coordinator",
+      "public.mark_all_coordinator_notifications_read",
+      "public.mark_coordinator_notification_read",
+      "public.get_pending_cod_payments",
+      "public.confirm_cod_payment",
+      "IF"
+    ],
+    "lineCount": 422,
+    "byteSize": 17514
+  },
+  {
+    "relPath": "supabase/migrations/086_fix_confirm_cod_payment_auth_order.sql",
+    "filename": "086_fix_confirm_cod_payment_auth_order.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.confirm_cod_payment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 191,
+    "byteSize": 7153
+  },
+  {
+    "relPath": "supabase/migrations/087_public_coordinator_directory_rpc.sql",
+    "filename": "087_public_coordinator_directory_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_public_coordinator_directory"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.get_public_coordinator_directory"
+    ],
+    "lineCount": 80,
+    "byteSize": 3380
+  },
+  {
+    "relPath": "supabase/migrations/088_coordinator_15_minute_session_lifetime.sql",
+    "filename": "088_coordinator_15_minute_session_lifetime.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.enforce_coordinator_session_15m_max",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_id_by_token"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 249,
+    "byteSize": 9052
+  },
+  {
+    "relPath": "supabase/migrations/089_form_drafts_persistence_system.sql",
+    "filename": "089_form_drafts_persistence_system.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.save_user_draft",
+      "public.get_user_drafts",
+      "public.delete_user_draft",
+      "public.save_coordinator_draft",
+      "public.get_coordinator_drafts",
+      "public.delete_coordinator_draft",
+      "public.purge_expired_form_drafts"
+    ],
+    "indexes": [
+      "idx_form_drafts_auth_user",
+      "idx_form_drafts_coordinator",
+      "idx_form_drafts_retention",
+      "idx_form_drafts_unique_auth_user",
+      "idx_form_drafts_unique_coordinator"
+    ],
+    "policies": [],
+    "alters": [
+      "public.form_drafts"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 545,
+    "byteSize": 17789
+  },
+  {
+    "relPath": "supabase/migrations/090_student_published_results_and_notification_integration.sql",
+    "filename": "090_student_published_results_and_notification_integration.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_student_published_results",
+      "public.trigger_notify_students_on_results_published"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 275,
+    "byteSize": 11739
+  },
+  {
+    "relPath": "supabase/migrations/091_coordinator_1_hour_session_lifetime.sql",
+    "filename": "091_coordinator_1_hour_session_lifetime.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.enforce_coordinator_session_15m_max",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_id_by_token"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 250,
+    "byteSize": 9094
+  },
+  {
+    "relPath": "supabase/migrations/092_inter_college_team_registration_and_validation.sql",
+    "filename": "092_inter_college_team_registration_and_validation.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic",
+      "public.unlock_student_certificate"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.unlock_student_certificate"
+    ],
+    "lineCount": 767,
+    "byteSize": 32939
+  },
+  {
+    "relPath": "supabase/migrations/093_coordinator_result_submission_and_approval_workflow.sql",
+    "filename": "093_coordinator_result_submission_and_approval_workflow.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.coordinator_submit_sub_event_result",
+      "public.get_coordinator_sub_event_result_status",
+      "public.admin_get_result_submissions",
+      "public.admin_approve_result_submission",
+      "public.admin_reject_result_submission",
+      "public.trigger_notify_students_on_results_published"
+    ],
+    "indexes": [
+      "idx_result_submissions_sub_event_id",
+      "idx_result_submissions_coordinator_id",
+      "idx_result_submissions_status",
+      "idx_result_submissions_submitted_at",
+      "idx_result_submissions_pending_unique"
+    ],
+    "policies": [],
+    "alters": [
+      "public.result_submissions"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 1180,
+    "byteSize": 46865
+  },
+  {
+    "relPath": "supabase/migrations/094_secure_admin_result_edit_and_correction_workflow.sql",
+    "filename": "094_secure_admin_result_edit_and_correction_workflow.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.admin_get_sub_event_eligible_candidates",
+      "public.admin_edit_pending_result_submission",
+      "public.admin_preview_published_result_correction",
+      "public.admin_correct_published_sub_event_result",
+      "public.admin_get_result_submissions"
+    ],
+    "indexes": [
+      "idx_cert_revocation_logs_cert_id",
+      "idx_cert_revocation_logs_sub_event_id",
+      "idx_cert_revocation_logs_member_id"
+    ],
+    "policies": [],
+    "alters": [
+      "public.sub_events",
+      "public.certificates",
+      "public.certificate_revocation_logs"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 1266,
+    "byteSize": 53367
+  },
+  {
+    "relPath": "supabase/migrations/095_one_time_admin_result_edit.sql",
+    "filename": "095_one_time_admin_result_edit.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.lock_sub_event_podium_position",
+      "public.publish_sub_event_results_and_certificates",
+      "public.admin_correct_published_sub_event_result",
+      "public.admin_get_result_submissions"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.sub_events",
+      "public.result_submissions"
+    ],
+    "drops": [],
+    "lineCount": 1118,
+    "byteSize": 44880
+  },
+  {
+    "relPath": "supabase/migrations/096_fix_admin_get_result_submissions_coordinator_name.sql",
+    "filename": "096_fix_admin_get_result_submissions_coordinator_name.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_get_result_submissions"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 248,
+    "byteSize": 12134
+  },
+  {
+    "relPath": "supabase/migrations/097_coordinator_comprehensive_result_and_certificate_view.sql",
+    "filename": "097_coordinator_comprehensive_result_and_certificate_view.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_sub_event_result_status"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 417,
+    "byteSize": 19373
+  },
+  {
+    "relPath": "supabase/migrations/098_sub_event_payment_modes_and_bulk_approval.sql",
+    "filename": "098_sub_event_payment_modes_and_bulk_approval.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic",
+      "public.confirm_bulk_payments",
+      "public.confirm_cod_payment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.sub_events"
+    ],
+    "drops": [],
+    "lineCount": 823,
+    "byteSize": 34546
+  },
+  {
+    "relPath": "supabase/migrations/099_advanced_cross_portal_notification_system.sql",
+    "filename": "099_advanced_cross_portal_notification_system.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.ensure_welcome_notification",
+      "public.mark_notifications_read_on_open",
+      "public.get_portal_notifications",
+      "public.get_portal_unread_count",
+      "public.confirm_bulk_payments",
+      "public.confirm_cod_payment",
+      "public.commit_attendance_checkin",
+      "public.trigger_notify_on_results_published",
+      "public.trigger_notify_on_certificate_lifecycle",
+      "public.trigger_notify_on_registration_created",
+      "public.trigger_notify_on_payment_created"
+    ],
+    "indexes": [
+      "idx_notifications_unread_user",
+      "idx_notifications_unread_coord",
+      "idx_notifications_category"
+    ],
+    "policies": [],
+    "alters": [
+      "public.notifications"
+    ],
+    "drops": [],
+    "lineCount": 1273,
+    "byteSize": 48126
+  },
+  {
+    "relPath": "supabase/migrations/100_fix_coordinator_scope_analytics_and_roster.sql",
+    "filename": "100_fix_coordinator_scope_analytics_and_roster.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_scope_analytics",
+      "public.get_coordinator_sub_event_roster"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.get_scope_analytics"
+    ],
+    "lineCount": 443,
+    "byteSize": 19281
+  },
+  {
+    "relPath": "supabase/migrations/101_create_manage_stalls_module.sql",
+    "filename": "101_create_manage_stalls_module.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.admin_create_stall",
+      "public.admin_update_stall",
+      "public.admin_approve_stall",
+      "public.admin_reject_stall",
+      "public.admin_delete_stall",
+      "public.student_submit_stall",
+      "public.student_update_pending_stall",
+      "public.admin_permanent_delete_stall",
+      "public.admin_restore_stall"
+    ],
+    "indexes": [
+      "idx_stalls_event_id",
+      "idx_stalls_status",
+      "idx_stalls_created_by_student",
+      "idx_stalls_event_status",
+      "idx_stall_owners_stall_id",
+      "idx_stall_contacts_stall_id"
+    ],
+    "policies": [
+      "stalls_select_policy ON public.stalls",
+      "stalls_insert_policy ON public.stalls",
+      "stalls_update_policy ON public.stalls",
+      "stalls_delete_policy ON public.stalls",
+      "stall_owners_select_policy ON public.stall_owners",
+      "stall_owners_all_policy ON public.stall_owners",
+      "stall_contacts_select_policy ON public.stall_contacts",
+      "stall_contacts_all_policy ON public.stall_contacts"
+    ],
+    "alters": [
+      "public.stalls",
+      "public.stall_owners",
+      "public.stall_contacts"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 1304,
+    "byteSize": 40238
+  },
+  {
+    "relPath": "supabase/migrations/102_fix_registration_enum_and_payment_status.sql",
+    "filename": "102_fix_registration_enum_and_payment_status.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.trigger_notify_on_registration_created",
+      "public.student_register_atomic",
+      "public.confirm_bulk_payments"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 890,
+    "byteSize": 37826
+  },
+  {
+    "relPath": "supabase/migrations/103_authoritative_main_event_status_precedence.sql",
+    "filename": "103_authoritative_main_event_status_precedence.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.effective_status",
+      "public.validate_coordinator_session",
+      "public.get_coordinator_sub_event_roster"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 504,
+    "byteSize": 20148
+  },
+  {
+    "relPath": "supabase/migrations/103_fix_attendance_authorization_and_error_codes.sql",
+    "filename": "103_fix_attendance_authorization_and_error_codes.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.verify_attendance_participant",
+      "public.commit_attendance_checkin"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.verify_attendance_participant"
+    ],
+    "lineCount": 794,
+    "byteSize": 33359
+  },
+  {
+    "relPath": "supabase/migrations/104_fix_coordinator_roster_payments_join.sql",
+    "filename": "104_fix_coordinator_roster_payments_join.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_coordinator_sub_event_roster"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 232,
+    "byteSize": 9857
+  },
+  {
+    "relPath": "supabase/migrations/105_fix_production_audit_issues.sql",
+    "filename": "105_fix_production_audit_issues.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_get_sub_event_roster",
+      "public.confirm_cod_payment",
+      "public.admin_get_dashboard_metrics"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.confirm_cod_payment",
+      "public.verify_certificate"
+    ],
+    "lineCount": 234,
+    "byteSize": 10841
+  },
+  {
+    "relPath": "supabase/migrations/106_admin_edit_student_profile_with_3_edit_limit.sql",
+    "filename": "106_admin_edit_student_profile_with_3_edit_limit.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.enforce_student_profile_update_rules",
+      "public.admin_edit_student_profile"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.student_profiles"
+    ],
+    "drops": [],
+    "lineCount": 371,
+    "byteSize": 13768
+  },
+  {
+    "relPath": "supabase/migrations/107_reset_sub_event_results_on_registration_deletion.sql",
+    "filename": "107_reset_sub_event_results_on_registration_deletion.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.reset_sub_event_results_if_invalid",
+      "public.trig_sync_registration_delete_results_integrity",
+      "public.admin_delete_registration",
+      "public.admin_bulk_delete_registrations",
+      "public.get_coordinator_sub_event_result_status",
+      "public.publish_sub_event_results_and_certificates"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.result_submissions"
+    ],
+    "drops": [],
+    "lineCount": 1486,
+    "byteSize": 61713
+  },
+  {
+    "relPath": "supabase/migrations/108_optimize_is_admin_and_auth_performance.sql",
+    "filename": "108_optimize_is_admin_and_auth_performance.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.is_admin"
+    ],
+    "indexes": [
+      "idx_users_active_admin"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 52,
+    "byteSize": 1795
+  },
+  {
+    "relPath": "supabase/migrations/109_load_test_stabilization_and_notifications_grants.sql",
+    "filename": "109_load_test_stabilization_and_notifications_grants.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [],
+    "indexes": [
+      "idx_team_members_upper_trim_roll",
+      "idx_registrations_sub_event_status",
+      "idx_attendance_records_scanned_member",
+      "idx_certificates_team_member"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 25,
+    "byteSize": 1306
+  },
+  {
+    "relPath": "supabase/migrations/110_optimize_registration_tail_lock.sql",
+    "filename": "110_optimize_registration_tail_lock.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 539,
+    "byteSize": 24783
+  },
+  {
+    "relPath": "supabase/migrations/110_repair_admin_registration_deletion_rpcs.sql",
+    "filename": "110_repair_admin_registration_deletion_rpcs.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_bulk_delete_registrations",
+      "public.admin_delete_registration"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 525,
+    "byteSize": 20341
+  },
+  {
+    "relPath": "supabase/migrations/111_optimize_registration_write_path.sql",
+    "filename": "111_optimize_registration_write_path.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.student_register_atomic"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.idx_unique_active_leader_sub_event",
+      "public.idx_team_members_roll_upper",
+      "public.idx_notifications_event_key",
+      "public.idx_notifications_is_read",
+      "public.idx_notifications_user_id",
+      "public.idx_notifications_user_unread"
+    ],
+    "lineCount": 574,
+    "byteSize": 26767
+  },
+  {
+    "relPath": "supabase/migrations/112_consolidate_result_publication_notifications.sql",
+    "filename": "112_consolidate_result_publication_notifications.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.trigger_notify_on_results_published"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.trigger_notify_students_on_results_published"
+    ],
+    "lineCount": 176,
+    "byteSize": 7031
+  },
+  {
+    "relPath": "supabase/migrations/113_orphan_student_recovery_and_admin_directory.sql",
+    "filename": "113_orphan_student_recovery_and_admin_directory.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.student_complete_profile",
+      "public.admin_get_students_directory"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 307,
+    "byteSize": 10387
+  },
+  {
+    "relPath": "supabase/migrations/114_public_event_directory_rpc.sql",
+    "filename": "114_public_event_directory_rpc.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.get_public_event_directory"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 80,
+    "byteSize": 3005
+  },
+  {
+    "relPath": "supabase/migrations/115_fix_privilege_escalation_and_storage_ownership.sql",
+    "filename": "115_fix_privilege_escalation_and_storage_ownership.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.confirm_bulk_payments",
+      "public.get_pending_cod_payments",
+      "public.student_register_atomic_bench_tail",
+      "public.test_fn",
+      "public.is_admin_test"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 678,
+    "byteSize": 27003
+  },
+  {
+    "relPath": "supabase/migrations/116_fix_admin_delete_notifications_audience.sql",
+    "filename": "116_fix_admin_delete_notifications_audience.sql",
+    "isTracked": true,
+    "category": "1. Historical forward migration (Tracked)",
+    "purpose": "Tracked Git migration applied to remote schema",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_notifications"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 127,
+    "byteSize": 4300
+  },
+  {
+    "relPath": "supabase/migrations/117_assessment_system_foundation.sql",
+    "filename": "117_assessment_system_foundation.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.trg_check_question_options_mutable",
+      "public.admin_save_question_and_options",
+      "public.admin_get_assessment_questions",
+      "public.admin_publish_assessment",
+      "public.internal_finalize_attempt",
+      "public.student_start_or_resume_attempt",
+      "public.student_autosave_answer",
+      "public.student_submit_attempt",
+      "public.student_record_violation",
+      "public.get_assessment_leaderboard",
+      "public.get_global_assessment_leaderboard",
+      "public.assessment_scheduled_expiry_worker",
+      "public.admin_update_assessment",
+      "public.student_get_attempt_questions",
+      "public.student_get_closed_assessment_solutions",
+      "public.get_assessment_attempts_scoped",
+      "public.get_attempt_violations_scoped"
+    ],
+    "indexes": [
+      "idx_assessments_status",
+      "idx_assessments_schedule",
+      "idx_assessments_sub_event_id",
+      "idx_assessments_event_id",
+      "idx_assessment_questions_assessment_id",
+      "idx_assessment_question_options_question_id",
+      "idx_assessment_attempts_assessment_id",
+      "idx_assessment_attempts_student_id",
+      "idx_assessment_attempts_status_deadline",
+      "idx_assessment_attempt_answers_attempt_id",
+      "idx_assessment_attempt_violations_attempt_id",
+      "idx_assessment_leaderboard_events_assessment_id"
+    ],
+    "policies": [],
+    "alters": [
+      "public.assessments",
+      "public.assessment_questions",
+      "public.assessment_question_options",
+      "public.assessment_question_keys",
+      "public.assessment_leaderboard_events",
+      "public.assessment_attempts",
+      "public.assessment_attempt_answers",
+      "public.assessment_attempt_violations"
+    ],
+    "drops": [],
+    "lineCount": 1700,
+    "byteSize": 69275
+  },
+  {
+    "relPath": "supabase/migrations/118_assessment_certificates_and_awards.sql",
+    "filename": "118_assessment_certificates_and_awards.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.admin_process_assessment_awards",
+      "public.get_my_assessment_certificate",
+      "public.admin_get_assessment_certificates",
+      "public.verify_certificate"
+    ],
+    "indexes": [
+      "idx_assessment_certificates_assessment_id",
+      "idx_assessment_certificates_student_id",
+      "idx_assessment_certificates_code",
+      "idx_assessment_certificates_rank"
+    ],
+    "policies": [],
+    "alters": [
+      "public.assessment_certificates"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 524,
+    "byteSize": 20583
+  },
+  {
+    "relPath": "supabase/migrations/119_assessment_host_coordinator_deletion.sql",
+    "filename": "119_assessment_host_coordinator_deletion.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.verify_assessment_coordinator_access",
+      "public.admin_assign_assessment_coordinator",
+      "public.admin_publish_assessment",
+      "public.admin_delete_assessment",
+      "public.get_assessment_live_host_snapshot",
+      "public.coordinator_close_assessment_early",
+      "public.coordinator_assessment_login",
+      "public.student_start_or_resume_attempt",
+      "public.student_autosave_answer",
+      "public.student_submit_attempt",
+      "public.student_record_violation"
+    ],
+    "indexes": [
+      "idx_assessments_coordinator_id",
+      "idx_assessments_is_deleted",
+      "idx_assessment_coord_assignments_coord",
+      "idx_assessment_coord_assignments_asm",
+      "idx_assessment_live_events_asm_created"
+    ],
+    "policies": [
+      "assessment_coord_admin_all ON public.assessment_coordinator_assignments",
+      "assessment_coord_read ON public.assessment_coordinator_assignments",
+      "assessment_live_events_admin_all ON public.assessment_live_events",
+      "assessment_live_events_read ON public.assessment_live_events"
+    ],
+    "alters": [
+      "public.assessments",
+      "public.assessment_coordinator_assignments",
+      "public.assessment_live_events"
+    ],
+    "drops": [
+      "IF"
+    ],
+    "lineCount": 1455,
+    "byteSize": 53898
+  },
+  {
+    "relPath": "supabase/migrations/120_fix_coordinator_assignment_and_live_host.sql",
+    "filename": "120_fix_coordinator_assignment_and_live_host.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.admin_assign_assessment_coordinator",
+      "public.coordinator_get_assigned_assessment",
+      "public.validate_coordinator_session"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 557,
+    "byteSize": 20387
+  },
+  {
+    "relPath": "supabase/migrations/121_fix_two_stage_assessment_deletion.sql",
+    "filename": "121_fix_two_stage_assessment_deletion.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.admin_delete_assessment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.admin_delete_assessment"
+    ],
+    "lineCount": 186,
+    "byteSize": 7840
+  },
+  {
+    "relPath": "supabase/migrations/122_attempt_deletion_and_live_host_safeguards.sql",
+    "filename": "122_attempt_deletion_and_live_host_safeguards.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.coordinator_assessment_login",
+      "public.get_assessment_attempts_scoped",
+      "public.admin_revoke_assessment_certificate",
+      "public.admin_revoke_assessment_attempt_certificate",
+      "public.admin_delete_assessment_attempts",
+      "public.validate_coordinator_session"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 739,
+    "byteSize": 27354
+  },
+  {
+    "relPath": "supabase/migrations/123_coordinator_assignment_selection_and_session.sql",
+    "filename": "123_coordinator_assignment_selection_and_session.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.coordinator_assessment_login",
+      "public.validate_coordinator_session"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 398,
+    "byteSize": 15266
+  },
+  {
+    "relPath": "supabase/migrations/124_admin_reopen_assessment.sql",
+    "filename": "124_admin_reopen_assessment.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.admin_reopen_assessment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.assessments"
+    ],
+    "drops": [],
+    "lineCount": 199,
+    "byteSize": 7779
+  },
+  {
+    "relPath": "supabase/migrations/125_fix_assessment_live_events_reopen_constraint.sql",
+    "filename": "125_fix_assessment_live_events_reopen_constraint.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.admin_reopen_assessment"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.assessment_live_events"
+    ],
+    "drops": [],
+    "lineCount": 219,
+    "byteSize": 8385
+  },
+  {
+    "relPath": "supabase/migrations/126_secure_exposed_maintenance_rpcs.sql",
+    "filename": "126_secure_exposed_maintenance_rpcs.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.purge_expired_form_drafts",
+      "public.reset_sub_event_results_if_invalid",
+      "public.get_coordinator_sub_event_result_status"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.enforce_student_profile_update_rules",
+      "public.extract_event_storage_path",
+      "public.generate_attendance_token",
+      "public.trig_sync_registration_delete_capacity",
+      "public.check_sub_event_payment_type_immutable",
+      "public.enforce_coordinator_session_15m_max"
+    ],
+    "drops": [],
+    "lineCount": 729,
+    "byteSize": 32011
+  },
+  {
+    "relPath": "supabase/migrations/126_secure_exposed_maintenance_rpcs_rollback.sql",
+    "filename": "126_secure_exposed_maintenance_rpcs_rollback.sql",
+    "isTracked": false,
+    "category": "2. Historical rollback migration",
+    "purpose": "Rollback script for migration 126_secure_exposed_maintenance_rpcs",
+    "tables": [],
+    "functions": [
+      "public.purge_expired_form_drafts",
+      "public.reset_sub_event_results_if_invalid",
+      "public.get_coordinator_sub_event_result_status"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.enforce_student_profile_update_rules",
+      "public.extract_event_storage_path",
+      "public.generate_attendance_token",
+      "public.trig_sync_registration_delete_capacity",
+      "public.check_sub_event_payment_type_immutable",
+      "public.enforce_coordinator_session_15m_max"
+    ],
+    "drops": [],
+    "lineCount": 648,
+    "byteSize": 27409
+  },
+  {
+    "relPath": "supabase/migrations/127_eos_speed_bonus_and_live_podium.sql",
+    "filename": "127_eos_speed_bonus_and_live_podium.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.calculate_dynamic_eos_points",
+      "public.calculate_eos_speed_bonus",
+      "public.student_start_question",
+      "public.student_autosave_answer",
+      "public.internal_finalize_attempt",
+      "public.student_submit_attempt",
+      "public.get_assessment_live_host_snapshot",
+      "public.get_assessment_leaderboard"
+    ],
+    "indexes": [
+      "idx_assessment_attempt_answers_attempt_q",
+      "idx_assessment_attempts_eos_rank"
+    ],
+    "policies": [],
+    "alters": [
+      "public.assessments",
+      "public.assessment_questions",
+      "public.assessment_attempts",
+      "public.assessment_attempt_answers",
+      "public.assessment_leaderboard_events"
+    ],
+    "drops": [
+      "public.get_assessment_leaderboard"
+    ],
+    "lineCount": 920,
+    "byteSize": 36663
+  },
+  {
+    "relPath": "supabase/migrations/128_fix_assessment_live_host_coordinator_permission.sql",
+    "filename": "128_fix_assessment_live_host_coordinator_permission.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 33,
+    "byteSize": 2163
+  },
+  {
+    "relPath": "supabase/migrations/129_assessment_revision_and_republish_workflow.sql",
+    "filename": "129_assessment_revision_and_republish_workflow.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [
+      "IF"
+    ],
+    "functions": [
+      "public.trg_check_question_options_mutable",
+      "public.admin_get_assessment_revision_status",
+      "public.admin_initiate_assessment_revision",
+      "public.admin_save_assessment_revision_draft",
+      "public.admin_discard_assessment_revision",
+      "public.admin_publish_assessment_revision",
+      "public.student_start_or_resume_attempt",
+      "public.get_assessment_live_host_snapshot"
+    ],
+    "indexes": [
+      "idx_assessment_revisions_lookup",
+      "idx_assessment_revisions_status",
+      "idx_assessment_questions_active",
+      "idx_assessment_questions_rev",
+      "idx_assessment_attempts_rev"
+    ],
+    "policies": [],
+    "alters": [
+      "public.assessments",
+      "public.assessment_questions",
+      "public.assessment_attempts",
+      "public.assessment_live_events",
+      "public.assessment_revisions"
+    ],
+    "drops": [],
+    "lineCount": 1497,
+    "byteSize": 59153
+  },
+  {
+    "relPath": "supabase/migrations/130_remove_assessment_certificates_and_add_question_import_export.sql",
+    "filename": "130_remove_assessment_certificates_and_add_question_import_export.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.admin_process_assessment_awards",
+      "public.get_my_assessment_certificate",
+      "public.admin_get_assessment_certificates",
+      "public.admin_revoke_assessment_certificate",
+      "public.admin_revoke_assessment_attempt_certificate",
+      "public.verify_certificate",
+      "public.admin_get_assessment_questions",
+      "public.admin_import_assessment_questions"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 553,
+    "byteSize": 22288
+  },
+  {
+    "relPath": "supabase/migrations/131_assessment_reports_and_automatic_closure.sql",
+    "filename": "131_assessment_reports_and_automatic_closure.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.close_and_finalize_assessment",
+      "public.coordinator_close_assessment_early",
+      "public.assessment_scheduled_expiry_worker",
+      "public.get_assessment_report"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [
+      "public.assessments"
+    ],
+    "drops": [],
+    "lineCount": 645,
+    "byteSize": 27397
+  },
+  {
+    "relPath": "supabase/migrations/132_remediate_assessment_scoring_and_live_host_snapshot.sql",
+    "filename": "132_remediate_assessment_scoring_and_live_host_snapshot.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.student_autosave_answer",
+      "public.get_assessment_live_host_snapshot"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 478,
+    "byteSize": 20354
+  },
+  {
+    "relPath": "supabase/migrations/132_remediate_assessment_scoring_and_live_host_snapshot_rollback.sql",
+    "filename": "132_remediate_assessment_scoring_and_live_host_snapshot_rollback.sql",
+    "isTracked": false,
+    "category": "2. Historical rollback migration",
+    "purpose": "Rollback script for migration 132_remediate_assessment_scoring_and_live_host_snapshot",
+    "tables": [],
+    "functions": [
+      "public.student_autosave_answer",
+      "public.get_assessment_live_host_snapshot"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 437,
+    "byteSize": 17750
+  },
+  {
+    "relPath": "supabase/migrations/133_fix_assessment_live_host_recent_activity_key.sql",
+    "filename": "133_fix_assessment_live_host_recent_activity_key.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.get_assessment_live_host_snapshot"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 265,
+    "byteSize": 11225
+  },
+  {
+    "relPath": "supabase/migrations/133_fix_assessment_live_host_recent_activity_key_rollback.sql",
+    "filename": "133_fix_assessment_live_host_recent_activity_key_rollback.sql",
+    "isTracked": false,
+    "category": "2. Historical rollback migration",
+    "purpose": "Rollback script for migration 133_fix_assessment_live_host_recent_activity_key",
+    "tables": [],
+    "functions": [
+      "public.get_assessment_live_host_snapshot"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 244,
+    "byteSize": 9963
+  },
+  {
+    "relPath": "supabase/migrations/134_optimize_assessment_autosave_and_snapshot.sql",
+    "filename": "134_optimize_assessment_autosave_and_snapshot.sql",
+    "isTracked": false,
+    "category": "7. Untracked forward migration (Candidate for ledger reconciliation)",
+    "purpose": "Recent local migration (117-134) applied to production or pending QA sync",
+    "tables": [],
+    "functions": [
+      "public.student_view_question",
+      "public.student_autosave_answer",
+      "public.get_assessment_live_host_snapshot",
+      "public.verify_assessment_coordinator_access"
+    ],
+    "indexes": [
+      "idx_assessment_attempt_answers_scoring_cov"
+    ],
+    "policies": [],
+    "alters": [],
+    "drops": [],
+    "lineCount": 612,
+    "byteSize": 25581
+  },
+  {
+    "relPath": "supabase/migrations/134_optimize_assessment_autosave_and_snapshot_rollback.sql",
+    "filename": "134_optimize_assessment_autosave_and_snapshot_rollback.sql",
+    "isTracked": false,
+    "category": "2. Historical rollback migration",
+    "purpose": "Rollback script for migration 134_optimize_assessment_autosave_and_snapshot",
+    "tables": [],
+    "functions": [
+      "public.student_autosave_answer",
+      "public.get_assessment_live_host_snapshot",
+      "public.verify_assessment_coordinator_access"
+    ],
+    "indexes": [],
+    "policies": [],
+    "alters": [],
+    "drops": [
+      "public.student_view_question",
+      "public.idx_assessment_attempt_answers_scoring_cov"
+    ],
+    "lineCount": 507,
+    "byteSize": 20803
+  }
+]

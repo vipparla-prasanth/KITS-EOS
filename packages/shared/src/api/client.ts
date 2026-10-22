@@ -13,15 +13,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
 import { SUPABASE_AUTH_STORAGE_KEY } from '../utils/sessionLifecycle';
 
 // Institutional browser authentication client with robust persistence across reloads, redirects, and tabs
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
-  auth: {
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    storageKey: SUPABASE_AUTH_STORAGE_KEY,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-anon-key',
+  {
+    auth: {
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: SUPABASE_AUTH_STORAGE_KEY,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
+);
 
 export interface AdminFunctionInvokeOptions {
   body?: any;
