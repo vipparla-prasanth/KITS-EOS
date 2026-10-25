@@ -78,6 +78,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Never intercept version.json — allow native browser network fetch with cache-busting headers
+  if (url.origin === self.location.origin && url.pathname === '/version.json') {
+    return;
+  }
+
   // SPA Navigation requests: Network-first, fall back to cached index.html or offline fallback
   if (event.request.mode === 'navigate') {
     event.respondWith(

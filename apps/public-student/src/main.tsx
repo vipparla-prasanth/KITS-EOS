@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+import { initializeAppUpdateService } from './services/appUpdateService.ts'
+
+// Initialize application update detection service for active student session
+initializeAppUpdateService();
 
 // Auto-recover from stale dynamic chunk imports following new deployments
 window.addEventListener('vite:preloadError', (event) => {

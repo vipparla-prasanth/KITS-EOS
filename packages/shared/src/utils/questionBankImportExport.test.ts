@@ -24,6 +24,21 @@ describe('Question Bank CSV Import / Export Suite', () => {
       });
     });
 
+    it('English template contains pure English questions with zero Telugu characters', () => {
+      const enTemplate = generateQuestionBankTemplateCsv();
+      // Telugu Unicode range: \u0C00 - \u0C7F
+      const containsTelugu = /[\u0C00-\u0C7F]/.test(enTemplate);
+      expect(containsTelugu).toBe(false);
+
+      const parsed = parseQuestionBankCsv(enTemplate);
+      expect(parsed.isValid).toBe(true);
+      expect(parsed.errors.length).toBe(0);
+      expect(parsed.validQuestions.length).toBe(4);
+      expect(parsed.validQuestions.some((q) => q.question_type === 'MCQ')).toBe(true);
+      expect(parsed.validQuestions.some((q) => q.question_type === 'TRUE_FALSE')).toBe(true);
+      expect(parsed.validQuestions.every((q) => typeof q.explanation === 'string' && q.explanation.length > 0)).toBe(true);
+    });
+
     it('includes sample rows for every supported question type (MCQ and TRUE_FALSE)', () => {
       const template = generateQuestionBankTemplateCsv();
       const parsed = parseQuestionBankCsv(template, { defaultMarks: 5 });

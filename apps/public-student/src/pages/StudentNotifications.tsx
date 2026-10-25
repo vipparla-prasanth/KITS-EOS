@@ -132,6 +132,8 @@ export function StudentNotifications() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const hasEnsuredWelcome = useRef(false);
+  const alreadyMarkedIdsRef = useRef<Set<string>>(new Set());
+  const inFlightMarkIdsRef = useRef<Set<string>>(new Set());
 
   // Authoritative fetch with Automatic Read-on-Open
   const fetchNotifications = useCallback(async (pageIndex: number = page) => {
@@ -159,7 +161,14 @@ export function StudentNotifications() {
 
       const rawItems: NotificationItem[] = Array.isArray(data) ? data : [];
       const hasNext = rawItems.length > PAGE_SIZE;
-      const presentedItems = hasNext ? rawItems.slice(0, PAGE_SIZE) : rawItems;
+      const slicedItems = hasNext ? rawItems.slice(0, PAGE_SIZE) : rawItems;
+
+      // Ensure items already marked in this session reflect read status in state
+      const presentedItems = slicedItems.map((item) =>
+        alreadyMarkedIdsRef.current.has(item.id)
+          ? { ...item, is_read: true, read_at: item.read_at || new Date().toISOString() }
+          : item
+      );
 
       setHasMore(hasNext);
       setNotifications(presentedItems);
@@ -167,19 +176,30 @@ export function StudentNotifications() {
       // 3. CRITICAL AUTOMATIC READ-ON-OPEN:
       // Exactly the notifications presented/visible to the user become READ automatically.
       // There is NO manual "Mark as Read" or "Mark All as Read" button.
-      const unreadIds = presentedItems.filter((n) => !n.is_read).map((n) => n.id);
+      const unreadIds = presentedItems
+        .filter((n) => !n.is_read && !alreadyMarkedIdsRef.current.has(n.id) && !inFlightMarkIdsRef.current.has(n.id))
+        .map((n) => n.id);
 
       if (unreadIds.length > 0) {
-        const { error: markErr } = await supabase.rpc('mark_notifications_read_on_open', {
-          p_notification_ids: unreadIds,
-          p_token: null
-        });
+        unreadIds.forEach((id) => inFlightMarkIdsRef.current.add(id));
+        const nowIso = new Date().toISOString();
 
-        if (!markErr) {
-          // Immediately reflect in UI that visible notifications are now READ
-          setNotifications((prev) =>
-            prev.map((n) => (unreadIds.includes(n.id) ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
-          );
+        // Immediately reflect in UI that visible notifications are now READ
+        setNotifications((prev) =>
+          prev.map((n) => (unreadIds.includes(n.id) ? { ...n, is_read: true, read_at: nowIso } : n))
+        );
+
+        try {
+          const { error: markErr } = await supabase.rpc('mark_notifications_read_on_open', {
+            p_notification_ids: unreadIds,
+            p_token: null
+          });
+
+          if (!markErr) {
+            unreadIds.forEach((id) => alreadyMarkedIdsRef.current.add(id));
+          }
+        } finally {
+          unreadIds.forEach((id) => inFlightMarkIdsRef.current.delete(id));
         }
       }
     } catch (err: any) {

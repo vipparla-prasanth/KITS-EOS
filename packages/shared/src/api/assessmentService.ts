@@ -21,6 +21,7 @@ export interface SaveQuestionPayload {
   points: number;
   options?: Array<{ option_text: string; is_correct: boolean }>;
   correct_boolean?: boolean | null;
+  explanation?: string | null;
 }
 
 export const assessmentService = {
@@ -250,14 +251,22 @@ export const assessmentService = {
   },
 
   async getMyAttempt(assessmentId: string): Promise<{ data: AssessmentAttempt | null; error: any }> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error('Authentication required') };
+    // Phase 3: Check in-memory/cached session first to avoid redundant /auth/v1/user network round-trip
+    let userId: string | null = null;
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session?.user?.id) {
+      userId = sessionData.session.user.id;
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { data: null, error: new Error('Authentication required') };
+      userId = user.id;
+    }
 
     const { data, error } = await supabase
       .from('assessment_attempts')
       .select('*')
       .eq('assessment_id', assessmentId)
-      .eq('student_id', user.id)
+      .eq('student_id', userId)
       .maybeSingle();
 
     return { data, error };

@@ -76,6 +76,50 @@ export function getCookieConsent(): CookieConsentRecord {
 }
 
 /**
+ * Cleans up optional local and session storage values when functional preferences are rejected or disabled.
+ *
+ * SAFETY INVARIANTS:
+ * - Strictly preserves all Supabase authentication tokens (`sb-*-auth-token`).
+ * - Strictly preserves coordinator session tokens, markers, and OAuth intents.
+ * - Strictly preserves CSRF/session recovery state and user credential remember flags.
+ * - Strictly preserves active assessment attempt timestamps and timers.
+ * - Strictly preserves the cookie consent record itself (`kits_eos_cookie_consent_v1`).
+ * - Cleans only optional local form drafts (`kits_eos_local_draft_*`) and temporary dismissed notice markers.
+ */
+export function cleanupOptionalFunctionalStorage(): void {
+  if (typeof window === 'undefined') return;
+
+  // 1. Clean localStorage optional functional keys
+  try {
+    if (window.localStorage) {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith('kits_eos_local_draft_')) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        window.localStorage.removeItem(key);
+      }
+    }
+  } catch (err) {
+    console.warn('[CookieConsent] Failed to clear optional localStorage drafts:', err);
+  }
+
+  // 2. Clean sessionStorage optional functional banners
+  try {
+    if (window.sessionStorage) {
+      window.sessionStorage.removeItem('kits_eos_privacy_notice_postponed');
+      window.sessionStorage.removeItem('app_update_dismissed_record_v1');
+      window.sessionStorage.removeItem('app_update_dismissed_until');
+    }
+  } catch (err) {
+    console.warn('[CookieConsent] Failed to clear optional sessionStorage flags:', err);
+  }
+}
+
+/**
  * Save user cookie & storage preferences and dispatch an update event.
  */
 export function saveCookieConsent(preferences: Partial<CookiePreferences>): CookieConsentRecord {
@@ -93,6 +137,12 @@ export function saveCookieConsent(preferences: Partial<CookiePreferences>): Cook
   if (typeof window !== 'undefined') {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+      // When functional storage is rejected, purge optional local drafts immediately
+      if (updated.preferences.functional === false) {
+        cleanupOptionalFunctionalStorage();
+      }
+
       window.dispatchEvent(new CustomEvent(EVENT_COOKIE_CONSENT_CHANGED, { detail: updated }));
     } catch (err) {
       console.warn('Failed to save cookie consent state:', err);
@@ -129,6 +179,20 @@ export function rejectNonEssentialCookies(): CookieConsentRecord {
  */
 export function hasUserRespondedToCookies(): boolean {
   return getCookieConsent().hasResponded;
+}
+
+/**
+ * Check if functional browser storage is permitted under user consent.
+ */
+export function isFunctionalStorageAllowed(): boolean {
+  return getCookieConsent().preferences.functional;
+}
+
+/**
+ * Check if operational telemetry and diagnostics are permitted under user consent.
+ */
+export function isTelemetryAllowed(): boolean {
+  return getCookieConsent().preferences.analytics;
 }
 
 /**

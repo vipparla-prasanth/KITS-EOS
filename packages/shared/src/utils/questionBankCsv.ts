@@ -187,7 +187,8 @@ export function parseCsvRows(csvText: string): string[][] {
 
 /**
  * Generates the canonical Question Bank CSV template.
- * Includes column documentation and exemplary rows for all supported question types.
+ * Includes column documentation and exemplary rows for all supported question types (MCQ and True/False).
+ * Contains pure English-language questions only, with correct answer keys and optional explanation.
  */
 export function generateQuestionBankTemplateCsv(): string {
   const header = QUESTION_BANK_CSV_HEADERS.join(',');
@@ -238,24 +239,9 @@ export function generateQuestionBankTemplateCsv(): string {
       20,
       'Primitives in JavaScript are immutable and passed by value.',
     ],
-    // 4. Unicode / Telugu multilingual question
+    // 4. Question with empty marks (illustrating automatic default marks application)
     [
       4,
-      'MCQ',
-      'భారత రాజ్యాంగ నిర్మాత ఎవరు? (Who is known as the Chief Architect of the Indian Constitution?)',
-      'మహాత్మా గాంధీ (Mahatma Gandhi)',
-      'డా. బి. ఆర్. అంబేద్కర్ (Dr. B. R. Ambedkar)',
-      'జవహర్‌లాల్ నెహ్రూ (Jawaharlal Nehru)',
-      'సర్దార్ వల్లభ్‌భాయ్ పటేల్ (Sardar Vallabhbhai Patel)',
-      '',
-      2,
-      4,
-      30,
-      'Dr. B. R. Ambedkar was the Chairman of the Drafting Committee of the Constituent Assembly.',
-    ],
-    // 5. Question with empty marks (illustrating automatic default marks application)
-    [
-      5,
       'MCQ',
       'Which SQL clause is used to filter records after aggregation with the GROUP BY clause?',
       'WHERE',
@@ -372,6 +358,117 @@ export function exportQuestionsToCsv(
 }
 
 /**
+ * Reads a File or Blob object as UTF-8 text reliably across all desktop and mobile browsers.
+ * Uses FileReader.readAsText with an explicit UTF-8 encoding, falling back to File.text()
+ * or ArrayBuffer decoding if FileReader fails.
+ * Includes a timeout guard (default 10s) and automatically strips UTF-8 BOM.
+ */
+export async function readTextFromFile(file: File | Blob, timeoutMs = 10000): Promise<string> {
+  if (!file) {
+    throw new Error('No file provided for reading.');
+  }
+
+  const readContent = async (): Promise<string> => {
+    // 1. Try FileReader.readAsText first (most universal on iOS WebKit and Android WebView)
+    const readWithFileReader = (): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        if (typeof FileReader === 'undefined') {
+          reject(new Error('FileReader is not defined in this environment.'));
+          return;
+        }
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          resolve(typeof reader.result === 'string' ? reader.result : '');
+        };
+        reader.onerror = () => {
+          reject(reader.error || new Error('FileReader encountered an error reading the file.'));
+        };
+        reader.onabort = () => {
+          reject(new Error('File read operation was aborted.'));
+        };
+
+        try {
+          reader.readAsText(file, 'utf-8');
+        } catch (err) {
+          reject(err);
+        }
+      });
+    };
+
+    // 2. Fallback: file.text()
+    const readWithFileText = async (): Promise<string> => {
+      if (typeof (file as any).text !== 'function') {
+        throw new Error('file.text() is not available on this object.');
+      }
+      return await (file as any).text();
+    };
+
+    // 3. Fallback: arrayBuffer() with TextDecoder
+    const readWithArrayBuffer = async (): Promise<string> => {
+      if (typeof (file as any).arrayBuffer !== 'function' || typeof TextDecoder === 'undefined') {
+        throw new Error('ArrayBuffer or TextDecoder is not available.');
+      }
+      const buffer = await (file as any).arrayBuffer();
+      const decoder = new TextDecoder('utf-8', { fatal: false });
+      return decoder.decode(buffer);
+    };
+
+    try {
+      return await readWithFileReader();
+    } catch (err1) {
+      try {
+        return await readWithFileText();
+      } catch (err2) {
+        try {
+          return await readWithArrayBuffer();
+        } catch (err3) {
+          throw new Error(
+            (err1 as Error)?.message || (err2 as Error)?.message || (err3 as Error)?.message || 'Failed to read file contents.'
+          );
+        }
+      }
+    }
+  };
+
+  // Enforce overall timeout guard on entire read pipeline
+  let timer: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`File reading timed out after ${timeoutMs / 1000} seconds.`));
+    }, timeoutMs);
+  });
+
+  try {
+    let raw = await Promise.race([readContent(), timeoutPromise]);
+
+    // Strip UTF-8 Byte Order Mark (\uFEFF) if present
+    if (raw.charCodeAt(0) === 0xfeff) {
+      raw = raw.slice(1);
+    }
+
+    return raw;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export const QUESTION_BANK_HEADER_ALIASES: Record<QuestionBankCsvHeader, string[]> = {
+  sort_order: ['sort_order', 'sortorder', 'sl_no', 's_no', 'sno', 'order', 'question_number', 'q_no', 'qno'],
+  question_type: ['question_type', 'questiontype', 'type', 'q_type', 'qtype'],
+  question_text: ['question_text', 'questiontext', 'question', 'question_title', 'q_text', 'prompt'],
+  option_1: ['option_1', 'option1', 'option_a', 'optiona', 'opt1', 'opt_1', 'op1', 'a'],
+  option_2: ['option_2', 'option2', 'option_b', 'optionb', 'opt2', 'opt_2', 'op2', 'b'],
+  option_3: ['option_3', 'option3', 'option_c', 'optionc', 'opt3', 'opt_3', 'op3', 'c'],
+  option_4: ['option_4', 'option4', 'option_d', 'optiond', 'opt4', 'opt_4', 'op4', 'd'],
+  option_5: ['option_5', 'option5', 'option_e', 'optione', 'opt5', 'opt_5', 'op5', 'e'],
+  correct_answer: ['correct_answer', 'correctanswer', 'correct_option', 'correctoption', 'answer', 'correct_ans', 'correct', 'key'],
+  marks: ['marks', 'points', 'mark', 'score', 'weight'],
+  time_limit_seconds: ['time_limit_seconds', 'timelimitseconds', 'time_limit', 'timelimit', 'time_seconds', 'duration_seconds', 'duration'],
+  explanation: ['explanation', 'solution', 'rationale', 'notes'],
+};
+
+/**
  * Parses and validates an uploaded question bank CSV text.
  */
 export function parseQuestionBankCsv(
@@ -391,24 +488,33 @@ export function parseQuestionBankCsv(
     };
   }
 
-  // 1. Map and validate header row
+  // 1. Map and validate header row with alias resilience and BOM strip
   const rawHeader = rawRows[0].map((h) =>
-    desanitizeCsvFormula(h.trim().toLowerCase().replace(/\s+/g, '_'))
+    desanitizeCsvFormula(h.replace(/^\uFEFF/, '').trim().toLowerCase().replace(/\s+/g, '_'))
   );
 
+  const findHeaderIdx = (canonical: QuestionBankCsvHeader): number => {
+    const aliases = QUESTION_BANK_HEADER_ALIASES[canonical] || [canonical];
+    for (const alias of aliases) {
+      const idx = rawHeader.indexOf(alias);
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+
   const colIdx = {
-    sort_order: rawHeader.indexOf('sort_order'),
-    question_type: rawHeader.indexOf('question_type'),
-    question_text: rawHeader.indexOf('question_text'),
-    option_1: rawHeader.indexOf('option_1'),
-    option_2: rawHeader.indexOf('option_2'),
-    option_3: rawHeader.indexOf('option_3'),
-    option_4: rawHeader.indexOf('option_4'),
-    option_5: rawHeader.indexOf('option_5'),
-    correct_answer: rawHeader.indexOf('correct_answer'),
-    marks: rawHeader.indexOf('marks'),
-    time_limit_seconds: rawHeader.indexOf('time_limit_seconds'),
-    explanation: rawHeader.indexOf('explanation'),
+    sort_order: findHeaderIdx('sort_order'),
+    question_type: findHeaderIdx('question_type'),
+    question_text: findHeaderIdx('question_text'),
+    option_1: findHeaderIdx('option_1'),
+    option_2: findHeaderIdx('option_2'),
+    option_3: findHeaderIdx('option_3'),
+    option_4: findHeaderIdx('option_4'),
+    option_5: findHeaderIdx('option_5'),
+    correct_answer: findHeaderIdx('correct_answer'),
+    marks: findHeaderIdx('marks'),
+    time_limit_seconds: findHeaderIdx('time_limit_seconds'),
+    explanation: findHeaderIdx('explanation'),
   };
 
   // Check required header columns

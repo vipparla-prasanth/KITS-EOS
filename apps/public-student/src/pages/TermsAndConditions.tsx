@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   FileText, 
@@ -13,17 +14,45 @@ import {
   KeyRound,
   MessageSquare,
   HardDrive,
-  Users
+  Users,
+  Download
 } from 'lucide-react';
+import { downloadTermsAndConditionsPdf } from '../utils/institutionalLegalPdf';
 
 export function TermsAndConditions() {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloading(true);
+      await downloadTermsAndConditionsPdf();
+    } catch (err) {
+      console.error('Failed to generate Terms & Conditions PDF:', err);
+      alert('Unable to generate PDF document. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16 font-sans">
       {/* Header Banner */}
       <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-10 shadow-2xs space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-gray-100 text-gray-800 border border-gray-200">
-          <FileText className="h-3.5 w-3.5 text-kits-red" />
-          <span>Institutional Regulations & Terms of Service</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-gray-100 text-gray-800 border border-gray-200 self-start">
+            <FileText className="h-3.5 w-3.5 text-kits-red" />
+            <span>Institutional Regulations & Terms of Service</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-kits-red hover:bg-[#A60D26] text-white text-xs font-bold transition shadow-2xs disabled:opacity-50 cursor-pointer self-start sm:self-auto shrink-0"
+            title="Download Official KITS-AKSHAR-EOS Terms & Conditions (PDF)"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>{downloading ? 'Preparing PDF...' : 'Download Official PDF'}</span>
+          </button>
         </div>
         <h1 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight">
           Terms & <span className="text-kits-red">Conditions</span>
@@ -321,10 +350,21 @@ export function TermsAndConditions() {
           <Link to="/privacy" className="text-xs font-bold text-kits-blue hover:underline">
             Read our Privacy Notice & Cookie Policy →
           </Link>
-          <Link to="/" className="text-xs font-bold text-gray-500 hover:text-gray-900 inline-flex items-center gap-1">
-            <ArrowLeft className="h-3 w-3" />
-            <span>Return to Home</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 text-kits-red" />
+              <span>{downloading ? 'Preparing...' : 'Download PDF'}</span>
+            </button>
+            <Link to="/" className="text-xs font-bold text-gray-500 hover:text-gray-900 inline-flex items-center gap-1">
+              <ArrowLeft className="h-3 w-3" />
+              <span>Return to Home</span>
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
 import { EmptyState } from '../components/ui/EmptyState';
+import { playRegistrationSuccessSound } from '../utils/registrationSound';
 import { 
   AlertTriangle, 
   Plus, 
@@ -111,6 +112,7 @@ export function StudentComplaints() {
 
       if (err) throw err;
 
+      playRegistrationSuccessSound({ dedupeKey: `complaint-submit-${Date.now()}` });
       setSuccessMessage('Your support ticket has been logged. Organizers will review and provide a resolution.');
       setIsModalOpen(false);
       setDescription('');

@@ -18,7 +18,7 @@ interface VerificationResult {
   message?: string;
   certificate_id?: string;
   certificate_code?: string;
-  type?: 'WINNER' | 'RUNNER' | 'THIRD_PLACE' | 'PARTICIPANT';
+  type?: string;
   status?: string;
   student_name?: string;
   roll_number?: string;
@@ -29,6 +29,13 @@ interface VerificationResult {
   event_name?: string;
   issued_at?: string;
   verified_at?: string;
+  is_assessment?: boolean;
+  award_type?: string;
+  rank?: number;
+  score?: number;
+  total_points?: number;
+  percentage?: number;
+  assessment_title?: string;
 }
 
 export function PublicCertificateVerification() {
@@ -173,12 +180,14 @@ export function PublicCertificateVerification() {
                     ✓ Certificate Verified & Authentic
                   </h3>
                   <p className="text-[11px] text-emerald-700 font-medium">
-                    This credential was officially issued by KITS-EOS event operations.
+                    {result.is_assessment
+                      ? 'This credential was officially awarded by the KITS-EOS Autonomous Examination Authority.'
+                      : 'This credential was officially issued by KITS-EOS event operations.'}
                   </p>
                 </div>
               </div>
 
-              {/* Student and Event Verified Details */}
+              {/* Student and Event/Assessment Verified Details */}
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-0.5">
@@ -198,19 +207,31 @@ export function PublicCertificateVerification() {
                   </div>
 
                   <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-0.5">
-                    <span className="text-[10px] font-black uppercase text-gray-400 block">Event & Track</span>
+                    <span className="text-[10px] font-black uppercase text-gray-400 block">
+                      {result.is_assessment ? 'Examination Track' : 'Event & Track'}
+                    </span>
                     <span className="font-bold text-gray-900 flex items-center gap-1.5">
                       <Layers className="h-3.5 w-3.5 text-gray-400" />
-                      {result.sub_event_name}
+                      {result.is_assessment ? (result.assessment_title || result.sub_event_name) : result.sub_event_name}
                     </span>
-                    <span className="text-[10px] text-gray-500 block">{result.event_name}</span>
+                    <span className="text-[10px] text-gray-500 block">
+                      {result.is_assessment ? 'KITS-EOS Academic Examination' : result.event_name}
+                    </span>
                   </div>
 
                   <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-0.5">
                     <span className="text-[10px] font-black uppercase text-gray-400 block">Official Recognition</span>
                     <span className="font-black text-kits-red text-sm flex items-center gap-1.5">
                       <Award className="h-3.5 w-3.5 text-kits-red" />
-                      {result.type === 'WINNER'
+                      {result.is_assessment
+                        ? result.award_type === 'FIRST_PLACE'
+                          ? 'FIRST PLACE (GOLD AWARD)'
+                          : result.award_type === 'SECOND_PLACE'
+                          ? 'SECOND PLACE (SILVER AWARD)'
+                          : result.award_type === 'THIRD_PLACE'
+                          ? 'THIRD PLACE (BRONZE AWARD)'
+                          : 'ASSESSMENT ACHIEVEMENT'
+                        : result.type === 'WINNER'
                         ? '1ST PLACE (WINNER)'
                         : result.type === 'RUNNER'
                         ? '2ND PLACE (RUNNER-UP)'
@@ -218,6 +239,11 @@ export function PublicCertificateVerification() {
                         ? '3RD PLACE'
                         : 'PARTICIPATION CERTIFICATE'}
                     </span>
+                    {result.is_assessment && result.rank && (
+                      <span className="text-[10px] text-gray-500 font-mono font-bold block">
+                        Official Rank #{result.rank} • Score: {result.score}/{result.total_points} ({result.percentage}%)
+                      </span>
+                    )}
                   </div>
                 </div>
 

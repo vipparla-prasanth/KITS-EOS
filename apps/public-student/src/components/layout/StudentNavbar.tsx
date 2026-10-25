@@ -21,11 +21,19 @@ import {
   ShieldCheck,
   ExternalLink,
   MapPin,
-  Sparkles
+  Sparkles,
+  GraduationCap
 } from 'lucide-react';
 const LogoutConfirmationModal = lazy(() => import('../ui/LogoutConfirmationModal').then(m => ({ default: m.LogoutConfirmationModal })));
 const CampusLocationModal = lazy(() => import('../ui/CampusLocationModal').then(m => ({ default: m.CampusLocationModal })));
 const NotificationCenter = lazy(() => import('@kits-eos/shared/src/components/NotificationCenter').then(m => ({ default: m.NotificationCenter })));
+import {
+  prefetchEventsList,
+  prefetchAssessments,
+  prefetchLogin,
+  prefetchDashboard,
+  prefetchMyRegistrations,
+} from '../../utils/routePrefetch';
 
 export function StudentNavbar() {
   const { user, profile, signOut } = useAuth();
@@ -85,9 +93,9 @@ export function StudentNavbar() {
           ========================================================================= */}
       <header className="sticky top-2 sm:top-4 z-40 px-1.5 sm:px-6 lg:px-8 font-sans pointer-events-none header-enter">
         <div className="max-w-7xl mx-auto glass-header-floating rounded-2xl sm:rounded-3xl pointer-events-auto transition-all duration-300">
-          <div className="px-2 sm:px-4 lg:px-6 flex items-center justify-between min-h-14 sm:min-h-[70px] py-1.5 sm:py-2">
+          <div className="px-2 sm:px-4 lg:px-6 flex items-center justify-between min-h-14 sm:min-h-[70px] py-1.5 sm:py-2 gap-2 sm:gap-4">
             {/* Brand Logo & Name */}
-            <Link to={isStudentAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2.5 group shrink-0">
+            <Link to={isStudentAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2 sm:gap-2.5 group shrink-0">
               <img
                 src="/college_logo.png"
                 alt="KITS Logo"
@@ -99,28 +107,30 @@ export function StudentNavbar() {
                 <div className="text-xs sm:text-sm font-black tracking-tight leading-none text-gray-900 flex items-center gap-1">
                   <span className="text-kits-red font-black">KITS</span>
                   <span className="text-kits-blue font-black">Akshar</span>
-                  <span className="text-gray-900 font-bold hidden md:inline text-[11px] lg:text-xs">Institute of Technology</span>
+                  <span className="text-gray-900 font-bold hidden 2xl:inline text-[11px] lg:text-xs">Institute of Technology</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                     KITS-EOS
                   </span>
-                  <span className="text-gray-300 text-[10px] hidden xs:inline">•</span>
-                  <span className="text-[9px] sm:text-[10px] font-bold text-gray-400 tracking-tight whitespace-nowrap hidden xs:inline">
+                  <span className="text-gray-300 text-[10px] hidden sm:inline">•</span>
+                  <span className="text-[9px] sm:text-[10px] font-bold text-gray-400 tracking-tight whitespace-nowrap hidden 2xl:inline">
                     Developed by Team PMD
                   </span>
                 </div>
               </div>
             </Link>
 
-            {/* Desktop Navigation Links */}
-            <nav className="hidden lg:flex items-center gap-1.5 2xl:gap-2 text-xs font-bold shrink min-w-0">
+            {/* Desktop Navigation Links (Single-row layout at xl+, collapsible on narrower screens) */}
+            <nav className="hidden xl:flex items-center gap-0.5 2xl:gap-1.5 text-xs font-bold shrink min-w-0">
               {isStudentAuthenticated ? (
                 <>
                   <NavLink
                     to="/dashboard"
+                    onMouseEnter={prefetchDashboard}
+                    onFocus={prefetchDashboard}
                     className={({ isActive }) =>
-                      `inline-flex items-center gap-1.5 px-2.5 2xl:px-3 py-1.5 rounded-xl transition ${
+                      `inline-flex items-center gap-1.5 px-2 2xl:px-3 py-1.5 rounded-xl transition ${
                         isActive 
                           ? 'bg-red-50 text-kits-red font-black border border-red-100 shadow-2xs' 
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
@@ -133,8 +143,10 @@ export function StudentNavbar() {
 
                   <NavLink
                     to="/events"
+                    onMouseEnter={prefetchEventsList}
+                    onFocus={prefetchEventsList}
                     className={({ isActive }) =>
-                      `inline-flex items-center gap-1.5 px-2.5 2xl:px-3 py-1.5 rounded-xl transition ${
+                      `inline-flex items-center gap-1.5 px-2 2xl:px-3 py-1.5 rounded-xl transition ${
                         isActive 
                           ? 'bg-red-50 text-kits-red font-black border border-red-100 shadow-2xs' 
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
@@ -147,8 +159,10 @@ export function StudentNavbar() {
 
                   <NavLink
                     to="/my-registrations"
+                    onMouseEnter={prefetchMyRegistrations}
+                    onFocus={prefetchMyRegistrations}
                     className={({ isActive }) =>
-                      `inline-flex items-center gap-1.5 px-2.5 2xl:px-3 py-1.5 rounded-xl transition ${
+                      `inline-flex items-center gap-1.5 px-2 2xl:px-3 py-1.5 rounded-xl transition ${
                         isActive 
                           ? 'bg-blue-50 text-kits-blue font-black border border-blue-100 shadow-2xs' 
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
@@ -162,7 +176,7 @@ export function StudentNavbar() {
                   <NavLink
                     to="/attendance"
                     className={({ isActive }) =>
-                      `inline-flex items-center gap-1.5 px-2.5 2xl:px-3 py-1.5 rounded-xl transition ${
+                      `inline-flex items-center gap-1.5 px-2 2xl:px-3 py-1.5 rounded-xl transition ${
                         isActive 
                           ? 'bg-emerald-50 text-emerald-700 font-black border border-emerald-100 shadow-2xs' 
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
@@ -176,7 +190,7 @@ export function StudentNavbar() {
                   <NavLink
                     to="/certificates"
                     className={({ isActive }) =>
-                      `inline-flex items-center gap-1.5 px-2.5 2xl:px-3 py-1.5 rounded-xl transition ${
+                      `inline-flex items-center gap-1.5 px-2 2xl:px-3 py-1.5 rounded-xl transition ${
                         isActive || location.pathname === '/certificates' || location.pathname === '/achievements' || location.pathname === '/results'
                           ? 'bg-amber-50 text-amber-800 font-black border border-amber-100 shadow-2xs' 
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
@@ -187,12 +201,28 @@ export function StudentNavbar() {
                     <span>Certificates</span>
                   </NavLink>
 
+                  <NavLink
+                    to="/assessments"
+                    onMouseEnter={prefetchAssessments}
+                    onFocus={prefetchAssessments}
+                    className={({ isActive }) =>
+                      `inline-flex items-center gap-1.5 px-2 2xl:px-3 py-1.5 rounded-xl transition ${
+                        isActive || location.pathname.startsWith('/assessments')
+                          ? 'bg-purple-50 text-purple-700 font-black border border-purple-100 shadow-2xs' 
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
+                      }`
+                    }
+                  >
+                    <GraduationCap className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Assessments</span>
+                  </NavLink>
+
                   {/* Services & Support Dropdown */}
                   <div className="relative" ref={servicesDropdownRef}>
                     <button
                       type="button"
                       onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)}
-                      className={`inline-flex items-center gap-1 px-2.5 2xl:px-3 py-1.5 rounded-xl transition ${
+                      className={`inline-flex items-center gap-1 px-2 2xl:px-3 py-1.5 rounded-xl transition ${
                         isServicesActive
                           ? 'bg-blue-50 text-kits-blue font-black border border-blue-100'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/70'
@@ -286,17 +316,6 @@ export function StudentNavbar() {
                       </div>
                     )}
                   </div>
-
-                  {/* Quick Campus Map Link on Navbar */}
-                  <button
-                    type="button"
-                    onClick={() => setIsMapModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-2.5 2xl:px-3 py-1.5 rounded-xl transition text-gray-600 hover:text-kits-red hover:bg-red-50/70 font-bold cursor-pointer"
-                    title="View KITS Akshar Institute of Technology Campus Location"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-kits-red" />
-                    <span>Campus Map</span>
-                  </button>
                 </>
               ) : (
                 <>
@@ -325,6 +344,8 @@ export function StudentNavbar() {
 
                   <NavLink
                     to="/events"
+                    onMouseEnter={prefetchEventsList}
+                    onFocus={prefetchEventsList}
                     className={({ isActive }) =>
                       `px-3 py-1.5 rounded-xl uppercase tracking-wide transition ${
                         isActive ? 'bg-red-50 text-kits-red font-black' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/70'
@@ -332,6 +353,21 @@ export function StudentNavbar() {
                     }
                   >
                     Events
+                  </NavLink>
+
+                  <NavLink
+                    to="/assessments"
+                    onMouseEnter={prefetchAssessments}
+                    onFocus={prefetchAssessments}
+                    className={({ isActive }) =>
+                      `px-3 py-1.5 rounded-xl uppercase tracking-wide transition ${
+                        isActive || location.pathname.startsWith('/assessments')
+                          ? 'bg-purple-50 text-purple-700 font-black' 
+                          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/70'
+                      }`
+                    }
+                  >
+                    Assessments
                   </NavLink>
 
                   <NavLink
@@ -422,30 +458,34 @@ export function StudentNavbar() {
             </nav>
 
             {/* User Auth Section & Mobile Hamburger */}
-            <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink min-w-0">
+            <div className="flex items-center gap-1 sm:gap-2 lg:gap-2.5 shrink min-w-0">
               {isStudentAuthenticated ? (
-                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink min-w-0">
                   {/* Notification Center Dropdown with Auto Read-on-Open */}
                   <Suspense fallback={<div className="h-8 w-8 rounded-full bg-gray-100/50 shrink-0" />}>
-                    <NotificationCenter portal="STUDENT" onNavigate={navigate} />
+                    <NotificationCenter portal="STUDENT" onNavigate={navigate} className="shrink-0" />
                   </Suspense>
 
                   <Link
                     to="/profile"
-                    className="flex items-center gap-2 sm:gap-2.5 px-2 sm:px-2.5 2xl:px-3 py-1 sm:py-1.5 rounded-xl border border-gray-200/80 hover:border-kits-blue/40 glass-element-subtle hover:bg-blue-50/50 transition text-left group min-w-0 sm:min-w-[160px] md:min-w-[180px] max-w-[200px] md:max-w-[270px] xl:max-w-[220px] 2xl:max-w-[310px] shrink"
-                    title={`${profile?.full_name || 'Student Profile'} (${profile?.roll_number || 'Student'})`}
+                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl border border-gray-200/80 hover:border-kits-blue/40 glass-element-subtle hover:bg-blue-50/50 transition text-left group shrink min-w-0 max-w-[110px] sm:max-w-[135px] md:max-w-[160px] lg:max-w-[180px] xl:max-w-[145px] 2xl:max-w-[200px]"
+                    title={`${profile?.full_name || user?.email || 'Student Profile'} (${profile?.roll_number || 'Student'})`}
+                    aria-label={`Student Profile: ${profile?.full_name || 'Student'} (${profile?.roll_number || 'Student'})`}
                   >
                     <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-blue-100 text-kits-blue flex items-center justify-center font-bold text-xs group-hover:scale-105 transition shrink-0">
                       <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
-                    <div className="hidden sm:flex flex-col justify-center min-w-0 flex-1">
+                    <div className="hidden sm:flex flex-col justify-center min-w-0 flex-1 overflow-hidden">
                       <div 
-                        className="text-[11px] lg:text-xs font-bold text-gray-900 leading-[1.25] break-words select-text"
-                        style={{ overflowWrap: 'anywhere', wordBreak: 'normal' }}
+                        className="text-[11px] 2xl:text-xs font-bold text-gray-900 leading-tight truncate"
+                        title={profile?.full_name || user?.email?.split('@')[0]}
                       >
                         {profile?.full_name || user?.email?.split('@')[0]}
                       </div>
-                      <div className="text-[10px] font-mono text-gray-500 mt-0.5 leading-tight truncate">
+                      <div 
+                        className="text-[9px] 2xl:text-[10px] font-mono text-gray-500 mt-0.5 leading-tight truncate"
+                        title={profile?.roll_number || 'Student'}
+                      >
                         {profile?.roll_number || 'Student'}
                       </div>
                     </div>
@@ -454,20 +494,20 @@ export function StudentNavbar() {
                   <button
                     type="button"
                     onClick={() => setIsLogoutModalOpen(true)}
-                    className="p-1.5 sm:p-2 text-gray-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition cursor-pointer shrink-0"
+                    className="p-1.5 sm:p-2 text-gray-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition cursor-pointer shrink-0 min-w-8 min-h-8 flex items-center justify-center"
                     title="Sign Out"
                     aria-label="Sign out"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-4 w-4 shrink-0" />
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
                   <a
                     href="https://www.kitsakshar.ac.in/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl uppercase tracking-wide text-xs font-bold text-kits-blue hover:bg-blue-50/70 border border-blue-200/70 transition shadow-2xs"
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl uppercase tracking-wide text-xs font-bold text-kits-blue hover:bg-blue-50/70 border border-blue-200/70 transition shadow-2xs shrink-0"
                     title="Official KITS Akshar Institute of Technology Portal"
                   >
                     <span>KITS Portal</span>
@@ -476,6 +516,8 @@ export function StudentNavbar() {
 
                   <Link
                     to="/login"
+                    onMouseEnter={prefetchLogin}
+                    onFocus={prefetchLogin}
                     className="btn-liquid btn-primary-red inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-black uppercase tracking-wider shadow-2xs shrink-0"
                   >
                     <span className="btn-content">
@@ -486,11 +528,11 @@ export function StudentNavbar() {
                 </div>
               )}
 
-              {/* Mobile menu button */}
+              {/* Mobile / Tablet menu button (Active below xl breakpoint) */}
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-1.5 sm:p-2 rounded-xl text-gray-600 hover:bg-white/60 active:bg-white/80 transition cursor-pointer shrink-0"
+                className="xl:hidden p-1.5 sm:p-2 rounded-xl text-gray-600 hover:bg-white/60 active:bg-white/80 transition cursor-pointer shrink-0"
                 aria-label="Toggle navigation menu"
               >
                 {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -498,9 +540,9 @@ export function StudentNavbar() {
             </div>
           </div>
 
-          {/* Mobile Navigation Dropdown */}
+          {/* Collapsible Navigation Dropdown (Below xl breakpoint) */}
           {mobileMenuOpen && (
-            <div className="lg:hidden px-3 py-3 border-t border-gray-200/80 space-y-1 dropdown-animate">
+            <div className="xl:hidden px-3 py-3 border-t border-gray-200/80 space-y-1 dropdown-animate">
               {isStudentAuthenticated ? (
                 <>
                   {/* Student Identity Card in Mobile Drawer */}
@@ -563,6 +605,15 @@ export function StudentNavbar() {
                   >
                     <Award className="h-4 w-4 text-amber-600" />
                     <span>Certificates</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/assessments"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50"
+                  >
+                    <GraduationCap className="h-4 w-4 text-purple-600" />
+                    <span>Assessments</span>
                   </NavLink>
 
                   <NavLink
@@ -650,6 +701,18 @@ export function StudentNavbar() {
                     }
                   >
                     <span>Events</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/assessments"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-black uppercase transition ${
+                        isActive ? 'bg-purple-50 text-purple-700' : 'text-gray-800 hover:bg-gray-50'
+                      }`
+                    }
+                  >
+                    <span>Assessments</span>
                   </NavLink>
 
                   <NavLink

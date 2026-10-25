@@ -13,6 +13,7 @@ import { Search, ArrowRight, Sparkles, Clock, FileSpreadsheet, Loader2, Store } 
 import { RevealOnScroll } from '../components/motion/RevealOnScroll';
 import { EventBannerImage } from '../components/ui/EventBannerImage';
 import { downloadEventDirectoryExcel } from '../services/eventDirectoryService';
+import { prefetchEventDetails } from '../utils/routePrefetch';
 
 export function EventsList() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -222,6 +223,8 @@ export function EventsList() {
                   {/* Event Poster / Banner */}
                   <Link
                     to={`/events/${event.id}`}
+                    onMouseEnter={prefetchEventDetails}
+                    onFocus={prefetchEventDetails}
                     className="h-48 w-full relative overflow-hidden bg-gray-100 block"
                     title={`View ${event.name} details`}
                   >

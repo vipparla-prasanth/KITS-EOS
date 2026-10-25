@@ -1,16 +1,20 @@
-import { useEffect, useLayoutEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { CoordinatorProtectedRoute } from './components/CoordinatorProtectedRoute';
 import { PaymentManagerProtectedRoute } from './components/PaymentManagerProtectedRoute';
-import { AdminLayout } from './components/layout/AdminLayout';
-import { forceResetScrollLock, initScrollRestoration, scrollToPageTop, handleHashScroll } from '@kits-eos/shared';
+import {
+  initScrollRestoration,
+  applyNavigationScrollPolicy,
+  saveScrollPosition,
+} from '@kits-eos/shared';
 
 // Eagerly loaded critical landing page
 import { Login } from './pages/Login';
 
-// Route-level code-split pages
+// Layout & Route-level code-split pages
+const AdminLayout = lazy(() => import('./components/layout/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const AccessDenied = lazy(() => import('./pages/AccessDenied').then(m => ({ default: m.AccessDenied })));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
@@ -35,10 +39,16 @@ const StudentsList = lazy(() => import('./pages/Students').then(m => ({ default:
 const SuspensionRequestsList = lazy(() => import('./pages/SuspensionRequests').then(m => ({ default: m.SuspensionRequestsList })));
 const NotificationsList = lazy(() => import('./pages/Notifications').then(m => ({ default: m.NotificationsList })));
 const CoordinatorPortal = lazy(() => import('./pages/Coordinator').then(m => ({ default: m.CoordinatorPortal })));
+const CoordinatorAssignmentSelect = lazy(() => import('./pages/Coordinator/CoordinatorAssignmentSelect').then(m => ({ default: m.CoordinatorAssignmentSelect })));
 const Analytics = lazy(() => import('./pages/Analytics').then(m => ({ default: m.Analytics })));
 const PrivacyManagement = lazy(() => import('./pages/Privacy').then(m => ({ default: m.PrivacyManagement })));
 const PaymentManagement = lazy(() => import('./pages/PaymentManagement').then(m => ({ default: m.PaymentManagement })));
 const ManageStalls = lazy(() => import('./pages/Stalls').then(m => ({ default: m.ManageStalls })));
+const AssessmentsList = lazy(() => import('./pages/Assessments/AssessmentsList').then(m => ({ default: m.AssessmentsList })));
+const AssessmentCreate = lazy(() => import('./pages/Assessments/AssessmentCreate').then(m => ({ default: m.AssessmentCreate })));
+const AssessmentDetails = lazy(() => import('./pages/Assessments/AssessmentDetails').then(m => ({ default: m.AssessmentDetails })));
+const AssessmentLiveHost = lazy(() => import('./pages/Assessments/AssessmentLiveHost').then(m => ({ default: m.AssessmentLiveHost })));
+const AssessmentReportPage = lazy(() => import('./pages/Assessments/AssessmentReportPage').then(m => ({ default: m.AssessmentReportPage })));
 
 function PageLoadingFallback({ message = 'Loading institutional portal...' }: { message?: string }) {
   return (
@@ -55,29 +65,38 @@ function PageLoadingFallback({ message = 'Loading institutional portal...' }: { 
 
 function ScrollManager() {
   const location = useLocation();
+  const navigationType = useNavigationType();
+  const prevPathnameRef = useRef<string | null>(null);
+  const currentKeyRef = useRef<string>(location.key);
 
   useEffect(() => {
     initScrollRestoration();
+
+    const handleScroll = () => {
+      saveScrollPosition(currentKeyRef.current, {
+        x: window.scrollX,
+        y: window.scrollY,
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useLayoutEffect(() => {
-    forceResetScrollLock();
+    currentKeyRef.current = location.key;
 
-    const isOAuthHash = Boolean(
-      location.hash && (
-        location.hash.includes('access_token=') ||
-        location.hash.includes('refresh_token=') ||
-        location.hash.includes('error=') ||
-        location.hash.includes('code=')
-      )
-    );
+    applyNavigationScrollPolicy({
+      navigationType,
+      locationKey: location.key,
+      currentPathname: location.pathname,
+      previousPathname: prevPathnameRef.current,
+      currentHash: location.hash,
+      behavior: 'instant',
+    });
 
-    if (location.hash && !isOAuthHash) {
-      handleHashScroll(location.hash);
-    } else {
-      scrollToPageTop({ behavior: 'instant' });
-    }
-  }, [location.pathname, location.hash]);
+    prevPathnameRef.current = location.pathname;
+  }, [location.pathname, location.search, location.hash, location.key, navigationType]);
 
   return null;
 }
@@ -94,6 +113,10 @@ function App() {
             <Route path="/access-denied" element={<AccessDenied />} />
             <Route path="/coordinator" element={<CoordinatorProtectedRoute />}>
               <Route index element={<CoordinatorPortal />} />
+              <Route path="select" element={<CoordinatorAssignmentSelect />} />
+              <Route path="assessment-host" element={<AssessmentLiveHost />} />
+              <Route path="assessment-host/:assessmentId" element={<AssessmentLiveHost />} />
+              <Route path="assessment-report/:assessmentId" element={<AssessmentReportPage />} />
             </Route>
             <Route path="/payment-management" element={<PaymentManagerProtectedRoute />}>
               <Route index element={<PaymentManagement />} />
@@ -106,6 +129,11 @@ function App() {
               <Route element={<AdminLayout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="analytics" element={<Analytics />} />
+                <Route path="assessments" element={<AssessmentsList />} />
+                <Route path="assessments/new" element={<AssessmentCreate />} />
+                <Route path="assessments/:assessmentId" element={<AssessmentDetails />} />
+                <Route path="assessments/:assessmentId/host" element={<AssessmentLiveHost />} />
+                <Route path="assessments/:assessmentId/report" element={<AssessmentReportPage />} />
                 <Route path="events" element={<EventsList />} />
                 <Route path="stalls" element={<ManageStalls />} />
                 <Route path="events/new" element={<CreateEvent />} />

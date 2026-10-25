@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '@kits-eos/shared/src/api/client';
 import type { Registration, RequiredDocumentConfig } from '@kits-eos/shared/src/types/models';
-import { useScrollLock, uploadRegistrationDocument, MAX_DOCUMENT_SIZE } from '@kits-eos/shared';
+import { useScrollLock, uploadRegistrationDocument, executeDocumentDeletion, MAX_DOCUMENT_SIZE } from '@kits-eos/shared';
 import { useAuth } from '../context/AuthContext';
 import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
 import { EmptyState } from '../components/ui/EmptyState';
+import { playRegistrationSuccessSound } from '../utils/registrationSound';
 import { 
   QrCode, 
   CheckCircle2, 
@@ -29,7 +30,8 @@ import {
   FileText,
   Check,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { DigitalIdCard } from '../components/credentials/DigitalIdCard';
 import { TeamDigitalIdCard } from '../components/credentials/TeamDigitalIdCard';
@@ -101,6 +103,13 @@ export function MyRegistrations() {
   // Document state (registration-specific matching & upload management)
   const [regDocumentsMap, setRegDocumentsMap] = useState<Record<string, any[]>>({});
   const [uploadingDocKey, setUploadingDocKey] = useState<string | null>(null);
+  const [deletingDocKey, setDeletingDocKey] = useState<string | null>(null);
+  const [docToDelete, setDocToDelete] = useState<{
+    reg: any;
+    doc: any;
+    docConfig: RequiredDocumentConfig;
+  } | null>(null);
+  const [docDeleteError, setDocDeleteError] = useState<string | null>(null);
   const [uploadErrors, setUploadErrors] = useState<Record<string, string | null>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -135,6 +144,7 @@ export function MyRegistrations() {
   const [complaintText, setComplaintText] = useState('');
   const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
   const [complaintSuccess, setComplaintSuccess] = useState<string | null>(null);
+  const [complaintError, setComplaintError] = useState<string | null>(null);
 
   // Safe centralized scroll lock for all modals in MyRegistrations
   const isAnyModalOpen = Boolean(
@@ -489,6 +499,46 @@ export function MyRegistrations() {
     }
   };
 
+  // Safe Student Document Deletion Handler
+  const handleExecuteDeleteStudentDoc = async () => {
+    if (!docToDelete?.doc) return;
+    const { reg, doc, docConfig } = docToDelete;
+    const uploadKey = `${reg.id}_${docConfig.name}`;
+
+    try {
+      setDeletingDocKey(uploadKey);
+      setDocDeleteError(null);
+
+      const res = await executeDocumentDeletion({ documentId: doc.id });
+      if (!res.success && res.failed_count > 0) {
+        const errMsg = res.results.find((r) => r.error)?.error || 'Document deletion failed on server.';
+        throw new Error(errMsg);
+      }
+
+      // Reconcile React state only after server confirmation
+      setRegDocumentsMap((prev) => {
+        const existing = prev[reg.id] || [];
+        return {
+          ...prev,
+          [reg.id]: existing.filter((d: any) => d.id !== doc.id),
+        };
+      });
+
+      // Clear any previous upload error
+      setUploadErrors((prev) => {
+        const next = { ...prev };
+        delete next[uploadKey];
+        return next;
+      });
+
+      setDocToDelete(null);
+    } catch (err: any) {
+      console.error('Failed to permanently delete student document:', err);
+      setDocDeleteError(err.message || 'Failed to permanently delete document from storage.');
+    } finally {
+      setDeletingDocKey(null);
+    }
+  };
 
   // Submit Feedback
   const handleSubmitFeedback = async (e: React.FormEvent) => {
@@ -514,6 +564,7 @@ export function MyRegistrations() {
         throw new Error(rpcErr?.message || fbResult?.message || 'Failed to submit feedback.');
       }
 
+      playRegistrationSuccessSound({ dedupeKey: `feedback-submit-${activeFeedbackReg.id}` });
       setFeedbackSuccess(fbResult?.message || 'Feedback submitted successfully! Your digital certificate is unlocked.');
       setSubmittedFeedbacks(prev => ({ ...prev, [activeFeedbackReg.id]: true }));
 
@@ -557,36 +608,44 @@ export function MyRegistrations() {
   // Submit Complaint / Inquiry
   const handleSubmitComplaint = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeComplaintReg || !user) return;
+    if (!activeComplaintReg || !user || !complaintText.trim() || isSubmittingComplaint) return;
 
     try {
       setIsSubmittingComplaint(true);
       setComplaintSuccess(null);
+      setComplaintError(null);
 
       const sub = (activeComplaintReg as any).sub_events;
+      const subName = sub?.name || 'Registered Event';
+      const eventName = (activeComplaintReg as any).events?.name || '';
+      
+      // Authoritative complaints schema: user_id, category, description, status
+      // Preserve registration and sub-event context cleanly within the description
+      const regHeader = `[Registration Ref: ${activeComplaintReg.id}${subName ? ` | Sub-Event: ${subName}` : ''}${eventName ? ` (${eventName})` : ''}]`;
+      const fullDescription = `${regHeader}\n\n${complaintText.trim()}`;
 
       const { error: compErr } = await supabase
         .from('complaints')
         .insert({
           user_id: user.id,
-          registration_id: activeComplaintReg.id,
-          sub_event_id: sub?.id,
           category: complaintCategory,
-          description: complaintText.trim(),
+          description: fullDescription,
           status: 'OPEN',
         });
 
       if (compErr) throw compErr;
 
+      playRegistrationSuccessSound({ dedupeKey: `complaint-submit-${activeComplaintReg.id}-${Date.now()}` });
       setComplaintSuccess('Your inquiry/grievance has been recorded. The coordinator team will review it.');
       setComplaintText('');
       setTimeout(() => {
         setActiveComplaintReg(null);
         setComplaintSuccess(null);
+        setComplaintError(null);
       }, 2000);
     } catch (err: any) {
       console.error('Complaint submission error:', err);
-      alert('Failed to submit grievance: ' + err.message);
+      setComplaintError(err.message || 'Failed to submit grievance. Please try again.');
     } finally {
       setIsSubmittingComplaint(false);
     }
@@ -989,6 +1048,23 @@ export function MyRegistrations() {
                                     </>
                                   )}
                                 </label>
+
+                                {uploadedDoc && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDocToDelete({ reg, doc: uploadedDoc, docConfig })}
+                                    disabled={isCurrentlyUploading || deletingDocKey === uploadKey}
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition shadow-2xs cursor-pointer select-none active:scale-95 disabled:opacity-50"
+                                    title="Permanently delete this uploaded document"
+                                  >
+                                    {deletingDocKey === uploadKey ? (
+                                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    )}
+                                    <span>Delete</span>
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -1694,10 +1770,33 @@ export function MyRegistrations() {
             </div>
 
             <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 min-h-0 overscroll-contain">
+              {/* Associated Registration Context Badge */}
+              {activeComplaintReg && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-0.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 block">
+                    Associated Registration
+                  </span>
+                  <div className="text-xs font-black text-gray-900 truncate">
+                    {(activeComplaintReg as any).sub_events?.name || 'Registered Sub-Event'}
+                    {(activeComplaintReg as any).events?.name ? ` • ${(activeComplaintReg as any).events?.name}` : ''}
+                  </div>
+                  <div className="text-[10px] font-mono text-gray-500 truncate">
+                    ID: {activeComplaintReg.id}
+                  </div>
+                </div>
+              )}
+
               {complaintSuccess && (
                 <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 font-bold flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span>{complaintSuccess}</span>
+                </div>
+              )}
+
+              {complaintError && (
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 font-bold flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-kits-red shrink-0" />
+                  <span>{complaintError}</span>
                 </div>
               )}
 
@@ -1780,6 +1879,104 @@ export function MyRegistrations() {
         />,
         document.body
       )}
+
+      {/* =========================================================================
+          MODAL: STUDENT DOCUMENT PERMANENT DELETION
+          ========================================================================= */}
+      {docToDelete && docToDelete.doc && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-red-100 text-kits-red rounded-xl">
+                    <Trash2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-gray-900">
+                      Delete Uploaded Document
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {docToDelete.docConfig.name}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!deletingDocKey) {
+                      setDocToDelete(null);
+                      setDocDeleteError(null);
+                    }
+                  }}
+                  disabled={Boolean(deletingDocKey)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200/80 space-y-1">
+                <div className="text-xs font-bold text-gray-800 break-words flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-kits-blue shrink-0" />
+                  <span>{docToDelete.doc.file_name}</span>
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  Size: {(Number(docToDelete.doc.size_bytes) / (1024 * 1024)).toFixed(2)} MB
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 font-medium">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  Are you sure you want to delete this document? The file will be <strong>permanently removed from cloud storage</strong>. You will need to upload a replacement before the deadline.
+                </div>
+              </div>
+
+              {docDeleteError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-bold flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                  <span>{docDeleteError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDocToDelete(null);
+                    setDocDeleteError(null);
+                  }}
+                  disabled={Boolean(deletingDocKey)}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteDeleteStudentDoc}
+                  disabled={Boolean(deletingDocKey)}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-kits-red hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider transition shadow-2xs cursor-pointer disabled:opacity-50"
+                >
+                  {deletingDocKey ? (
+                    <>
+                      <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Deleting File...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Confirm Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
+

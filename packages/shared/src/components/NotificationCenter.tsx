@@ -121,6 +121,8 @@ export function NotificationCenter({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const hasEnsuredWelcome = useRef(false);
+  const alreadyMarkedIdsRef = useRef<Set<string>>(new Set());
+  const inFlightMarkIdsRef = useRef<Set<string>>(new Set());
 
   // Keep latest state & callbacks in refs to decouple from Realtime subscription lifecycle
   const isOpenRef = useRef(isOpen);
@@ -198,29 +200,47 @@ export function NotificationCenter({
       for (const item of rawItems) {
         if (item?.id && !seenIds.has(item.id)) {
           seenIds.add(item.id);
-          items.push(item);
+          // If already marked locally in this session, ensure is_read is true in state
+          if (alreadyMarkedIdsRef.current.has(item.id)) {
+            items.push({ ...item, is_read: true, read_at: item.read_at || new Date().toISOString() });
+          } else {
+            items.push(item);
+          }
         }
       }
       setNotifications(items);
 
       // AUTOMATIC READ-ON-OPEN:
-      // Identify which items among the presented ones are currently UNREAD
-      const unreadIds = items.filter((n) => !n.is_read).map((n) => n.id);
+      // Identify which items among the presented ones are currently UNREAD and not already marked
+      const unreadIds = items
+        .filter((n) => !n.is_read && !alreadyMarkedIdsRef.current.has(n.id) && !inFlightMarkIdsRef.current.has(n.id))
+        .map((n) => n.id);
 
       if (unreadIds.length > 0) {
-        // Fire authoritative backend RPC to mark only the presented items as read
-        const { error: markErr } = await supabase.rpc('mark_notifications_read_on_open', {
-          p_notification_ids: unreadIds,
-          p_token: token || null
-        });
+        unreadIds.forEach((id) => inFlightMarkIdsRef.current.add(id));
+        const nowIso = new Date().toISOString();
 
-        if (!markErr) {
-          // Immediately update in-memory state so user sees read transition
-          setNotifications((prev) =>
-            prev.map((n) => (unreadIds.includes(n.id) ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
-          );
-          // Update unread count indicator
-          setUnreadCount((prev) => Math.max(0, prev - unreadIds.length));
+        // 1. Immediately update in-memory state & decrement badge so user sees instant transition
+        setNotifications((prev) =>
+          prev.map((n) => (unreadIds.includes(n.id) ? { ...n, is_read: true, read_at: nowIso } : n))
+        );
+        setUnreadCount((prev) => Math.max(0, prev - unreadIds.length));
+
+        // 2. Authoritative backend RPC to persist read_at and is_read in database
+        try {
+          const { error: markErr } = await supabase.rpc('mark_notifications_read_on_open', {
+            p_notification_ids: unreadIds,
+            p_token: token || null
+          });
+
+          if (markErr) {
+            console.warn('[NotificationCenter] Notice marking read on server:', markErr);
+            fetchUnreadCountRef.current();
+          } else {
+            unreadIds.forEach((id) => alreadyMarkedIdsRef.current.add(id));
+          }
+        } finally {
+          unreadIds.forEach((id) => inFlightMarkIdsRef.current.delete(id));
         }
       }
     } catch (err: any) {

@@ -6,6 +6,7 @@ import {
   Receipt, 
   Info 
 } from 'lucide-react';
+import { playRegistrationSuccessSound } from '../../utils/registrationSound';
 
 export interface UpiPaymentSuccessProps {
   feeAmount: number;
@@ -45,10 +46,12 @@ export function UpiPaymentSuccessAnimation(props: UpiPaymentSuccessProps) {
 
   const [copiedRef, setCopiedRef] = useState(false);
 
-  // Notify consumers immediately on mount for reliability and backward-compatibility
+  // Play registration success sound on verified payment animation mount (deduplicated)
   useEffect(() => {
+    const dedupeKey = `payment-${props.registrationId || props.transactionId || 'online'}`;
+    playRegistrationSuccessSound({ dedupeKey });
     onAnimationComplete?.();
-  }, [onAnimationComplete]);
+  }, [props.registrationId, props.transactionId, onAnimationComplete]);
 
   const handleCopyRef = () => {
     if (!transactionId) return;
@@ -77,11 +80,12 @@ export function UpiPaymentSuccessAnimation(props: UpiPaymentSuccessProps) {
     }
   };
 
+  const safeTxId = transactionId || '';
   const isDemoPayment = 
     paymentMethod === 'UPI' || 
-    transactionId.includes('DEMO') || 
-    transactionId.startsWith('KITS-EOS-DEMO') ||
-    transactionId.startsWith('UPI-DEMO');
+    safeTxId.includes('DEMO') || 
+    safeTxId.startsWith('KITS-EOS-DEMO') ||
+    safeTxId.startsWith('UPI-DEMO');
 
   return (
     <div className="w-full max-w-lg mx-auto py-2">
@@ -90,9 +94,12 @@ export function UpiPaymentSuccessAnimation(props: UpiPaymentSuccessProps) {
           ========================================================================= */}
       <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm p-6 sm:p-8 text-center space-y-4 sm:space-y-5">
         
-        {/* Static Success Checkmark Badge */}
-        <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100 shadow-2xs">
-          <Check className="h-7 w-7 stroke-[2.5]" />
+        {/* Animated Green Success Checkmark Badge */}
+        <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-20" />
+          <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border-2 border-emerald-500 shadow-sm animate-pop-success">
+            <Check className="h-8 w-8 stroke-[3] text-emerald-600" />
+          </div>
         </div>
 
         {/* Primary Confirmation Header */}

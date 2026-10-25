@@ -37,3 +37,4 @@ export * from './utils/errorUtils';
 export * from './utils/documentDeletion';
 export * from './utils/documentOrphanDiagnostic';
 export * from './utils/privacyNotice';
+export * from './utils/notificationCleanup';

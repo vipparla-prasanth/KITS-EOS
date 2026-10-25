@@ -1,16 +1,17 @@
-import { useEffect, useLayoutEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { StudentLayout } from './components/layout/StudentLayout';
-import { forceResetScrollLock } from '@kits-eos/shared/src/utils/scrollLock';
-import { initScrollRestoration, scrollToPageTop, handleHashScroll } from '@kits-eos/shared/src/utils/scrollRestoration';
-
-// Eagerly loaded critical landing and auth recovery pages
-import { Home } from './pages/Home';
-import { ResetPassword } from './pages/ResetPassword';
+import {
+  initScrollRestoration,
+  applyNavigationScrollPolicy,
+  saveScrollPosition,
+} from '@kits-eos/shared';
 
 // Route-level code-split pages
+import { Home } from './pages/Home';
+const ResetPassword = lazy(() => import('./pages/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const AboutKeos = lazy(() => import('./pages/AboutKeos').then(m => ({ default: m.AboutKeos })));
 const Vision = lazy(() => import('./pages/Vision').then(m => ({ default: m.Vision })));
 const ContactCoordinators = lazy(() => import('./pages/ContactCoordinators').then(m => ({ default: m.ContactCoordinators })));
@@ -37,33 +38,86 @@ const StudentNotifications = lazy(() => import('./pages/StudentNotifications').t
 const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
 const StallsDirectory = lazy(() => import('./pages/Stalls').then(m => ({ default: m.StallsDirectory })));
 
+// Assessments System
+const AssessmentsDirectory = lazy(() => import('./pages/Assessments/AssessmentsDirectory').then(m => ({ default: m.AssessmentsDirectory })));
+const AssessmentPreExam = lazy(() => import('./pages/Assessments/AssessmentPreExam').then(m => ({ default: m.AssessmentPreExam })));
+const AssessmentAttempt = lazy(() => import('./pages/Assessments/AssessmentAttempt').then(m => ({ default: m.AssessmentAttempt })));
+const AssessmentResult = lazy(() => import('./pages/Assessments/AssessmentResult').then(m => ({ default: m.AssessmentResult })));
+const GlobalLeaderboard = lazy(() => import('./pages/Assessments/GlobalLeaderboard').then(m => ({ default: m.GlobalLeaderboard })));
+
 import { StudentPageLoadingFallback } from './components/ui/StudentPageLoadingFallback';
 
 function ScrollManager() {
   const location = useLocation();
+  const navigationType = useNavigationType();
+  const prevPathnameRef = useRef<string | null>(null);
+  const currentKeyRef = useRef<string>(location.key);
 
   useEffect(() => {
     initScrollRestoration();
+
+    const handleScroll = () => {
+      saveScrollPosition(currentKeyRef.current, {
+        x: window.scrollX,
+        y: window.scrollY,
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useLayoutEffect(() => {
-    forceResetScrollLock();
+    currentKeyRef.current = location.key;
 
-    const isOAuthHash = Boolean(
-      location.hash && (
-        location.hash.includes('access_token=') ||
-        location.hash.includes('refresh_token=') ||
-        location.hash.includes('error=') ||
-        location.hash.includes('code=')
-      )
-    );
+    applyNavigationScrollPolicy({
+      navigationType,
+      locationKey: location.key,
+      currentPathname: location.pathname,
+      previousPathname: prevPathnameRef.current,
+      currentHash: location.hash,
+      behavior: 'instant',
+    });
 
-    if (location.hash && !isOAuthHash) {
-      handleHashScroll(location.hash);
+    prevPathnameRef.current = location.pathname;
+  }, [location.pathname, location.search, location.hash, location.key, navigationType]);
+
+  return null;
+}
+
+function IdleRoutePrefetcher() {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Only trigger conservative idle prefetch on the root homepage '/'
+    if (location.pathname !== '/') return;
+
+    let handle: any = null;
+    const prefetchPrimaryRoutes = () => {
+      try {
+        import('./pages/EventsList').catch(() => {});
+        import('./pages/Login').catch(() => {});
+      } catch {
+        // non-blocking
+      }
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      handle = (window as any).requestIdleCallback(prefetchPrimaryRoutes, { timeout: 3500 });
     } else {
-      scrollToPageTop({ behavior: 'instant' });
+      handle = setTimeout(prefetchPrimaryRoutes, 2500);
     }
-  }, [location.pathname, location.hash]);
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        if ('cancelIdleCallback' in window && typeof handle === 'number') {
+          (window as any).cancelIdleCallback(handle);
+        } else {
+          clearTimeout(handle);
+        }
+      }
+    };
+  }, [location.pathname]);
 
   return null;
 }
@@ -73,6 +127,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <ScrollManager />
+        <IdleRoutePrefetcher />
         <Suspense fallback={<StudentPageLoadingFallback />}>
           <Routes>
             {/* Public & Student Shared Institutional Shell */}
@@ -102,6 +157,10 @@ export default function App() {
               <Route path="/verify-certificate" element={<PublicCertificateVerification />} />
               <Route path="/verify-certificate/:certId" element={<PublicCertificateVerification />} />
 
+              {/* 3b. Public Assessment Discovery & Leaderboards */}
+              <Route path="/assessments" element={<AssessmentsDirectory />} />
+              <Route path="/assessments/leaderboard" element={<GlobalLeaderboard />} />
+
               {/* 4. Student Authentication & Onboarding */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Login />} />
@@ -125,6 +184,11 @@ export default function App() {
                 <Route path="/complaints" element={<StudentComplaints />} />
                 <Route path="/notifications" element={<StudentNotifications />} />
                 <Route path="/profile" element={<Profile />} />
+
+                {/* Assessments Candidate Operations */}
+                <Route path="/assessments/:assessmentId" element={<AssessmentPreExam />} />
+                <Route path="/assessments/:assessmentId/attempt" element={<AssessmentAttempt />} />
+                <Route path="/assessments/:assessmentId/result" element={<AssessmentResult />} />
               </Route>
 
               {/* 404 Not Found Handling */}

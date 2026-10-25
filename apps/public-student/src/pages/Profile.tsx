@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@kits-eos/shared/src/api/client';
+import { 
+  CURRENT_PRIVACY_NOTICE_VERSION, 
+  isPrivacyNoticeAcknowledged, 
+  clearPrivacyNoticePostponement 
+} from '@kits-eos/shared';
 import type { PrivacyRequest, PrivacyRequestType } from '@kits-eos/shared/src/types/models';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -81,7 +86,7 @@ export function Profile() {
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
 
   const isNameLocked = Boolean(profile?.name_change_used);
-  const isPrivacyAcknowledged = Boolean(profile?.privacy_acknowledged_at);
+  const isPrivacyAcknowledged = isPrivacyNoticeAcknowledged(profile, CURRENT_PRIVACY_NOTICE_VERSION);
 
   useEffect(() => {
     if (profile) {
@@ -211,12 +216,13 @@ export function Profile() {
       setAcknowledgeError(null);
 
       const { data, error: ackErr } = await supabase.rpc('acknowledge_privacy_notice', {
-        p_version: '1.0'
+        p_version: CURRENT_PRIVACY_NOTICE_VERSION
       });
 
       if (ackErr) throw ackErr;
       if (!data?.success) throw new Error(data?.error || 'Failed to record acknowledgement.');
 
+      clearPrivacyNoticePostponement();
       await refreshProfile();
       setIsAcknowledgeModalOpen(false);
     } catch (err: any) {

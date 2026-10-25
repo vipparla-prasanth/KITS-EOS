@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { isSessionValid } from '@kits-eos/shared';
@@ -7,6 +7,8 @@ import { StudentFooter } from './StudentFooter';
 import { ScrollProgressBar } from '../ui/ScrollProgressBar';
 import { LoadingState } from '../ui/LoadingState';
 import { StudentPageLoadingFallback } from '../ui/StudentPageLoadingFallback';
+import { AppUpdateNotification } from '../ui/AppUpdateNotification';
+import { initializeAppUpdateService } from '../../services/appUpdateService';
 
 const KeosAssistant = lazy(() => import('../assistant/KeosAssistant').then(m => ({ default: m.KeosAssistant })));
 const CookieConsentBanner = lazy(() => import('@kits-eos/shared/src/components/CookieConsentBanner').then(m => ({ default: m.CookieConsentBanner })));
@@ -14,6 +16,11 @@ const CookieConsentBanner = lazy(() => import('@kits-eos/shared/src/components/C
 export function StudentLayout() {
   const { isLoading, isAuthTransitioning } = useAuth();
   const location = useLocation();
+
+  useEffect(() => {
+    const cleanup = initializeAppUpdateService();
+    return () => cleanup();
+  }, []);
 
   const isProtectedPath = [
     '/dashboard',
@@ -41,6 +48,18 @@ export function StudentLayout() {
     return <StudentPageLoadingFallback message={isAuthTransitioning ? 'Authenticating student session...' : 'Loading KITS Student Portal...'} />;
   }
 
+  // Dedicated full-screen examination viewport for active assessment attempts
+  const isExamAttempt = Boolean(location.pathname.match(/\/assessments\/[^/]+\/attempt/));
+  if (isExamAttempt) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col font-sans select-none overflow-x-clip">
+        <Suspense fallback={<StudentPageLoadingFallback message="Initializing Examination Cockpit..." />}>
+          <Outlet />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans selection:bg-red-100 selection:text-kits-red overflow-x-clip">
       <ScrollProgressBar />
@@ -57,6 +76,8 @@ export function StudentLayout() {
       <Suspense fallback={null}>
         <CookieConsentBanner />
       </Suspense>
+      <AppUpdateNotification />
     </div>
   );
 }
+

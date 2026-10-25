@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { LoadingState } from '../components/ui/LoadingState';
 import { ErrorState } from '../components/ui/ErrorState';
 import { EmptyState } from '../components/ui/EmptyState';
+import { playRegistrationSuccessSound } from '../utils/registrationSound';
 import { 
   MessageSquare, 
   Star, 
@@ -173,6 +174,7 @@ export function StudentFeedback() {
         throw new Error(rpcErr?.message || data?.message || 'Failed to submit feedback.');
       }
 
+      playRegistrationSuccessSound({ dedupeKey: `feedback-submit-${reg.registrationId}` });
       setSuccessMessage(data.message || `Thank you! Your feedback for "${reg.subEventName}" has been submitted.`);
       setActiveRegId(null);
       setComments('');

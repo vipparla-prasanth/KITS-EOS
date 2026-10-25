@@ -14,6 +14,7 @@ import {
   deleteCoordinatorDraft,
   getDraftSyncChannel,
 } from '../utils/formDrafts';
+import { getCookieConsent } from '../utils/cookieConsent';
 
 export interface UseFormDraftOptions<T> {
   draftType: DraftType;
@@ -58,6 +59,10 @@ export function useFormDraft<T = any>({
   const saveToLocal = useCallback((payload: T, step?: number) => {
     if (typeof window === 'undefined') return;
     try {
+      // Respect user cookie preferences: do not store drafts in local storage if functional storage is disabled
+      if (!getCookieConsent().preferences.functional) {
+        return;
+      }
       const dataToStore = {
         payload,
         step: step || 1,
@@ -89,9 +94,9 @@ export function useFormDraft<T = any>({
       setIsInitialLoading(true);
       let drafts: FormDraft<T>[] = [];
 
-      // 1. Check local storage first
+      // 1. Check local storage first (only if user permitted functional preferences)
       let localDraftData: any = null;
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && getCookieConsent().preferences.functional) {
         try {
           const raw = localStorage.getItem(getStorageKey());
           if (raw) {

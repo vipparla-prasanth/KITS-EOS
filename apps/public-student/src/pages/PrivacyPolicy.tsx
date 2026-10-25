@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
@@ -18,18 +19,46 @@ import {
   Users, 
   CheckCircle2, 
   Server,
-  MessageSquare
+  MessageSquare,
+  Download
 } from 'lucide-react';
 import { openCookiePreferencesModal } from '@kits-eos/shared';
+import { downloadPrivacyPolicyPdf } from '../utils/institutionalLegalPdf';
 
 export function PrivacyPolicy() {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloading(true);
+      await downloadPrivacyPolicyPdf();
+    } catch (err) {
+      console.error('Failed to generate Privacy Policy PDF:', err);
+      alert('Unable to generate PDF document. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16 font-sans">
       {/* Header Banner */}
       <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-10 shadow-2xs space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-blue-50 text-kits-blue border border-blue-100">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          <span>Institutional Privacy & Data Governance</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-blue-50 text-kits-blue border border-blue-100 self-start">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span>Institutional Privacy & Data Governance</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-kits-blue hover:bg-[#002244] text-white text-xs font-bold transition shadow-2xs disabled:opacity-50 cursor-pointer self-start sm:self-auto shrink-0"
+            title="Download Official KITS-AKSHAR-EOS Privacy Policy (PDF)"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>{downloading ? 'Preparing PDF...' : 'Download Official PDF'}</span>
+          </button>
         </div>
         <h1 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight">
           Privacy Notice <span className="text-kits-blue">& Cookie Policy</span>
@@ -204,7 +233,7 @@ export function PrivacyPolicy() {
             <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-1.5">
               <strong className="text-gray-900 text-xs sm:text-sm block">2. Functional Preferences (Optional)</strong>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                Stores your chosen display options, filter preferences, table pagination states, and dismissed informational notices locally on your device to ensure interface continuity between sessions.
+                Permits local storage of form input auto-save drafts (such as competition and event registration forms via <code>useFormDraft</code>) and client-side view states to prevent accidental loss of registration progress. When disabled, optional drafts will not be saved locally and existing optional drafts are cleared without altering your essential login session or active exam timers.
               </p>
             </div>
 
@@ -212,7 +241,7 @@ export function PrivacyPolicy() {
             <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 space-y-1.5">
               <strong className="text-gray-900 text-xs sm:text-sm block">3. Operational Telemetry & Diagnostics (Optional)</strong>
               <p className="text-[11px] sm:text-xs text-gray-600 leading-normal">
-                A consent-gated telemetry interface used solely to monitor client-side load performance and troubleshoot application errors. <strong>KITS-EOS does not bundle commercial third-party ad networks, social tracking pixels, or cross-site behavioral trackers.</strong>
+                A consent-gated telemetry interface used solely to monitor client-side responsiveness and troubleshoot application errors. <strong>KITS-EOS does NOT bundle commercial third-party ad networks, social tracking pixels, marketing cookies, or cross-site behavioral trackers (such as Google Analytics or Meta Pixel).</strong> When disabled, non-essential client diagnostics and performance logging are halted.
               </p>
             </div>
           </div>
@@ -378,10 +407,21 @@ export function PrivacyPolicy() {
           <Link to="/terms" className="text-xs font-bold text-kits-red hover:underline">
             ← Review Terms & Conditions
           </Link>
-          <Link to="/" className="text-xs font-bold text-gray-500 hover:text-gray-900 inline-flex items-center gap-1">
-            <ArrowLeft className="h-3 w-3" />
-            <span>Return to Home</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 text-kits-blue" />
+              <span>{downloading ? 'Preparing...' : 'Download PDF'}</span>
+            </button>
+            <Link to="/" className="text-xs font-bold text-gray-500 hover:text-gray-900 inline-flex items-center gap-1">
+              <ArrowLeft className="h-3 w-3" />
+              <span>Return to Home</span>
+            </Link>
+          </div>
         </div>
 
       </div>

@@ -15,6 +15,8 @@ export interface StoredCoordinatorProfile {
   coordinator_type?: string;
   status: string;
   phone_number?: string;
+  assigned_assessment?: any;
+  assigned_assessments?: any[];
 }
 
 export interface StoredCoordinatorSession {
@@ -22,14 +24,22 @@ export interface StoredCoordinatorSession {
   coordinator: StoredCoordinatorProfile;
   access_state: 'AUTHORIZED' | 'NO_ASSIGNMENTS' | 'INACTIVE_OR_SUSPENDED' | 'NOT_FOUND' | 'UNAUTHORIZED' | 'ERROR';
   expires_at: string;
+  assignments?: any[];
+  assigned_assessment?: any;
+  assigned_assessments?: any[];
+  active_assignments_count?: number;
+  active_assessment_count?: number;
+  state_detail?: string;
 }
 
 import { 
   COORDINATOR_SESSION_KEY, 
   isSessionValid, 
   startSession, 
-  endSession 
+  endSession,
+  cleanupSessionNotifications
 } from '@kits-eos/shared';
+import { supabase } from '@kits-eos/shared/src/api/client';
 
 const STORAGE_KEY = COORDINATOR_SESSION_KEY;
 
@@ -88,6 +98,34 @@ export function clearCoordinatorSession(): void {
     endSession();
   } catch {
     // ignore
+  }
+}
+
+/**
+ * Fully signs out coordinator:
+ * 1. Invalidates session in database via invalidate_coordinator_session RPC
+ * 2. Clears client session storage & ends session
+ * 3. Navigates cleanly to root login
+ */
+export async function signOutCoordinator(navigate?: (to: string, options?: any) => void): Promise<void> {
+  const token = getCoordinatorSessionToken();
+  if (token) {
+    try {
+      await cleanupSessionNotifications({ token, timeoutMs: 2000 });
+    } catch {
+      // Non-blocking: cleanup failure never hangs logout
+    }
+    try {
+      await supabase.rpc('invalidate_coordinator_session', { p_token: token });
+    } catch {
+      // ignore
+    }
+  }
+  clearCoordinatorSession();
+  if (navigate) {
+    navigate('/', { replace: true });
+  } else {
+    window.location.replace('/');
   }
 }
 

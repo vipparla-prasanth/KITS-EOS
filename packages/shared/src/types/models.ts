@@ -546,6 +546,7 @@ export interface AssessmentRevisionQuestionData {
   sort_order: number;
   options?: AssessmentQuestionOption[];
   correct_boolean?: boolean | null;
+  explanation?: string;
 }
 
 export interface AssessmentRevision {
@@ -617,6 +618,7 @@ export interface AssessmentQuestion {
   sort_order: number;
   options?: AssessmentQuestionOption[];
   correct_boolean?: boolean | null; // Available only in admin context via admin_get_assessment_questions
+  explanation?: string;
   created_at?: string;
   updated_at?: string;
 }

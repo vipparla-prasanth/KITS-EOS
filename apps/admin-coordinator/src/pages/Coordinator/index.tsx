@@ -7,7 +7,8 @@ import type { CoordinatorAccessValidation } from '../../components/CoordinatorPr
 import { 
   getCoordinatorSessionToken, 
   clearCoordinatorSession, 
-  getCoordinatorAuthHeaders 
+  getCoordinatorAuthHeaders,
+  signOutCoordinator,
 } from '../../utils/coordinatorSession';
 import { 
   Users, 
@@ -19,6 +20,7 @@ import {
   Sparkles,
   Calendar,
   Layers,
+  LayoutGrid,
   ArrowLeft,
   MapPin,
   ChevronRight,
@@ -598,28 +600,8 @@ export function CoordinatorPortal() {
 
   const handleConfirmLogout = async () => {
     setIsLogoutModalOpen(false);
-    const token = getCoordinatorSessionToken();
-    if (token) {
-      try {
-        await supabase.rpc('invalidate_coordinator_session', { p_token: token });
-      } catch {
-        // silent
-      }
-    }
-    clearCoordinatorSession();
-    navigate('/', { replace: true });
+    await signOutCoordinator(navigate);
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center text-gray-900 font-sans">
-        <div className="text-center space-y-3">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-kits-red" />
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Loading Coordinator Portal...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Active Context Objects
   const currentEvent = groupedEvents.find((e) => e.id === selectedEventId);
@@ -1116,6 +1098,17 @@ export function CoordinatorPortal() {
   const totalPending = totalRegistered - totalAttended;
   const attendanceRate = totalRegistered > 0 ? Math.round((totalAttended / totalRegistered) * 100) : 0;
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center text-gray-900 font-sans">
+        <div className="text-center space-y-3">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-kits-red" />
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Loading Coordinator Portal...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans pb-20 w-full overflow-x-clip">
       {/* Top Institutional Header */}
@@ -1123,8 +1116,12 @@ export function CoordinatorPortal() {
         <div className="max-w-7xl mx-auto glass-header-floating rounded-2xl sm:rounded-3xl pointer-events-auto transition-all duration-300">
           <div className="px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-kits-red text-white flex items-center justify-center font-black text-xs sm:text-sm shadow-2xs">
-                EOS
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-white border border-gray-200 p-0.5 flex items-center justify-center shadow-2xs overflow-hidden flex-shrink-0">
+                <img
+                  src="/college_logo.png"
+                  alt="KITS-EOS Logo"
+                  className="object-contain w-full h-full"
+                />
               </div>
               <div>
                 <div className="text-xs sm:text-sm font-black tracking-tight text-gray-900">
@@ -1163,8 +1160,18 @@ export function CoordinatorPortal() {
               </div>
 
               <button
+                type="button"
+                onClick={() => navigate('/coordinator/select')}
+                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-200 bg-white hover:bg-blue-50 text-gray-700 hover:text-kits-blue text-xs font-bold transition shadow-2xs cursor-pointer flex-shrink-0"
+                title="All Dashboards & Assignments"
+              >
+                <LayoutGrid className="h-3.5 w-3.5 text-[#003366]" />
+                <span className="hidden sm:inline">All Dashboards</span>
+              </button>
+
+              <button
                 onClick={() => setIsLogoutModalOpen(true)}
-                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg border border-gray-200 hover:border-red-200 bg-white hover:bg-red-50 text-gray-600 hover:text-kits-red text-xs font-bold transition shadow-2xs cursor-pointer flex-shrink-0"
+                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg border border-red-200 hover:border-red-300 bg-white hover:bg-red-50 text-gray-700 hover:text-kits-red text-xs font-bold transition shadow-2xs cursor-pointer flex-shrink-0"
                 title="Sign Out"
               >
                 <LogOut className="h-3.5 w-3.5" />
@@ -1177,6 +1184,41 @@ export function CoordinatorPortal() {
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6 space-y-6 w-full min-w-0">
+        {/* Dual Assignment Active Banner */}
+        {Boolean(validation?.assigned_assessment?.id || (validation?.assigned_assessments && validation.assigned_assessments.length > 0)) && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-red-50 via-white to-blue-50 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 rounded-xl bg-blue-100 text-[#003366]">
+                <Trophy className="w-5 h-5 text-[#003366]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#003366]">Dual Assignment Active</span>
+                <p className="text-xs font-bold text-gray-900">
+                  {validation?.assigned_assessments && validation.assigned_assessments.length > 1 ? (
+                    <>You are assigned to host <span className="text-[#C8102E] font-bold">{validation.assigned_assessments.length} examinations</span></>
+                  ) : (
+                    <>You are also assigned to host examination: <span className="text-[#C8102E]">{validation?.assigned_assessment?.title || validation?.assigned_assessments?.[0]?.title}</span></>
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (validation?.assigned_assessments && validation.assigned_assessments.length > 1) {
+                  navigate('/coordinator/select');
+                } else if (validation?.assigned_assessment?.id) {
+                  navigate(`/coordinator/assessment-host/${validation.assigned_assessment.id}`);
+                } else {
+                  navigate('/coordinator/assessment-host');
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 rounded-xl bg-[#003366] hover:bg-[#002852] text-white text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap"
+            >
+              Open Live Host Console →
+            </button>
+          </div>
+        )}
+
         {/* Compact Reference-Inspired Welcome Panel */}
         <div className="bg-[#081a30] text-white rounded-2xl sm:rounded-3xl px-4 py-3.5 sm:px-6 sm:py-4 shadow-sm border border-[#0f2c52] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
           <div className="space-y-1.5 min-w-0">

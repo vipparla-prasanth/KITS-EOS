@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Calendar, Sparkles } from 'lucide-react';
-import { resolveEventBannerUrl } from '../../utils/imageUtils';
+import { resolveEventBannerSources } from '../../utils/imageUtils';
 
 interface EventBannerImageProps {
   bannerPath?: string | null;
@@ -20,15 +20,16 @@ export function EventBannerImage({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
 
-  const resolvedUrl = useMemo(() => {
-    return resolveEventBannerUrl(bannerPath);
+  const sources = useMemo(() => {
+    return resolveEventBannerSources(bannerPath);
   }, [bannerPath]);
 
   // If there's genuinely no banner or an unrecoverable loading error
-  if (!resolvedUrl || hasError) {
+  if (!sources || hasError) {
     return (
       <div 
         className={`relative overflow-hidden flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-gray-900 to-kits-blue text-white p-6 text-center select-none border border-gray-800/60 ${className}`}
+        style={{ aspectRatio: '2.92 / 1' }}
       >
         {/* Subtle geometric background decoration */}
         <div className="absolute top-0 right-0 -mt-6 -mr-6 w-28 h-28 bg-kits-red/20 rounded-full blur-2xl pointer-events-none" />
@@ -51,33 +52,53 @@ export function EventBannerImage({
   }
 
   return (
-    <div className={`relative overflow-hidden bg-gray-100 border border-gray-200/80 ${className}`}>
+    <div 
+      className={`relative overflow-hidden bg-gray-100 border border-gray-200/80 ${className}`}
+      style={{ aspectRatio: sources.aspectRatio }}
+    >
       {/* Loading Skeleton Placeholder */}
       {isLoading && (
         <div 
-          className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse z-10"
+          className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse z-10 pointer-events-none"
           aria-hidden="true"
         />
       )}
 
-      <img
-        src={resolvedUrl}
-        alt={`${eventName} Banner`}
-        loading={priority ? 'eager' : 'lazy'}
-        fetchPriority={priority ? 'high' : 'auto'}
-        decoding="async"
-        width={800}
-        height={400}
-        onLoad={() => setIsLoading(false)}
-        onError={() => {
-          console.warn(`[EventBannerImage] Failed to load banner for "${eventName}" from URL:`, resolvedUrl);
-          setHasError(true);
-          setIsLoading(false);
-        }}
-        className={`${imageClassName} transition-all duration-300 ${
-          isLoading ? 'opacity-0 scale-[1.01]' : 'opacity-100 scale-100'
-        }`}
-      />
+      <picture className="w-full h-full block">
+        {sources.avifSrcSet && (
+          <source 
+            type="image/avif" 
+            srcSet={sources.avifSrcSet} 
+            sizes={sources.sizes} 
+          />
+        )}
+        {sources.webpSrcSet && (
+          <source 
+            type="image/webp" 
+            srcSet={sources.webpSrcSet} 
+            sizes={sources.sizes} 
+          />
+        )}
+        <img
+          src={sources.fallbackSrc}
+          alt={`${eventName} Banner`}
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
+          decoding="async"
+          width={sources.width}
+          height={sources.height}
+          style={{ aspectRatio: sources.aspectRatio }}
+          onLoad={() => setIsLoading(false)}
+          onError={() => {
+            console.warn(`[EventBannerImage] Failed to load banner for "${eventName}" from URL:`, sources.fallbackSrc);
+            setHasError(true);
+            setIsLoading(false);
+          }}
+          className={`${imageClassName} transition-all duration-300 ${
+            isLoading ? 'opacity-0 scale-[1.01]' : 'opacity-100 scale-100'
+          }`}
+        />
+      </picture>
     </div>
   );
 }

@@ -200,7 +200,8 @@ export async function resolveCoordinatorOrAdmin(
           .eq("id", user.id)
           .single();
 
-        if (appUser && appUser.role === "ADMIN" && appUser.status === "ACTIVE") {
+        const normalizedEmail = (appUser?.email || '').trim().toLowerCase();
+        if (appUser && appUser.role === "ADMIN" && appUser.status === "ACTIVE" && ADMIN_ALLOWLIST.includes(normalizedEmail)) {
           return {
             coordinatorId: "ADMIN_OVERRIDE",
             username: appUser.email,

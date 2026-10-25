@@ -36,7 +36,8 @@ import {
   Building2,
   Sparkles,
   Smartphone,
-  Banknote
+  Banknote,
+  RefreshCw
 } from 'lucide-react';
 import { DigitalIdCard } from '../components/credentials/DigitalIdCard';
 import { TeamDigitalIdCard } from '../components/credentials/TeamDigitalIdCard';
@@ -48,7 +49,128 @@ import {
   type CoordinatorContact 
 } from '../components/ui/OversizedDocumentModal';
 import { DocumentUploadCard } from '../components/ui/DocumentUploadCard';
+import { playRegistrationSuccessSound } from '../utils/registrationSound';
 
+export interface NormalizedRegistrationResult {
+  success: boolean;
+  registration_id: string;
+  team_id?: string | null;
+  members_count?: number;
+  status: string;
+  registration_status: string;
+  is_free: boolean;
+  payment: any | null;
+  members: any[];
+  registration: {
+    id: string;
+    status: string;
+    created_at: string;
+    payment: any | null;
+    team?: {
+      id?: string | null;
+      team_name?: string | null;
+      members: any[];
+    };
+  };
+}
+
+export function normalizeRegistrationResponse(
+  rawResult: any,
+  fallbackContext?: {
+    mode?: 'SOLO' | 'TEAM';
+    teamName?: string;
+    isFreeEvent?: boolean;
+    createdMembers?: any[];
+  }
+): NormalizedRegistrationResult | null {
+  if (!rawResult || rawResult.success === false) return null;
+
+  const regId =
+    rawResult.registration?.id ||
+    rawResult.registration_id ||
+    rawResult.id;
+  if (!regId) return null;
+
+  // Extract payment object safely (handles both singular object and plural array from PostgREST)
+  let payment: any = null;
+  if (rawResult.registration?.payment !== undefined) {
+    payment = rawResult.registration.payment;
+  } else if (rawResult.payment !== undefined) {
+    payment = rawResult.payment;
+  } else if (Array.isArray(rawResult.payments)) {
+    payment = rawResult.payments.length > 0 ? rawResult.payments[0] : null;
+  }
+
+  // Extract team object safely (handles both singular object and plural array from PostgREST)
+  let teamObj: any = null;
+  if (rawResult.registration?.team !== undefined) {
+    teamObj = rawResult.registration.team;
+  } else if (rawResult.teams !== undefined) {
+    teamObj = Array.isArray(rawResult.teams) ? (rawResult.teams[0] || null) : rawResult.teams;
+  }
+
+  const teamId =
+    teamObj?.id ||
+    rawResult.team_id ||
+    null;
+
+  // Extract members safely (handles members array, team_members, or fallback context)
+  let teamMembers: any[] = [];
+  if (Array.isArray(teamObj?.members) && teamObj.members.length > 0) {
+    teamMembers = teamObj.members;
+  } else if (Array.isArray(teamObj?.team_members) && teamObj.team_members.length > 0) {
+    teamMembers = teamObj.team_members;
+  } else if (Array.isArray(rawResult.members) && rawResult.members.length > 0) {
+    teamMembers = rawResult.members;
+  } else if (Array.isArray(fallbackContext?.createdMembers) && fallbackContext.createdMembers.length > 0) {
+    teamMembers = fallbackContext.createdMembers;
+  }
+
+  const teamName =
+    teamObj?.team_name ||
+    rawResult.team_name ||
+    (fallbackContext?.mode === 'TEAM' ? (fallbackContext?.teamName?.trim() || 'Team') : 'Solo Participant');
+
+  const isFree = Boolean(
+    rawResult.is_free ??
+    fallbackContext?.isFreeEvent ??
+    (payment?.amount === 0)
+  );
+
+  const status =
+    rawResult.registration?.status ||
+    rawResult.status ||
+    rawResult.registration_status ||
+    (payment?.status === 'SUCCESS' || isFree ? 'CONFIRMED' : 'PENDING_PAYMENT');
+
+  const createdAt =
+    rawResult.registration?.created_at ||
+    rawResult.created_at ||
+    new Date().toISOString();
+
+  return {
+    success: true,
+    registration_id: regId,
+    team_id: teamId,
+    members_count: rawResult.members_count || (teamMembers.length > 0 ? teamMembers.length : 1),
+    status,
+    registration_status: status,
+    is_free: isFree,
+    payment,
+    members: teamMembers,
+    registration: {
+      id: regId,
+      status,
+      created_at: createdAt,
+      payment,
+      team: {
+        id: teamId,
+        team_name: teamName,
+        members: teamMembers,
+      },
+    },
+  };
+}
 
 interface TeamMemberInput {
   id: string;
@@ -80,6 +202,8 @@ export function SubEventRegister() {
   const [coordinators, setCoordinators] = useState<CoordinatorContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusCheckError, setStatusCheckError] = useState<string | null>(null);
+  const [reloadCount, setReloadCount] = useState(0);
 
   // Workflow Step
   const [step, setStep] = useState<RegistrationStep>('DETAILS');
@@ -147,8 +271,11 @@ export function SubEventRegister() {
     draftType: 'STUDENT_REGISTRATION',
     entityId: subEventId || null,
     title: subEvent ? `${subEvent.name} (${event?.name || 'Event'})` : 'Student Registration',
-    enabled: Boolean(user?.id && subEventId && !isAlreadyRegistered && step !== 'CONFIRMED'),
+    enabled: Boolean(user?.id && subEventId && !isAlreadyRegistered && step !== 'CONFIRMED' && !registrationResult),
   });
+
+  const discardDraftRef = useRef(discardDraft);
+  discardDraftRef.current = discardDraft;
 
   const handleResumeDraft = () => {
     const loadedDraft = resumeDraft();
@@ -216,6 +343,7 @@ export function SubEventRegister() {
       try {
         setIsLoading(true);
         setError(null);
+        setStatusCheckError(null);
 
         const [subRes, evRes, coordRpcRes, coordRes] = await Promise.all([
           supabase.from('sub_events').select('*').eq('id', subEventId).single(),
@@ -301,17 +429,91 @@ export function SubEventRegister() {
 
         // Check if current user already has an active registration for this sub-event
         if (user?.id) {
-          const { data: existingReg } = await supabase
-            .from('registrations')
-            .select('id, status')
-            .eq('sub_event_id', subEventId)
-            .eq('leader_id', user.id)
-            .neq('status', 'CANCELLED')
-            .maybeSingle();
+          try {
+            const { data: existingReg, error: regErr } = await supabase
+              .from('registrations')
+              .select(`
+                id,
+                status,
+                created_at,
+                teams (
+                  id,
+                  team_name,
+                  team_members (*)
+                ),
+                payments (*)
+              `)
+              .eq('sub_event_id', subEventId)
+              .eq('leader_id', user.id)
+              .neq('status', 'CANCELLED')
+              .maybeSingle();
 
-          if (existingReg) {
-            setIsAlreadyRegistered(true);
-            setConflictMessage('You are already registered for this sub-event. You can view your pass and credentials in My Registrations.');
+            if (regErr) {
+              console.warn('[SubEventRegister] Error checking registration status:', regErr);
+              setStatusCheckError('Unable to check registration status from server.');
+            } else if (existingReg) {
+              const p = Array.isArray(existingReg.payments) ? existingReg.payments[0] : existingReg.payments;
+              const t = Array.isArray(existingReg.teams) ? existingReg.teams[0] : existingReg.teams;
+              const authoritativeStatus = existingReg.status;
+              const members = t?.team_members || [];
+              const isSubFree = Boolean(sub.is_free) || ((sub.fee_amount_solo || 0) === 0 && (sub.fee_amount_team || 0) === 0);
+
+              const leaderMember = members.find((m: any) => m.is_leader) || members[0];
+              if (leaderMember) {
+                if (leaderMember.snapshot_name) setLeaderName(leaderMember.snapshot_name);
+                if (leaderMember.snapshot_roll_number) setLeaderRoll(leaderMember.snapshot_roll_number);
+                if (leaderMember.snapshot_department) setLeaderDept(leaderMember.snapshot_department);
+                if (leaderMember.snapshot_year) setLeaderYear(leaderMember.snapshot_year);
+                if (leaderMember.snapshot_college) setLeaderCollege(leaderMember.snapshot_college);
+              }
+              if (t?.team_name) {
+                setMode('TEAM');
+                setTeamName(t.team_name);
+              }
+              const otherMembers = members.filter((m: any) => !m.is_leader);
+              if (otherMembers.length > 0) {
+                setMode('TEAM');
+                setTeamMembers(otherMembers.map((m: any) => ({
+                  id: m.id || crypto.randomUUID(),
+                  name: m.snapshot_name || m.name || '',
+                  roll_number: m.snapshot_roll_number || m.roll_number || '',
+                  department: m.snapshot_department || m.department || '',
+                  year_of_study: m.snapshot_year || m.year_of_study || 3,
+                  college: m.snapshot_college || m.college || '',
+                })));
+              }
+
+              if (p?.payment_method === 'COD') {
+                setPaymentMethod('COD');
+              } else if (p?.payment_method === 'UPI') {
+                setPaymentMethod('UPI');
+              }
+
+              const normalized = normalizeRegistrationResponse({
+                success: true,
+                registration_id: existingReg.id,
+                team_id: t?.id,
+                status: authoritativeStatus,
+                registration_status: authoritativeStatus,
+                is_free: isSubFree,
+                payment: p || null,
+                members,
+                created_at: existingReg.created_at,
+                teams: t,
+              }, {
+                mode: t?.team_name ? 'TEAM' : 'SOLO',
+                teamName: t?.team_name,
+                isFreeEvent: isSubFree,
+              });
+
+              setRegistrationResult(normalized);
+              setIsAlreadyRegistered(false);
+              setStep('CONFIRMED');
+              await discardDraftRef.current?.();
+            }
+          } catch (statusErr: any) {
+            console.warn('[SubEventRegister] Error checking registration status:', statusErr);
+            setStatusCheckError('Unable to check registration status from server.');
           }
         }
 
@@ -326,7 +528,7 @@ export function SubEventRegister() {
     }
 
     loadData();
-  }, [eventId, categoryId, subEventId, user?.id]);
+  }, [eventId, categoryId, subEventId, user?.id, reloadCount]);
 
   // Pre-fill leader information when profile loads (only once, never stomping active edits or resumed drafts)
   useEffect(() => {
@@ -346,7 +548,7 @@ export function SubEventRegister() {
       isFirstRenderRef.current = false;
       return;
     }
-    if (isLoading || isAlreadyRegistered || step === 'CONFIRMED' || step === 'PROCESSING') {
+    if (isLoading || isAlreadyRegistered || step === 'CONFIRMED' || step === 'PROCESSING' || registrationResult) {
       return;
     }
 
@@ -383,55 +585,19 @@ export function SubEventRegister() {
     }
   }, [subEvent?.payment_mode, step]);
 
-  if (isLoading) {
-    return (
-      <div className="max-w-3xl mx-auto space-y-6 animate-pulse" aria-busy="true" aria-label="Loading registration form">
-        <div className="h-4 w-32 bg-gray-200 rounded"></div>
-        <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 space-y-6">
-          <div className="space-y-2">
-            <div className="h-4 w-24 bg-gray-200 rounded"></div>
-            <div className="h-7 w-64 bg-gray-300 rounded-lg"></div>
-          </div>
-          <div className="flex gap-2">
-            <div className="h-2 flex-1 bg-gray-200 rounded-full"></div>
-            <div className="h-2 flex-1 bg-gray-100 rounded-full"></div>
-            <div className="h-2 flex-1 bg-gray-100 rounded-full"></div>
-          </div>
-          <div className="space-y-4 pt-4">
-            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
-            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
-            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !subEvent || !event) {
-    return (
-      <div className="max-w-3xl mx-auto space-y-4">
-        <Link to="/events" className="inline-flex items-center text-xs font-semibold text-gray-500 hover:text-kits-red">
-          <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-          Back to Events
-        </Link>
-        <ErrorState message={error || 'Sub-event not found'} />
-      </div>
-    );
-  }
-
-  const requiredDocs = Array.isArray(subEvent.required_documents) 
-    ? (subEvent.required_documents as RequiredDocumentConfig[]) 
+  const requiredDocs = Array.isArray(subEvent?.required_documents) 
+    ? (subEvent!.required_documents as RequiredDocumentConfig[]) 
     : [];
 
-  const maxAllowedTeamSize = subEvent.max_team_size || 4;
+  const maxAllowedTeamSize = subEvent?.max_team_size || 4;
   const currentTotalTeamSize = 1 + teamMembers.length;
-  const isFreeEvent = Boolean(subEvent.is_free) || ((subEvent.fee_amount_solo || 0) === 0 && (subEvent.fee_amount_team || 0) === 0);
-  const feeToPay = isFreeEvent ? 0 : (mode === 'TEAM' ? (subEvent.fee_amount_team || 0) : (subEvent.fee_amount_solo || 0));
-  const isRegAvailable = isSubEventRegistrationAvailable(subEvent, event);
+  const isFreeEvent = Boolean(subEvent?.is_free) || Boolean(subEvent && (subEvent.fee_amount_solo || 0) === 0 && (subEvent.fee_amount_team || 0) === 0);
+  const feeToPay = isFreeEvent ? 0 : (mode === 'TEAM' ? (subEvent?.fee_amount_team || 0) : (subEvent?.fee_amount_solo || 0));
+  const isRegAvailable = Boolean(subEvent && event && isSubEventRegistrationAvailable(subEvent, event));
 
   const backUrl = categoryId 
-    ? `/events/${eventId}/categories/${categoryId}/sub-events/${subEvent.id}`
-    : `/events/${eventId}/sub-events/${subEvent.id}`;
+    ? `/events/${eventId}/categories/${categoryId}/sub-events/${subEvent?.id || subEventId}`
+    : `/events/${eventId}/sub-events/${subEvent?.id || subEventId}`;
 
   const handleAddMember = () => {
     if (currentTotalTeamSize >= maxAllowedTeamSize) return;
@@ -604,7 +770,7 @@ export function SubEventRegister() {
   // Step 2 -> Step 3: Review -> Payment / Direct Confirmation
   const handleReviewToPayment = () => {
     if (isSubmittingRef.current || isSubmitting) return;
-    if (!isSubEventRegistrationAvailable(subEvent, event)) {
+    if (!subEvent || !event || !isSubEventRegistrationAvailable(subEvent, event)) {
       setSubmitError('Registration is currently closed for this event.');
       return;
     }
@@ -656,7 +822,7 @@ export function SubEventRegister() {
 
   const executeServerRegistration = async (selectedMethod: PaymentMethod | 'FREE') => {
     if (isSubmittingRef.current) return;
-    if (!isSubEventRegistrationAvailable(subEvent, event)) {
+    if (!subEvent || !event || !isSubEventRegistrationAvailable(subEvent, event)) {
       setSubmitError('Registration is currently closed for this event.');
       return;
     }
@@ -701,20 +867,51 @@ export function SubEventRegister() {
         payment_reference: refCode,
       };
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      let result: any = null;
+      let funcErr: any = null;
 
-      // Authoritative call to student-register Edge Function
-      const { data: result, error: funcErr } = await supabase.functions.invoke('student-register', {
-        body: payload,
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      // Direct Atomic RPC Invocation (Low-Latency Path: bypasses Edge Function double-hop)
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('student_register_atomic', {
+        p_sub_event_id: payload.sub_event_id,
+        p_mode: payload.mode,
+        p_team_name: payload.team_name,
+        p_team_members: payload.team_members,
+        p_uploaded_documents: payload.uploaded_documents,
+        p_payment_method: payload.payment_method,
+        p_payment_reference: payload.payment_reference,
       });
+
+      if (!rpcErr && rpcData && rpcData.success !== false) {
+        result = normalizeRegistrationResponse(rpcData, {
+          mode,
+          teamName,
+          isFreeEvent,
+          createdMembers: rpcData.members,
+        });
+      } else {
+        // Fallback to Edge Function if direct RPC call failed or returned failure
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        const fallbackRes = await supabase.functions.invoke('student-register', {
+          body: payload,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.success !== false) {
+          result = normalizeRegistrationResponse(fallbackRes.data, {
+            mode,
+            teamName,
+            isFreeEvent,
+          });
+        } else {
+          funcErr = fallbackRes.error || (rpcData?.success === false ? { message: rpcData.message, code: rpcData.code } : rpcErr);
+        }
+      }
 
       if (funcErr) {
         let msg = 'Registration failed';
         let isConflict = false;
 
-        if (funcErr.status === 409) {
+        if (funcErr.status === 409 || funcErr.code === 'ALREADY_REGISTERED' || funcErr.code === 'MEMBER_ALREADY_REGISTERED') {
           isConflict = true;
         }
 
@@ -722,7 +919,7 @@ export function SubEventRegister() {
           try {
             const body = await funcErr.context.json();
             if (body?.error?.message) msg = body.error.message;
-            if (body?.error?.code === 'CONFLICT' || body?.error?.code === 'ALREADY_REGISTERED') {
+            if (body?.error?.code === 'CONFLICT' || body?.error?.code === 'ALREADY_REGISTERED' || body?.error?.code === 'MEMBER_ALREADY_REGISTERED') {
               isConflict = true;
             }
           } catch {
@@ -738,6 +935,46 @@ export function SubEventRegister() {
           msg.toLowerCase().includes('conflict') ||
           msg.toLowerCase().includes('duplicate')
         ) {
+          // If the leader is already registered in DB, fetch authoritative record and show status
+          if (user?.id && subEvent?.id) {
+            try {
+              const { data: verifiedReg } = await supabase
+                .from('registrations')
+                .select(`
+                  id,
+                  status,
+                  created_at,
+                  teams (
+                    id,
+                    team_name,
+                    team_members (*)
+                  ),
+                  payments (*)
+                `)
+                .eq('sub_event_id', subEvent.id)
+                .eq('leader_id', user.id)
+                .neq('status', 'CANCELLED')
+                .maybeSingle();
+
+              if (verifiedReg) {
+                const t = Array.isArray(verifiedReg.teams) ? verifiedReg.teams[0] : verifiedReg.teams;
+                const normalized = normalizeRegistrationResponse(verifiedReg, {
+                  mode,
+                  teamName: t?.team_name || teamName,
+                  isFreeEvent,
+                });
+
+                setRegistrationResult(normalized);
+                setStep('CONFIRMED');
+                await discardDraftRef.current?.();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+              }
+            } catch (err) {
+              console.warn('[SubEventRegister] Failed to fetch existing reg on conflict:', err);
+            }
+          }
+
           setIsAlreadyRegistered(true);
           setConflictMessage(msg.includes('already registered') ? msg : 'You are already registered for this event.');
           setSubmitError(null);
@@ -748,16 +985,60 @@ export function SubEventRegister() {
         throw new Error(msg);
       }
 
+      if (!result) {
+        throw new Error('Registration response was invalid');
+      }
+
       setRegistrationResult(result);
       setStep('CONFIRMED');
       // Final backend transaction succeeded: safely delete draft
-      await discardDraft();
+      await discardDraftRef.current?.();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       console.error('Registration submission failed:', err);
       const msg = err.message || 'An unexpected error occurred during registration.';
       const isConflict = msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('conflict');
       if (isConflict) {
+        // If leader already registered in DB, fetch authoritative record and show status
+        if (user?.id && subEvent?.id) {
+          try {
+            const { data: verifiedReg } = await supabase
+              .from('registrations')
+              .select(`
+                id,
+                status,
+                created_at,
+                teams (
+                  id,
+                  team_name,
+                  team_members (*)
+                ),
+                payments (*)
+              `)
+              .eq('sub_event_id', subEvent.id)
+              .eq('leader_id', user.id)
+              .neq('status', 'CANCELLED')
+              .maybeSingle();
+
+            if (verifiedReg) {
+              const t = Array.isArray(verifiedReg.teams) ? verifiedReg.teams[0] : verifiedReg.teams;
+              const normalized = normalizeRegistrationResponse(verifiedReg, {
+                mode,
+                teamName: t?.team_name || teamName,
+                isFreeEvent,
+              });
+
+              setRegistrationResult(normalized);
+              setStep('CONFIRMED');
+              await discardDraftRef.current?.();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              return;
+            }
+          } catch (fetchErr) {
+            console.warn('[SubEventRegister] Verification check on conflict error:', fetchErr);
+          }
+        }
+
         setIsAlreadyRegistered(true);
         setConflictMessage(msg.includes('already registered') ? msg : 'You are already registered for this event.');
         setSubmitError(null);
@@ -786,32 +1067,16 @@ export function SubEventRegister() {
 
             if (verifiedReg) {
               console.log('[SubEventRegister] Registration verified in DB despite network timeout:', verifiedReg.id);
-              const p = Array.isArray(verifiedReg.payments) ? verifiedReg.payments[0] : verifiedReg.payments;
               const t = Array.isArray(verifiedReg.teams) ? verifiedReg.teams[0] : verifiedReg.teams;
-              const authoritativeStatus = verifiedReg.status;
-              setRegistrationResult({
-                success: true,
-                registration_id: verifiedReg.id,
-                team_id: t?.id,
-                status: authoritativeStatus,
-                registration_status: authoritativeStatus,
-                is_free: isFreeEvent,
-                payment: p || null,
-                members: t?.team_members || [],
-                registration: {
-                  id: verifiedReg.id,
-                  status: authoritativeStatus,
-                  created_at: verifiedReg.created_at,
-                  payment: p || null,
-                  team: {
-                    id: t?.id,
-                    team_name: t?.team_name,
-                    members: t?.team_members || [],
-                  },
-                },
+              const normalized = normalizeRegistrationResponse(verifiedReg, {
+                mode,
+                teamName: t?.team_name || teamName,
+                isFreeEvent,
               });
+
+              setRegistrationResult(normalized);
               setStep('CONFIRMED');
-              await discardDraft();
+              await discardDraftRef.current?.();
               window.scrollTo({ top: 0, behavior: 'smooth' });
               return;
             }
@@ -829,7 +1094,114 @@ export function SubEventRegister() {
     }
   };
 
-  const isPaymentSuccess = registrationResult?.registration?.payment?.status === 'SUCCESS' || isFreeEvent;
+  const regData = registrationResult
+    ? normalizeRegistrationResponse(registrationResult, { mode, teamName, isFreeEvent })?.registration
+    : null;
+
+  const isPaymentSuccess = Boolean(
+    isFreeEvent ||
+    regData?.payment?.status === 'SUCCESS' ||
+    registrationResult?.payment?.status === 'SUCCESS' ||
+    (regData?.status === 'CONFIRMED' && regData?.payment?.status !== 'PENDING' && regData?.payment?.payment_method !== 'COD')
+  );
+
+  // Play registration success sound when free event registration is confirmed (deduplicated)
+  useEffect(() => {
+    if (step === 'CONFIRMED' && isFreeEvent && regData?.id) {
+      playRegistrationSuccessSound({ dedupeKey: `reg-free-${regData.id}` });
+    }
+  }, [step, isFreeEvent, regData?.id]);
+
+  const effectiveMembers = React.useMemo(() => {
+    const rawMembers = regData?.team?.members || registrationResult?.members || [];
+    if (Array.isArray(rawMembers) && rawMembers.length > 0) {
+      const leader = rawMembers.find((m: any) => m.is_leader) || rawMembers[0];
+      const nonLeaders = rawMembers.filter((m: any) => m !== leader);
+      return [
+        {
+          name: leader?.snapshot_name || leader?.name || leaderName,
+          rollNumber: leader?.snapshot_roll_number || leader?.roll_number || leaderRoll,
+          department: leader?.snapshot_department || leader?.department || leaderDept,
+          year: leader?.snapshot_year || leader?.year_of_study || leaderYear,
+          college: leader?.snapshot_college || leader?.college || leaderCollege,
+          isLeader: true,
+        },
+        ...nonLeaders.map((m: any) => ({
+          name: m.snapshot_name || m.name || '',
+          rollNumber: m.snapshot_roll_number || m.roll_number || '',
+          department: m.snapshot_department || m.department || '',
+          year: m.snapshot_year || m.year_of_study || 3,
+          college: m.snapshot_college || m.college || '',
+          isLeader: false,
+        })),
+      ];
+    }
+    return [
+      {
+        name: leaderName,
+        rollNumber: leaderRoll,
+        department: leaderDept,
+        year: leaderYear,
+        college: leaderCollege,
+        isLeader: true,
+      },
+      ...teamMembers.map((m) => ({
+        name: m.name,
+        rollNumber: m.roll_number,
+        department: m.department,
+        year: m.year_of_study,
+        college: m.college,
+        isLeader: false,
+      })),
+    ];
+  }, [regData, registrationResult, leaderName, leaderRoll, leaderDept, leaderYear, leaderCollege, teamMembers]);
+
+  const effectiveLeader = React.useMemo(() => {
+    return effectiveMembers.find((m) => m.isLeader) || effectiveMembers[0] || {
+      name: leaderName,
+      rollNumber: leaderRoll,
+      department: leaderDept,
+      year: leaderYear,
+      college: leaderCollege,
+      isLeader: true,
+    };
+  }, [effectiveMembers, leaderName, leaderRoll, leaderDept, leaderYear, leaderCollege]);
+
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6 animate-pulse" aria-busy="true" aria-label="Loading registration form">
+        <div className="h-4 w-32 bg-gray-200 rounded"></div>
+        <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 space-y-6">
+          <div className="space-y-2">
+            <div className="h-4 w-24 bg-gray-200 rounded"></div>
+            <div className="h-7 w-64 bg-gray-300 rounded-lg"></div>
+          </div>
+          <div className="flex gap-2">
+            <div className="h-2 flex-1 bg-gray-200 rounded-full"></div>
+            <div className="h-2 flex-1 bg-gray-100 rounded-full"></div>
+            <div className="h-2 flex-1 bg-gray-100 rounded-full"></div>
+          </div>
+          <div className="space-y-4 pt-4">
+            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
+            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
+            <div className="h-10 w-full bg-gray-100 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !subEvent || !event) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-4">
+        <Link to="/events" className="inline-flex items-center text-xs font-semibold text-gray-500 hover:text-kits-red">
+          <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+          Back to Events
+        </Link>
+        <ErrorState message={error || 'Sub-event not found'} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16">
@@ -843,12 +1215,43 @@ export function SubEventRegister() {
           Back to Sub-Event
         </Link>
         <div className="flex items-center gap-3">
-          <DraftSaveIndicator status={saveStatus} lastSavedAt={lastSavedAt} errorMessage={saveErrorMessage} />
+          {step !== 'CONFIRMED' && !regData ? (
+            <DraftSaveIndicator status={saveStatus} lastSavedAt={lastSavedAt} errorMessage={saveErrorMessage} />
+          ) : (
+            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border ${
+              isPaymentSuccess 
+                ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
+                : 'text-amber-700 bg-amber-50 border-amber-200'
+            }`}>
+              {isPaymentSuccess ? 'Registration Confirmed' : 'Verification Pending'}
+            </span>
+          )}
           <span className="text-[10px] font-black uppercase tracking-widest text-kits-blue bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
             Official Registration Flow
           </span>
         </div>
       </div>
+
+      {/* Recoverable Status Verification Error */}
+      {statusCheckError && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-3 text-xs text-amber-900 font-bold animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <span>{statusCheckError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusCheckError(null);
+              setReloadCount((c) => c + 1);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[11px] font-black uppercase tracking-wider hover:bg-amber-700 transition cursor-pointer"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
 
       {/* Already Registered Dedicated Friendly Banner */}
       {isAlreadyRegistered && (
@@ -1800,7 +2203,7 @@ export function SubEventRegister() {
       {/* =========================================================================
           STEP 5: CONFIRMED SCREEN (FREE vs UPI SUCCESS vs COD PENDING)
           ========================================================================= */}
-      {step === 'CONFIRMED' && registrationResult?.registration && (
+      {step === 'CONFIRMED' && regData && (
         <div className="space-y-8 page-enter">
           {isFreeEvent ? (
             /* =====================================================================
@@ -1860,7 +2263,7 @@ export function SubEventRegister() {
                     </div>
                   )}
                   <div className="text-gray-500 font-mono text-[11px]">
-                    <span className="font-bold font-sans">Token:</span> {registrationResult.registration.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
+                    <span className="font-bold font-sans">Token:</span> {regData.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
                   </div>
                 </div>
 
@@ -1904,18 +2307,18 @@ export function SubEventRegister() {
               categoryName={category?.name}
               subEventName={subEvent.name}
               participationType={mode}
-              registrationId={registrationResult.registration.id}
-              transactionId={registrationResult.registration.payment?.reference_id || demoPaymentRef}
+              registrationId={regData.id}
+              transactionId={regData.payment?.reference_id || demoPaymentRef}
               paymentMethod={paymentMethod}
-              manualToken={registrationResult.registration.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
+              manualToken={regData.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
               leaderName={leaderName}
               leaderRoll={leaderRoll}
               leaderDept={leaderDept}
               leaderYear={leaderYear}
               leaderCollege={leaderCollege}
-              teamName={registrationResult.registration.team?.team_name}
-              qrIdentity={registrationResult.registration.team?.members?.[0]?.qr_identity}
-              qrPayload={registrationResult.registration.team?.members?.[0]?.manual_token}
+              teamName={regData.team?.team_name || undefined}
+              qrIdentity={regData.team?.members?.[0]?.qr_identity}
+              qrPayload={regData.team?.members?.[0]?.manual_token}
               activeTab={confirmedTab}
               onSelectTab={(tab) => setConfirmedTab(tab)}
               onViewPass={() => {
@@ -1978,7 +2381,7 @@ export function SubEventRegister() {
                 <div>
                   <span className="text-[9px] font-black uppercase text-gray-400 block">Registration ID</span>
                   <span className="font-mono font-bold text-gray-900 select-all break-all text-[11px]">
-                    {registrationResult.registration.id}
+                    {regData.id}
                   </span>
                 </div>
                 <div>
@@ -1996,13 +2399,13 @@ export function SubEventRegister() {
                 <div>
                   <span className="text-[9px] font-black uppercase text-gray-400 block">Registration Status</span>
                   <span className="font-black text-amber-700">
-                    Awaiting Payment Approval ({registrationResult.registration.status})
+                    Awaiting Payment Approval ({regData.status})
                   </span>
                 </div>
                 <div>
                   <span className="text-[9px] font-black uppercase text-gray-400 block">Payment Status</span>
                   <span className="font-black text-amber-700">
-                    {registrationResult.registration.payment?.status || 'PENDING'} (PENDING VERIFICATION)
+                    {regData.payment?.status || 'PENDING'} (PENDING VERIFICATION)
                   </span>
                 </div>
                 <div>
@@ -2010,19 +2413,19 @@ export function SubEventRegister() {
                   <span className="font-bold text-gray-900">
                     {subEvent.payment_mode === 'REGISTER_ONLINE_PAY_OFFLINE' 
                       ? 'REGISTER ONLINE & PAY OFFLINE' 
-                      : (registrationResult.registration.payment?.payment_method === 'COD' ? 'OFFLINE CASH' : registrationResult.registration.payment?.payment_method || 'OFFLINE')}
+                      : (regData.payment?.payment_method === 'COD' ? 'OFFLINE CASH' : regData.payment?.payment_method || 'OFFLINE')}
                   </span>
                 </div>
                 <div>
                   <span className="text-[9px] font-black uppercase text-gray-400 block">Registration Token</span>
                   <span className="font-mono font-bold text-kits-blue">
-                    {registrationResult.registration.team?.members?.[0]?.manual_token || 'PENDING APPROVAL'}
+                    {regData.team?.members?.[0]?.manual_token || 'PENDING APPROVAL'}
                   </span>
                 </div>
                 <div className="sm:col-span-2">
                   <span className="text-[9px] font-black uppercase text-gray-400 block">Payment Reference</span>
                   <span className="font-mono font-bold text-amber-800">
-                    {registrationResult.registration.payment?.reference_id || 'PENDING'}
+                    {regData.payment?.reference_id || 'PENDING'}
                   </span>
                 </div>
               </div>
@@ -2119,47 +2522,30 @@ export function SubEventRegister() {
                 <div className="space-y-4">
                   {mode === 'TEAM' ? (
                     <TeamDigitalIdCard
-                      teamName={registrationResult.registration.team?.team_name || teamName || 'Registered Team'}
+                      teamName={regData.team?.team_name || teamName || 'Registered Team'}
                       eventName={event.name}
                       categoryName={category?.name}
                       subEventName={subEvent.name}
-                      members={[
-                        {
-                          name: leaderName,
-                          rollNumber: leaderRoll,
-                          department: leaderDept,
-                          year: leaderYear,
-                          college: leaderCollege,
-                          isLeader: true,
-                        },
-                        ...teamMembers.map((m) => ({
-                          name: m.name,
-                          rollNumber: m.roll_number,
-                          department: m.department,
-                          year: m.year_of_study,
-                          college: m.college,
-                          isLeader: false,
-                        })),
-                      ]}
-                      registrationId={registrationResult.registration.id}
-                      manualToken={registrationResult.registration.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
-                      qrPayload={registrationResult.registration.team?.members?.[0]?.manual_token}
+                      members={effectiveMembers}
+                      registrationId={regData.id}
+                      manualToken={regData.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
+                      qrPayload={regData.team?.members?.[0]?.manual_token}
                     />
                   ) : (
                     <DigitalIdCard
-                      studentName={leaderName}
-                      rollNumber={leaderRoll}
-                      department={leaderDept}
-                      year={leaderYear}
-                      college={leaderCollege}
+                      studentName={effectiveLeader.name}
+                      rollNumber={effectiveLeader.rollNumber}
+                      department={effectiveLeader.department}
+                      year={effectiveLeader.year}
+                      college={effectiveLeader.college}
                       eventName={event.name}
                       categoryName={category?.name}
                       subEventName={subEvent.name}
                       participationType={mode}
-                      teamName={registrationResult.registration.team?.team_name}
-                      registrationId={registrationResult.registration.id}
-                      manualToken={registrationResult.registration.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
-                      qrIdentity={registrationResult.registration.team?.members?.[0]?.qr_identity}
+                      teamName={regData.team?.team_name || undefined}
+                      registrationId={regData.id}
+                      manualToken={regData.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
+                      qrIdentity={regData.team?.members?.[0]?.qr_identity}
                     />
                   )}
                 </div>
@@ -2169,15 +2555,15 @@ export function SubEventRegister() {
               {confirmedTab === 'QRPASS' && (
                 <div className="space-y-4">
                   <AttendanceQrPass
-                    studentName={mode === 'TEAM' ? (registrationResult.registration.team?.team_name || teamName || 'Registered Team') : leaderName}
-                    rollNumber={mode === 'TEAM' ? `TEAM PASS (${1 + teamMembers.length} Members)` : leaderRoll}
+                    studentName={mode === 'TEAM' ? (regData.team?.team_name || teamName || 'Registered Team') : effectiveLeader.name}
+                    rollNumber={mode === 'TEAM' ? `TEAM PASS (${effectiveMembers.length} Members)` : effectiveLeader.rollNumber}
                     eventName={event.name}
                     subEventName={subEvent.name}
-                    teamName={registrationResult.registration.team?.team_name || (mode === 'TEAM' ? teamName : undefined)}
-                    registrationId={registrationResult.registration.id}
-                    manualToken={registrationResult.registration.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
-                    qrIdentity={mode !== 'TEAM' ? registrationResult.registration.team?.members?.[0]?.qr_identity : undefined}
-                    qrPayload={registrationResult.registration.team?.members?.[0]?.manual_token}
+                    teamName={regData.team?.team_name || (mode === 'TEAM' ? teamName : undefined)}
+                    registrationId={regData.id}
+                    manualToken={regData.team?.members?.[0]?.manual_token || `KITS-EOS-${subEvent.name.toUpperCase()}-0000000000`}
+                    qrIdentity={mode !== 'TEAM' ? regData.team?.members?.[0]?.qr_identity : undefined}
+                    qrPayload={regData.team?.members?.[0]?.manual_token}
                   />
                 </div>
               )}
@@ -2186,21 +2572,21 @@ export function SubEventRegister() {
               {confirmedTab === 'RECEIPT' && (
                 <div className="space-y-4">
                   <TransactionReceipt
-                    transactionId={registrationResult.registration.payment?.reference_id || demoPaymentRef}
-                    paymentStatus={registrationResult.registration.payment?.status || (isFreeEvent ? 'SUCCESS' : 'PENDING')}
+                    transactionId={regData.payment?.reference_id || demoPaymentRef}
+                    paymentStatus={regData.payment?.status || (isFreeEvent ? 'SUCCESS' : 'PENDING')}
                     paymentMethod={paymentMethod}
-                    registrationId={registrationResult.registration.id}
-                    studentName={leaderName}
-                    rollNumber={leaderRoll}
-                    department={leaderDept}
-                    year={leaderYear}
-                    college={leaderCollege}
+                    registrationId={regData.id}
+                    studentName={effectiveLeader.name}
+                    rollNumber={effectiveLeader.rollNumber}
+                    department={effectiveLeader.department}
+                    year={effectiveLeader.year}
+                    college={effectiveLeader.college}
                     eventName={event.name}
                     categoryName={category?.name}
                     subEventName={subEvent.name}
                     participationType={mode}
                     amount={feeToPay}
-                    timestamp={registrationResult.registration.created_at}
+                    timestamp={regData.created_at}
                   />
                 </div>
               )}
@@ -2222,6 +2608,77 @@ export function SubEventRegister() {
               className="text-xs font-bold text-gray-600 hover:text-gray-900 transition"
             >
               Browse More Events →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Fallback recovery banner if confirmed but regData could not be parsed */}
+      {step === 'CONFIRMED' && !regData && (
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-md p-6 sm:p-10 text-center max-w-xl mx-auto space-y-4 page-enter">
+          <div className="h-14 w-14 rounded-2xl bg-blue-50 text-kits-blue flex items-center justify-center mx-auto shadow-2xs">
+            <CheckCircle2 className="h-7 w-7 text-kits-blue" />
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-kits-blue block">
+              REGISTRATION RECORDED
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+              Registration Recorded Successfully
+            </h2>
+            <p className="text-xs text-gray-600 leading-relaxed max-w-md mx-auto">
+              Your registration transaction has been received by KITS-EOS. You can view your pass credentials and status in My Registrations or reload your latest records.
+            </p>
+          </div>
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setReloadCount((c) => c + 1);
+              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-kits-blue text-white text-xs font-black uppercase tracking-wider hover:bg-blue-800 transition shadow-sm cursor-pointer"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Refresh Status</span>
+            </button>
+            <Link
+              to="/registrations"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-kits-red text-white text-xs font-black uppercase tracking-wider hover:bg-red-700 transition shadow-sm"
+            >
+              <span>Go to My Registrations</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Defensive State Guard: Catch-all to prevent blank screen under any unexpected state */}
+      {!isAlreadyRegistered && isRegAvailable && step !== 'DETAILS' && step !== 'REVIEW' && step !== 'PAYMENT' && step !== 'PROCESSING' && step !== 'CONFIRMED' && (
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-md p-6 sm:p-10 text-center max-w-xl mx-auto space-y-4 page-enter">
+          <div className="h-14 w-14 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-2xs">
+            <AlertCircle className="h-7 w-7 text-amber-700" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+              Registration Session Notice
+            </h2>
+            <p className="text-xs text-gray-600 leading-relaxed max-w-md mx-auto">
+              We encountered an unhandled registration state. Please return to step 1 or refresh your registration status.
+            </p>
+          </div>
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setStep('DETAILS')}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-kits-red text-white text-xs font-black uppercase tracking-wider hover:bg-red-700 transition shadow-sm cursor-pointer"
+            >
+              <span>Return to Details</span>
+            </button>
+            <Link
+              to={backUrl}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-gray-300 bg-white text-gray-700 text-xs font-bold hover:bg-gray-50 transition"
+            >
+              <span>Back to Sub-Event</span>
             </Link>
           </div>
         </div>
@@ -2292,7 +2749,7 @@ export function SubEventRegister() {
 
       {/* Resume Draft Prompt Modal */}
       <ResumeDraftModal
-        isOpen={hasExistingDraft}
+        isOpen={Boolean(hasExistingDraft && !isLoading && step !== 'CONFIRMED' && !regData && !isAlreadyRegistered)}
         title={draft?.title || (subEvent ? `${subEvent.name}` : 'Registration Draft')}
         subtitle={event?.name ? `Main Event: ${event.name}` : undefined}
         lastSavedAt={lastSavedAt || draft?.updated_at}

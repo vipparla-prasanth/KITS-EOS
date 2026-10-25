@@ -21,7 +21,8 @@ import {
   BarChart3,
   ShieldCheck,
   UserX,
-  Store
+  Store,
+  GraduationCap
 } from 'lucide-react';
 import { LogoutConfirmationModal } from '../ui/LogoutConfirmationModal';
 
@@ -32,6 +33,7 @@ const navSections = [
     items: [
       { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
       { name: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
+      { name: 'Assessments', path: '/admin/assessments', icon: GraduationCap },
       { name: 'Events', path: '/admin/events', icon: Calendar },
       { name: 'Manage Stalls', path: '/admin/stalls', icon: Store },
       { name: 'Coordinators', path: '/admin/coordinators', icon: UserCog },

@@ -423,3 +423,30 @@ html, body, * {
   animation: popSuccess 360ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* =========================================================================
+   14. KAHOOT-INSPIRED REVEAL ANIMATIONS
+   ========================================================================= */
+@keyframes podiumRise {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-podium-third {
+  animation: podiumRise 600ms cubic-bezier(0.16, 1, 0.3, 1) 100ms backwards;
+}
+
+.animate-podium-second {
+  animation: podiumRise 600ms cubic-bezier(0.16, 1, 0.3, 1) 350ms backwards;
+}
+
+.animate-podium-first {
+  animation: podiumRise 700ms cubic-bezier(0.16, 1, 0.3, 1) 600ms backwards;
+}
+
+

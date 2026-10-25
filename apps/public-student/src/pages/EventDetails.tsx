@@ -20,7 +20,7 @@ import {
   Layers,
   Store
 } from 'lucide-react';
-import { resolveEventBannerUrl } from '../utils/imageUtils';
+import { EventBannerImage } from '../components/ui/EventBannerImage';
 
 export function EventDetails() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -48,6 +48,41 @@ export function EventDetails() {
       setError(null);
       setIsNotFound(false);
 
+      // Phase 3: Composite PostgREST query to eliminate 4-round-trip waterfall
+      const compRes = await supabase
+        .from('events')
+        .select('*, categories(*), sub_events(*), stalls(id)')
+        .eq('id', eventId)
+        .eq('categories.status', 'ACTIVE')
+        .eq('sub_events.status', 'ACTIVE')
+        .is('sub_events.category_id', null)
+        .eq('stalls.status', 'APPROVED')
+        .is('stalls.archived_at', null)
+        .order('name', { referencedTable: 'categories' })
+        .order('name', { referencedTable: 'sub_events' })
+        .maybeSingle();
+
+      if (!compRes.error && compRes.data) {
+        setEvent(compRes.data as Event);
+        setCategories((compRes.data.categories as Category[]) || []);
+        setDirectSubEvents((compRes.data.sub_events as SubEvent[]) || []);
+        setHasApprovedStalls(Boolean(compRes.data.stalls && compRes.data.stalls.length > 0));
+        return;
+      }
+
+      if (compRes.error) {
+        // 22P02 = malformed/non-existent UUID parameter in route
+        if (compRes.error.code === '22P02' || compRes.error.code === 'PGRST116') {
+          setIsNotFound(true);
+          return;
+        }
+        console.warn('Composite event query notice, falling back to parallel individual queries:', compRes.error);
+      } else if (!compRes.data) {
+        setIsNotFound(true);
+        return;
+      }
+
+      // Robust fallback to individual parallel queries if composite query returned error
       const [eventRes, catRes, subRes, stallsRes] = await Promise.all([
         supabase.from('events').select('*').eq('id', eventId).maybeSingle(),
         supabase.from('categories').select('*').eq('event_id', eventId).eq('status', 'ACTIVE').order('name'),
@@ -168,17 +203,14 @@ export function EventDetails() {
       <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm">
         {event.banner_path ? (
           <div className="h-64 sm:h-80 w-full relative overflow-hidden bg-gray-900">
-            <img
-              src={resolveEventBannerUrl(event.banner_path) || event.banner_path}
-              alt={event.name}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              width={1200}
-              height={400}
-              className={`w-full h-full object-cover ${isEventCompleted ? 'grayscale contrast-90' : ''}`}
+            <EventBannerImage
+              bannerPath={event.banner_path}
+              eventName={event.name}
+              priority={true}
+              className={`w-full h-full ${isEventCompleted ? 'grayscale contrast-90' : ''}`}
+              imageClassName="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
             <div className="absolute bottom-6 left-6 sm:left-8 right-6 text-white space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-kits-red text-white shadow">

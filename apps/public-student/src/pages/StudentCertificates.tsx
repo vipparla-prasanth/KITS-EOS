@@ -1,21 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
-// Digital Certificate typography packages (code-split exclusively to certificates route)
-import '@fontsource/cinzel/600.css';
+// Digital Certificate typography packages (optimized to only required weights)
 import '@fontsource/cinzel/700.css';
 import '@fontsource/cinzel/800.css';
-import '@fontsource/cinzel/900.css';
-import '@fontsource/cormorant-garamond/600.css';
 import '@fontsource/cormorant-garamond/700.css';
-import '@fontsource/cormorant-garamond/600-italic.css';
-import '@fontsource/cormorant-garamond/700-italic.css';
-import '@fontsource/montserrat/400.css';
-import '@fontsource/montserrat/500.css';
 import '@fontsource/montserrat/600.css';
 import '@fontsource/montserrat/700.css';
-import '@fontsource/montserrat/800.css';
-import '@fontsource/montserrat/900.css';
 import { Link } from 'react-router-dom';
 import { supabase } from '@kits-eos/shared/src/api/client';
 import { useScrollLock } from '@kits-eos/shared';
@@ -39,7 +30,7 @@ import {
   Eye,
   Calendar,
   Lock,
-  MessageSquare
+  MessageSquare,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
@@ -47,6 +38,7 @@ import {
   downloadCertificateAsPdf,
   generateCertificateQrDataUrl
 } from '../utils/credentialExport';
+
 
 import { DownloadButton } from '../components/ui/DownloadButton';
 import { StudentPublishedResults } from '../components/certificates/StudentPublishedResults';
@@ -86,7 +78,7 @@ export function StudentCertificates() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Exactly two primary tabs: 'PARTICIPATION' (default) and 'ACHIEVEMENTS'
+  // Two primary tabs: 'PARTICIPATION' and 'ACHIEVEMENTS'
   const [activeTab, setActiveTab] = useState<'PARTICIPATION' | 'ACHIEVEMENTS'>('PARTICIPATION');
   const [selectedCert, setSelectedCert] = useState<StudentCertificateItem | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -634,7 +626,7 @@ export function StudentCertificates() {
           }`}
         >
           <GraduationCap className="h-4 w-4" />
-          <span>🎓 Participation</span>
+          <span>Participation</span>
           <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
             activeTab === 'PARTICIPATION' ? 'bg-emerald-900 text-white' : 'bg-gray-200 text-gray-700'
           }`}>
@@ -652,13 +644,14 @@ export function StudentCertificates() {
           }`}
         >
           <Trophy className="h-4 w-4" />
-          <span>🏆 Achievements</span>
+          <span>Event Honors</span>
           <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
             activeTab === 'ACHIEVEMENTS' ? 'bg-amber-800 text-white' : 'bg-gray-200 text-gray-700'
           }`}>
             {achievementCertificates.length}
           </span>
         </button>
+
       </div>
 
       {/* =========================================================================
@@ -784,7 +777,7 @@ export function StudentCertificates() {
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-lg font-black text-gray-900 tracking-tight">
-                  🏆 No achievements yet
+                  No achievements yet
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
                   Your participation certificates are available separately in the Participation tab.
@@ -857,6 +850,8 @@ export function StudentCertificates() {
           )}
         </section>
       )}
+
+
 
       {/* =========================================================================
           OFFICIAL INSTITUTIONAL CERTIFICATE MODAL
@@ -1319,22 +1314,22 @@ function CertificateCard({
             {isWinner ? (
               <>
                 <Trophy className="h-3 w-3 text-amber-600" />
-                <span>🏆 1st Winner</span>
+                <span>1st Winner</span>
               </>
             ) : isRunner ? (
               <>
                 <Medal className="h-3 w-3 text-slate-600" />
-                <span>🥈 2nd Runner</span>
+                <span>2nd Runner</span>
               </>
             ) : isThird ? (
               <>
                 <Medal className="h-3 w-3 text-orange-600" />
-                <span>🥉 3rd Place</span>
+                <span>3rd Place</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                <span>🎓 Participation</span>
+                <span>Participation</span>
               </>
             )}
           </span>

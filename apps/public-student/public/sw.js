@@ -8,7 +8,8 @@ const PRECACHE_ASSETS = [
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
-  '/college_logo.png'
+  '/college_logo.png',
+  '/sounds/registration-success.mp3'
 ];
 
 // Install: Precache shell assets resiliently and activate immediately
@@ -39,6 +40,13 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => self.clients.claim())
   );
+});
+
+// Message: Support programmatic skipWaiting requests from update UI
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Fetch: Strict security and network-first navigation
@@ -74,6 +82,11 @@ self.addEventListener('fetch', (event) => {
 
   // Never intercept or cache authenticated requests
   if (event.request.headers.has('Authorization')) {
+    return;
+  }
+
+  // Never intercept version.json — allow native browser network fetch with cache-busting headers
+  if (url.origin === self.location.origin && url.pathname === '/version.json') {
     return;
   }
 
@@ -137,8 +150,8 @@ self.addEventListener('fetch', (event) => {
 
   // 2. Other same-origin static assets: Network-first with cache fallback
   const isStaticAsset =
-    /\.(?:js|css|png|jpg|jpeg|svg|ico|webp|webmanifest|woff|woff2|ttf|eot)$/i.test(url.pathname) ||
-    ['script', 'style', 'image', 'font'].includes(event.request.destination);
+    /\.(?:js|css|png|jpg|jpeg|svg|ico|webp|webmanifest|woff|woff2|ttf|eot|mp3)$/i.test(url.pathname) ||
+    ['script', 'style', 'image', 'font', 'audio'].includes(event.request.destination);
 
   if (url.origin === self.location.origin && isStaticAsset) {
     event.respondWith(

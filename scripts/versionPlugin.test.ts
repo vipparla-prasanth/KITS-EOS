@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveAppVersion, SEMVER_REGEX, createVersionManifestPlugin } from '../../../../scripts/versionPlugin.mts';
+import { resolveAppVersion, SEMVER_REGEX, createVersionManifestPlugin } from './versionPlugin.mts';
 import path from 'node:path';
 
 describe('Version Plugin & Version Resolution', () => {
@@ -15,7 +15,7 @@ describe('Version Plugin & Version Resolution', () => {
   });
 
   it('resolves authoritative 3.0.0 product version from root package.json', () => {
-    const rootDir = path.resolve(__dirname, '../../../../');
+    const rootDir = path.resolve(__dirname, '..');
     const info = resolveAppVersion(rootDir);
 
     expect(info.version).toBe('3.0.0');
@@ -27,7 +27,7 @@ describe('Version Plugin & Version Resolution', () => {
 
   it('generates consistent Vite define constants and plugin hooks', () => {
     const plugin = createVersionManifestPlugin({
-      appDir: path.resolve(__dirname, '../../../../apps/public-student'),
+      appDir: path.resolve(__dirname, '../apps/public-student'),
       swCachePrefix: 'kits-eos-test',
     });
 

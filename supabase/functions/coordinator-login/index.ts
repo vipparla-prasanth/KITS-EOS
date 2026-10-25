@@ -198,7 +198,7 @@ serve(async (req: Request) => {
       throw new HttpError(500, 'SESSION_CREATION_ERROR', 'Failed to initialize coordinator session.');
     }
 
-    // 4. Fetch active assignments count
+    // 4. Fetch active event assignments count
     const { data: activeAssignmentsData } = await supabaseClient
       .from('coordinator_assignments')
       .select(`
@@ -220,22 +220,105 @@ serve(async (req: Request) => {
       return ev?.status === 'ACTIVE';
     });
 
+    // 4b. Fetch all active assessment assignments (supports multiple assigned exams & FACULTY/any coordinator assigned to host exam)
+    const assignedAssessments: any[] = [];
+    const seenAsmIds = new Set<string>();
+
+    const { data: asmAssignData } = await supabaseClient
+      .from('assessment_coordinator_assignments')
+      .select(`
+        id,
+        assessment_id,
+        assigned_at,
+        assessments (
+          id,
+          title,
+          status,
+          duration_minutes,
+          start_time,
+          end_time,
+          is_deleted
+        )
+      `)
+      .eq('coordinator_id', coordinator.id)
+      .order('assigned_at', { ascending: false });
+
+    if (asmAssignData) {
+      for (const item of asmAssignData) {
+        const asm = (item as any).assessments;
+        if (asm && !asm.is_deleted && asm.status !== 'ARCHIVED' && !seenAsmIds.has(asm.id)) {
+          seenAsmIds.add(asm.id);
+          assignedAssessments.push({ ...asm, assigned_at: item.assigned_at });
+        }
+      }
+    }
+
+    // Direct assessment assignment fallback
+    const { data: directAsmData } = await supabaseClient
+      .from('assessments')
+      .select('id, title, status, duration_minutes, start_time, end_time, created_at, is_deleted')
+      .eq('coordinator_id', coordinator.id)
+      .eq('is_deleted', false)
+      .neq('status', 'ARCHIVED')
+      .order('created_at', { ascending: false });
+
+    if (directAsmData) {
+      for (const asm of directAsmData) {
+        if (!seenAsmIds.has(asm.id)) {
+          seenAsmIds.add(asm.id);
+          assignedAssessments.push({ ...asm, assigned_at: asm.created_at });
+        }
+      }
+    }
+
+    const assignedAssessment = assignedAssessments[0] || null;
     const isPaymentManager = coordinator.coordinator_type === 'PAYMENT_MANAGER';
-    const accessState = (isPaymentManager || validAssignments.length > 0) ? 'AUTHORIZED' : 'NO_ASSIGNMENTS';
-    const assignmentState = isPaymentManager ? 'PAYMENT_MANAGER' : (validAssignments.length > 0 ? 'ACTIVE_ASSIGNMENTS' : 'NO_ACTIVE_ASSIGNMENTS');
+    const isDedicatedAssessmentCoordinator = coordinator.coordinator_type === 'ASSESSMENT_COORDINATOR';
+    const hasAssessmentAssignment = assignedAssessments.length > 0;
+    const hasEventAssignments = validAssignments.length > 0;
+
+    const accessState = (isPaymentManager || isDedicatedAssessmentCoordinator || hasAssessmentAssignment || hasEventAssignments)
+      ? 'AUTHORIZED'
+      : 'NO_ASSIGNMENTS';
+
+    let assignmentState = 'NO_ACTIVE_ASSIGNMENTS';
+    if (isPaymentManager) {
+      assignmentState = 'PAYMENT_MANAGER';
+    } else if (hasAssessmentAssignment && hasEventAssignments) {
+      assignmentState = 'DUAL_ASSIGNMENTS';
+    } else if (isDedicatedAssessmentCoordinator || (hasAssessmentAssignment && !hasEventAssignments)) {
+      assignmentState = 'ASSESSMENT_COORDINATOR';
+    } else if (hasEventAssignments) {
+      assignmentState = 'ACTIVE_ASSIGNMENTS';
+    }
+
+    let role = 'COORDINATOR';
+    if (isPaymentManager) {
+      role = 'PAYMENT_MANAGER';
+    } else if (isDedicatedAssessmentCoordinator || (hasAssessmentAssignment && !hasEventAssignments)) {
+      role = 'ASSESSMENT_COORDINATOR';
+    } else {
+      role = 'COORDINATOR';
+    }
 
     // 5. Audit Log (Strictly sanitize: NEVER record tokens, hashes, or credentials)
     await supabaseClient
       .from('audit_logs')
       .insert({
         actor_id: coordinator.id,
-        action: isPaymentManager ? 'PAYMENT_MANAGER_LOGIN' : 'COORDINATOR_LOGIN',
+        action: isPaymentManager 
+          ? 'PAYMENT_MANAGER_LOGIN' 
+          : (isDedicatedAssessmentCoordinator || (hasAssessmentAssignment && !hasEventAssignments) ? 'ASSESSMENT_COORDINATOR_LOGIN' : 'COORDINATOR_LOGIN'),
         entity_type: 'coordinators',
         entity_id: coordinator.id,
         metadata: {
           username: coordinator.username,
           coordinator_type: coordinator.coordinator_type,
           assignments_count: validAssignments.length,
+          assessment_assignments_count: assignedAssessments.length,
+          has_assessment_assignment: hasAssessmentAssignment,
+          assigned_assessment_id: assignedAssessment?.id || null,
+          assignment_state: assignmentState,
           access_state: accessState,
           ip,
         }
@@ -245,7 +328,7 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({ 
       success: true, 
       session_token: rawToken,
-      role: isPaymentManager ? 'PAYMENT_MANAGER' : 'COORDINATOR',
+      role,
       coordinator: {
         id: coordinator.id,
         username: coordinator.username,
@@ -253,7 +336,14 @@ serve(async (req: Request) => {
         phone_number: coordinator.phone_number,
         coordinator_type: coordinator.coordinator_type,
         status: coordinator.status,
+        assigned_assessment: assignedAssessment,
+        assigned_assessments: assignedAssessments,
       },
+      assigned_assessment: assignedAssessment,
+      assigned_assessments: assignedAssessments,
+      active_assessment_count: assignedAssessments.length,
+      active_assignments_count: validAssignments.length,
+      assignments: validAssignments,
       access_state: accessState,
       assignment_state: assignmentState,
       expires_at: expiresAt,

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Navigate, Outlet } from 'react-router-dom';
 import { supabase } from '@kits-eos/shared/src/api/client';
-import { ShieldAlert, AlertTriangle, LogOut, RefreshCw } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, LogOut } from 'lucide-react';
 import { 
   getCoordinatorSessionToken, 
-  clearCoordinatorSession 
+  clearCoordinatorSession,
+  signOutCoordinator,
 } from '../utils/coordinatorSession';
 import { 
   isSessionValid, 
@@ -21,9 +22,15 @@ export interface CoordinatorAccessValidation {
     phone_number?: string;
     coordinator_type?: string;
     status?: string;
+    assigned_assessment?: any;
+    assigned_assessments?: any[];
   };
   active_assignments_count?: number;
   assignments?: any[];
+  assigned_assessment?: any;
+  assigned_assessments?: any[];
+  active_assessment_count?: number;
+  state_detail?: string;
   error?: string;
 }
 
@@ -33,16 +40,7 @@ export function CoordinatorProtectedRoute() {
   const [validationData, setValidationData] = useState<CoordinatorAccessValidation | null>(null);
 
   const handleCoordinatorSignOut = async () => {
-    const token = getCoordinatorSessionToken();
-    if (token) {
-      try {
-        await supabase.rpc('invalidate_coordinator_session', { p_token: token });
-      } catch {
-        // silent
-      }
-    }
-    clearCoordinatorSession();
-    navigate('/', { replace: true });
+    await signOutCoordinator(navigate);
   };
 
   const validateAccess = async () => {
@@ -108,78 +106,14 @@ export function CoordinatorProtectedRoute() {
     );
   }
 
-  // Payment Manager dedicated routing — must NEVER access the general Coordinator console
-  if (validationData?.coordinator?.coordinator_type === 'PAYMENT_MANAGER') {
-    return <Navigate to="/payment-management" replace />;
+  // 1. Not an authorized coordinator session
+  if (!validationData || validationData.access_state === 'NOT_FOUND' || validationData.access_state === 'UNAUTHORIZED') {
+    clearCoordinatorSession();
+    return <Navigate to="/" replace />;
   }
 
-  // Case 2: ACTIVE Coordinator but ZERO Active Assignments (e.g. Sub-event Deleted)
-  if (validationData?.access_state === 'NO_ASSIGNMENTS') {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="flex justify-center mb-4">
-            <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center shadow-sm">
-              <AlertTriangle className="h-7 w-7 text-amber-600" />
-            </div>
-          </div>
-          <h2 className="text-center text-2xl font-black text-gray-900 tracking-tight">
-            Coordinator Access Unavailable
-          </h2>
-          <p className="mt-2 text-center text-xs text-gray-600 max-w-sm mx-auto">
-            Your coordinator account is active, but you currently do not have an active event or sub-event assignment.
-          </p>
-        </div>
-
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
-          <div className="bg-white py-8 px-6 shadow-sm border border-gray-200 rounded-2xl space-y-6">
-            {validationData.coordinator && (
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500 font-medium">Coordinator Name:</span>
-                  <span className="font-bold text-gray-900">{validationData.coordinator.display_name}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500 font-medium">Username:</span>
-                  <span className="font-mono font-bold text-gray-700">{validationData.coordinator.username}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500 font-medium">Role:</span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                    {validationData.coordinator.coordinator_type || 'COORDINATOR'}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="text-xs text-gray-500 bg-amber-50/60 p-3.5 rounded-xl border border-amber-100 leading-relaxed">
-              If your assigned sub-event was recently concluded, archived, or restructured, access to operational rosters and attendance verification is restricted. Please contact the Event Administrator for assignment renewal.
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => validateAccess()}
-                className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border border-gray-300 text-xs font-bold rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition shadow-sm"
-              >
-                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                Check Assignments
-              </button>
-              <button
-                onClick={() => handleCoordinatorSignOut()}
-                className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border border-transparent text-xs font-bold rounded-xl text-white bg-gray-900 hover:bg-black transition shadow-sm"
-              >
-                <LogOut className="mr-1.5 h-3.5 w-3.5" />
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Case 3: Suspended or Inactive Coordinator
-  if (validationData?.access_state === 'INACTIVE_OR_SUSPENDED') {
+  // 2. Suspended or Inactive Coordinator — strictly block ALL portal and selection routes
+  if (validationData.access_state === 'INACTIVE_OR_SUSPENDED' || (validationData.coordinator && validationData.coordinator.status !== 'ACTIVE')) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -214,8 +148,8 @@ export function CoordinatorProtectedRoute() {
     );
   }
 
-  // Case: System or Network Error
-  if (validationData?.access_state === 'ERROR') {
+  // 3. System or Network Error
+  if (validationData.access_state === 'ERROR') {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
@@ -245,13 +179,65 @@ export function CoordinatorProtectedRoute() {
     );
   }
 
-  // Case: Not an authorized coordinator session
-  if (!validationData || validationData?.access_state === 'NOT_FOUND' || validationData?.access_state === 'UNAUTHORIZED') {
-    clearCoordinatorSession();
-    return <Navigate to="/" replace />;
+  // 4. Payment Manager dedicated routing — must NEVER access general Coordinator console
+  if (validationData.coordinator?.coordinator_type === 'PAYMENT_MANAGER') {
+    return <Navigate to="/payment-management" replace />;
   }
 
-  // Case 1: AUTHORIZED - Render the coordinator portal
+  const pathname = window.location.pathname;
+  const isSelectRoute = pathname.includes('/coordinator/select');
+  const isAssessmentRoute = pathname.includes('/assessment-host');
+  const isDedicatedAssessmentCoord = validationData.coordinator?.coordinator_type === 'ASSESSMENT_COORDINATOR';
+  const hasAssessmentAssignment = Boolean(
+    validationData.assigned_assessment?.id || 
+    validationData.coordinator?.assigned_assessment?.id ||
+    (validationData.assigned_assessments && validationData.assigned_assessments.length > 0)
+  );
+  const hasEventAssignments = Boolean(
+    (validationData.active_assignments_count && validationData.active_assignments_count > 0) ||
+    (validationData.assignments && validationData.assignments.length > 0)
+  );
+
+  // 5. Assignment Selection Route (/coordinator/select)
+  // Accessible to any active coordinator to review assignments or view empty state
+  if (isSelectRoute) {
+    return (
+      <>
+        <SessionExpiryNotice />
+        <Outlet context={validationData} />
+      </>
+    );
+  }
+
+  // 6. Dedicated Assessment Coordinator account: Must route to Live Host console
+  if (isDedicatedAssessmentCoord) {
+    if (!isAssessmentRoute) {
+      return <Navigate to="/coordinator/assessment-host" replace />;
+    }
+    return (
+      <>
+        <SessionExpiryNotice />
+        <Outlet context={validationData} />
+      </>
+    );
+  }
+
+  // 7. Coordinator on /coordinator/assessment-host WITHOUT assessment duties:
+  // Intercept and redirect to Event Operations or Selection screen
+  if (isAssessmentRoute && !hasAssessmentAssignment) {
+    return <Navigate to={hasEventAssignments ? "/coordinator" : "/coordinator/select"} replace />;
+  }
+
+  // 8. Coordinator on /coordinator (Event Operations) WITHOUT event duties:
+  // Intercept and redirect to Assessment Live Host or Selection screen
+  if (!isAssessmentRoute && !hasEventAssignments) {
+    if (hasAssessmentAssignment) {
+      return <Navigate to="/coordinator/assessment-host" replace />;
+    }
+    return <Navigate to="/coordinator/select" replace />;
+  }
+
+  // 9. Authorized on the active route
   return (
     <>
       <SessionExpiryNotice />

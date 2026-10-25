@@ -233,13 +233,16 @@ export function Home() {
 
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading active events">
-              {[1, 2, 3, 4].map((i) => (
+              {[1, 2].map((i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-2xl border border-gray-200 p-5 shadow-2xs flex flex-col justify-between min-h-[360px]"
+                  className="bg-white rounded-2xl border border-gray-200 p-5 shadow-2xs flex flex-col justify-between min-h-[380px]"
                 >
                   <div className="space-y-3">
-                    <div className="w-full h-44 sm:h-48 rounded-xl bg-gray-100 animate-pulse overflow-hidden relative">
+                    <div 
+                      className="w-full h-44 sm:h-48 rounded-xl bg-gray-100 animate-pulse overflow-hidden relative"
+                      style={{ aspectRatio: '2.92 / 1' }}
+                    >
                       <div className="absolute top-2.5 right-2.5 h-6 w-28 rounded-full bg-gray-200" />
                     </div>
                     <div className="space-y-2 pt-1">
@@ -269,7 +272,7 @@ export function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {events.map((ev) => {
+              {events.map((ev, idx) => {
                 const effectiveStatus = resolveEffectiveEventStatus(ev as any, now);
                 const badgeTheme = getLifecycleBadgeTheme(effectiveStatus);
                 const isCompleted = effectiveStatus === 'COMPLETED';
@@ -280,7 +283,7 @@ export function Home() {
                   <Link
                     key={ev.id}
                     to={`/events/${ev.id}`}
-                    className={`group bg-white rounded-2xl border border-gray-200 p-5 shadow-2xs hover:border-kits-blue card-hover-interactive flex flex-col justify-between ${
+                    className={`group bg-white rounded-2xl border border-gray-200 p-5 shadow-2xs hover:border-kits-blue card-hover-interactive flex flex-col justify-between min-h-[380px] ${
                       isCompleted ? 'opacity-85' : ''
                     } ${isUpcoming ? 'ring-1 ring-blue-100' : ''}`}
                   >
@@ -289,7 +292,7 @@ export function Home() {
                         <EventBannerImage
                           bannerPath={ev.banner_path}
                           eventName={ev.name}
-                          priority={false}
+                          priority={idx === 0}
                           className={`w-full h-44 sm:h-48 rounded-xl shadow-2xs overflow-hidden ${
                             isCompleted ? 'grayscale contrast-90' : ''
                           }`}

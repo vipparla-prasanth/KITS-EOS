@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Trophy, 
   Award, 
+  Medal,
   Download, 
   Sparkles,
   CheckCircle2
@@ -90,7 +91,7 @@ export function StudentPublishedResults({
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-black tracking-tight text-gray-900 flex items-center gap-2">
-              <span>🏆 YOUR EVENT RESULTS</span>
+              <span>YOUR EVENT RESULTS</span>
             </h2>
             <p className="text-[11px] text-gray-500">
               Officially published podium standings for your participated competitions.
@@ -159,7 +160,9 @@ export function StudentPublishedResults({
                   isWinner ? 'bg-amber-100/70 border border-amber-300 font-bold' : 'bg-slate-50 border border-gray-100'
                 }`}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base shrink-0" aria-label="First Place">🥇</span>
+                    <div className="p-1 rounded-lg bg-amber-500/10 text-amber-600 shrink-0">
+                      <Trophy className="h-4 w-4" aria-label="First Place" />
+                    </div>
                     <div className="min-w-0">
                       <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">
                         Winner
@@ -181,7 +184,9 @@ export function StudentPublishedResults({
                   isRunner ? 'bg-blue-50 border border-blue-300 font-bold' : 'bg-slate-50 border border-gray-100'
                 }`}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base shrink-0" aria-label="Second Place">🥈</span>
+                    <div className="p-1 rounded-lg bg-slate-500/10 text-slate-600 shrink-0">
+                      <Medal className="h-4 w-4" aria-label="Second Place" />
+                    </div>
                     <div className="min-w-0">
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 block">
                         Runner-Up
@@ -204,7 +209,9 @@ export function StudentPublishedResults({
                     isThird ? 'bg-amber-50 border border-amber-300 font-bold' : 'bg-slate-50 border border-gray-100'
                   }`}>
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base shrink-0" aria-label="Third Place">🥉</span>
+                      <div className="p-1 rounded-lg bg-amber-600/10 text-amber-700 shrink-0">
+                        <Award className="h-4 w-4" aria-label="Third Place" />
+                      </div>
                       <div className="min-w-0">
                         <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 block">
                           Third Place

@@ -1,0 +1,42 @@
+name: KITS-EOS CI Gate
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  validate:
+    name: Typecheck, Build, Lint & Automated Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript Project References Validation
+        run: |
+          npm --workspace=packages/shared run build
+          npx tsc -b apps/admin-coordinator apps/public-student apps/fallback
+
+      - name: Production Bundles Compilation
+        run: |
+          npm --workspace=apps/admin-coordinator run build
+          npm --workspace=apps/public-student run build
+          npm --workspace=apps/fallback run build
+
+      - name: Lint Analysis (Oxlint)
+        run: npm run lint
+
+      - name: Automated Unit & Integration Tests (Vitest)
+        run: npx vitest run

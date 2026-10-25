@@ -5,6 +5,7 @@ import { formatDateTime12h } from '@kits-eos/shared/src/utils/date';
 import { useAuth } from '../../context/AuthContext';
 import { LoadingState } from '../../components/ui/LoadingState';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { playRegistrationSuccessSound } from '../../utils/registrationSound';
 import { 
   Store, 
   Search, 
@@ -510,6 +511,7 @@ export function StallsDirectory() {
         });
 
         if (rpcErr) throw rpcErr;
+        playRegistrationSuccessSound({ dedupeKey: `stall-update-${editingSubmission.id}` });
       } else {
         // Create new proposal
         const { error: rpcErr } = await supabase.rpc('student_submit_stall', {
@@ -523,6 +525,7 @@ export function StallsDirectory() {
         });
 
         if (rpcErr) throw rpcErr;
+        playRegistrationSuccessSound({ dedupeKey: `stall-submit-${formEventId}-${formName.trim().toUpperCase()}` });
       }
 
       setIsSubmitModalOpen(false);

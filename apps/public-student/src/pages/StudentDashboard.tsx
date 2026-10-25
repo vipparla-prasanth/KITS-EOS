@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { downloadEventDirectoryExcel } from '../services/eventDirectoryService';
 import { getCachedDashboardData, fetchStudentDashboardData } from '../services/dashboardDataService';
+import { PrivacyNoticeAcknowledgementModal } from '../components/privacy/PrivacyNoticeAcknowledgementModal';
 
 
 export function StudentDashboard() {
@@ -133,11 +134,6 @@ export function StudentDashboard() {
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/10 text-red-200 border border-white/15 backdrop-blur-md">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>KITS-EOS Student Console</span>
-            </div>
-
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
               Welcome back, {profile?.full_name || user?.email?.split('@')[0]}
             </h1>
@@ -464,6 +460,7 @@ export function StudentDashboard() {
           </div>
         </div>
       </div>
+      <PrivacyNoticeAcknowledgementModal />
     </div>
   );
 }

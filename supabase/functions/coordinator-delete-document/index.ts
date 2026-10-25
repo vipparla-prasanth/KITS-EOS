@@ -45,9 +45,6 @@ function resolvePrivilegedKey(): PrivilegedKeyResolution {
   }
 
   // 2. TEMPORARY FALLBACK (Phase 5D Controlled Migration Only):
-  // Retained temporarily to prevent an outage if modern secret resolution fails.
-  // Location: resolvePrivilegedKey() fallback branch in coordinator-delete-document/index.ts.
-  // Warning: Must NOT become permanent architecture; will be removed once modern secret resolution is verified.
   const fallbackKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (fallbackKey && typeof fallbackKey === 'string' && fallbackKey.trim().length > 0) {
     return {
@@ -93,11 +90,64 @@ function handleError(error: unknown, corsHeaders: Record<string, string>, extraH
     JSON.stringify({
       success: false,
       code: "INTERNAL_SERVER_ERROR",
-      message: "An unexpected error occurred.",
+      message: "An unexpected error occurred during document deletion.",
       error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." }
     }),
     { status: 500, headers }
   );
+}
+
+/**
+ * Normalizes storage path, stripping leading slashes, redundant bucket prefixes,
+ * and URL hostnames, while preventing path traversal.
+ */
+function normalizeStoragePath(rawPath: string): { bucket: string; path: string } {
+  if (!rawPath || typeof rawPath !== 'string') {
+    throw new HttpError(400, 'INVALID_PATH', 'Storage path must be a non-empty string.');
+  }
+
+  let cleaned = rawPath.trim();
+
+  // If path is a full URL, extract bucket and sub-path
+  if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+    try {
+      const url = new URL(cleaned);
+      const parts = url.pathname.split('/').filter(Boolean);
+      const bucketIdx = parts.findIndex((p) => p === 'documents' || p === 'events');
+      if (bucketIdx !== -1 && bucketIdx < parts.length - 1) {
+        const bucket = parts[bucketIdx];
+        const subPath = parts.slice(bucketIdx + 1).join('/');
+        return sanitizePath(bucket, subPath);
+      }
+    } catch {
+      // Fall through to standard string cleanup
+    }
+  }
+
+  // Strip leading slashes
+  cleaned = cleaned.replace(/^\/+/, '');
+
+  let bucket = 'documents';
+  if (cleaned.startsWith('documents/')) {
+    bucket = 'documents';
+    cleaned = cleaned.substring('documents/'.length);
+  } else if (cleaned.startsWith('events/')) {
+    bucket = 'events';
+    cleaned = cleaned.substring('events/'.length);
+  }
+
+  return sanitizePath(bucket, cleaned);
+}
+
+function sanitizePath(bucket: string, path: string): { bucket: string; path: string } {
+  if (path.includes('..') || path.includes('\\')) {
+    throw new HttpError(400, 'INVALID_PATH', 'Path traversal characters are not permitted.');
+  }
+  const clean = path.replace(/\/+/g, '/').replace(/^\/+/, '');
+  if (!clean) {
+    throw new HttpError(400, 'INVALID_PATH', 'Resolved storage path is empty.');
+  }
+  return { bucket, path: clean };
 }
 
 serve(async (req: Request) => {
@@ -131,7 +181,7 @@ serve(async (req: Request) => {
       { auth: { persistSession: false } }
     );
 
-    // 1. Authenticate Coordinator or Admin identity
+    // 1. Authenticate Requester (Coordinator, Admin, or Student Owner)
     let coordinatorToken: string | null = req.headers.get("x-coordinator-token");
     const authHeader = req.headers.get("Authorization");
     if (!coordinatorToken && authHeader) {
@@ -143,10 +193,11 @@ serve(async (req: Request) => {
 
     let effectiveCoordinatorId: string | null = null;
     let authUserId: string | null = null;
-    let actorRole: 'COORDINATOR' | 'ADMIN' | null = null;
+    let actorRole: 'COORDINATOR' | 'ADMIN' | 'STUDENT' | null = null;
     let isAdminOverride = false;
 
     if (coordinatorToken) {
+      // Coordinator authentication via custom session token
       const encoder = new TextEncoder();
       const data = encoder.encode(coordinatorToken.trim());
       const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -175,27 +226,37 @@ serve(async (req: Request) => {
         actorRole = "COORDINATOR";
       }
     } else if (authHeader) {
+      // User JWT authentication (Admin or Student)
       const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-      if (token && !token.startsWith("ctk_") && !token.startsWith("sb_publishable_") && token !== (Deno.env.get("SUPABASE_ANON_KEY") ?? "")) {
+      if (
+        token &&
+        !token.startsWith("ctk_") &&
+        !token.startsWith("sb_publishable_") &&
+        token !== (Deno.env.get("SUPABASE_ANON_KEY") ?? "")
+      ) {
         const { data: { user }, error: authErr } = await supabaseClient.auth.getUser(token);
         if (user && !authErr) {
           const { data: appUser } = await supabaseClient
             .from("users")
-            .select("role, status, email")
+            .select("id, role, status, email")
             .eq("id", user.id)
             .maybeSingle();
 
-          if (appUser && appUser.role === "ADMIN" && appUser.status === "ACTIVE") {
-            isAdminOverride = true;
-            actorRole = "ADMIN";
+          if (appUser && appUser.status === "ACTIVE") {
             authUserId = user.id;
+            if (appUser.role === "ADMIN") {
+              isAdminOverride = true;
+              actorRole = "ADMIN";
+            } else {
+              actorRole = "STUDENT";
+            }
           }
         }
       }
     }
 
-    if (!effectiveCoordinatorId && !isAdminOverride) {
-      throw new HttpError(401, 'UNAUTHORIZED', 'Coordinator authorization required: Invalid, inactive, or expired session.');
+    if (!effectiveCoordinatorId && !actorRole) {
+      throw new HttpError(401, 'UNAUTHORIZED', 'Authentication required: Invalid, inactive, or expired session.');
     }
 
     // 2. Parse request payload
@@ -217,12 +278,34 @@ serve(async (req: Request) => {
       rawIds = [body.documentId];
     }
 
+    // Support registrationId for cascading registration document cleanup
+    const targetRegId = typeof body?.registrationId === 'string' && body.registrationId.trim().length > 0
+      ? body.registrationId.trim()
+      : typeof body?.registration_id === 'string' && body.registration_id.trim().length > 0
+        ? body.registration_id.trim()
+        : null;
+
+    if (targetRegId) {
+      const { data: regDocs } = await supabaseClient
+        .from('documents')
+        .select('id')
+        .eq('entity_id', targetRegId)
+        .eq('entity_type', 'REGISTRATION');
+      if (Array.isArray(regDocs)) {
+        for (const rd of regDocs) {
+          if (rd.id && !rawIds.includes(rd.id)) {
+            rawIds.push(rd.id);
+          }
+        }
+      }
+    }
+
     const documentIds = rawIds
       .filter((id) => typeof id === 'string' && id.trim().length > 0)
       .map((id) => id.trim());
 
     if (documentIds.length === 0) {
-      throw new HttpError(400, 'VALIDATION_ERROR', 'At least one valid documentId is required.');
+      throw new HttpError(400, 'VALIDATION_ERROR', 'At least one valid documentId or registrationId is required.');
     }
 
     // 3. Process each document independently with strict authorization and safe error handling
@@ -230,6 +313,8 @@ serve(async (req: Request) => {
       id: string;
       status: 'DELETED' | 'UNAUTHORIZED' | 'NOT_FOUND' | 'INVALID' | 'STORAGE_FAILURE' | 'DATABASE_FAILURE';
       file_name?: string;
+      storage_path?: string;
+      storage_bucket?: string;
       error?: string;
       message?: string;
     }> = [];
@@ -255,46 +340,59 @@ serve(async (req: Request) => {
         results.push({
           id: docId,
           status: 'NOT_FOUND',
-          message: 'Document no longer exists.',
+          message: 'Document no longer exists or was already deleted.',
         });
         continue;
       }
 
-      if (doc.entity_type !== 'REGISTRATION') {
-        results.push({
-          id: docId,
-          status: 'INVALID',
-          file_name: doc.file_name,
-          error: 'Only registration participant documents can be managed by coordinators.',
-        });
-        continue;
+      // Check Authorization
+      let isAuthorized = false;
+      let regRecord: any = null;
+
+      if (doc.entity_type === 'REGISTRATION') {
+        const { data: reg } = await supabaseClient
+          .from('registrations')
+          .select('id, sub_event_id, leader_id, status')
+          .eq('id', doc.entity_id)
+          .maybeSingle();
+        regRecord = reg;
       }
 
-      const { data: reg, error: regErr } = await supabaseClient
-        .from('registrations')
-        .select('id, sub_event_id, status')
-        .eq('id', doc.entity_id)
-        .maybeSingle();
+      if (isAdminOverride) {
+        // Admin has universal authority to delete any document
+        isAuthorized = true;
+      } else if (actorRole === 'COORDINATOR') {
+        // Coordinator can only manage documents for their assigned sub-event
+        if (doc.entity_type !== 'REGISTRATION') {
+          results.push({
+            id: docId,
+            status: 'INVALID',
+            file_name: doc.file_name,
+            error: 'Coordinators can only manage registration participant documents.',
+          });
+          continue;
+        }
 
-      if (regErr || !reg || !reg.sub_event_id) {
-        results.push({
-          id: docId,
-          status: 'INVALID',
-          file_name: doc.file_name,
-          error: 'Associated registration or sub-event record not found.',
-        });
-        continue;
-      }
+        if (!regRecord || !regRecord.sub_event_id) {
+          results.push({
+            id: docId,
+            status: 'INVALID',
+            file_name: doc.file_name,
+            error: 'Associated registration or sub-event record not found.',
+          });
+          continue;
+        }
 
-      if (!isAdminOverride) {
         const { data: assignment, error: assignErr } = await supabaseClient
           .from('coordinator_assignments')
           .select('id')
           .eq('coordinator_id', effectiveCoordinatorId)
-          .eq('sub_event_id', reg.sub_event_id)
+          .eq('sub_event_id', regRecord.sub_event_id)
           .maybeSingle();
 
-        if (assignErr || !assignment) {
+        if (!assignErr && assignment) {
+          isAuthorized = true;
+        } else {
           results.push({
             id: docId,
             status: 'UNAUTHORIZED',
@@ -303,44 +401,121 @@ serve(async (req: Request) => {
           });
           continue;
         }
-      }
+      } else if (actorRole === 'STUDENT') {
+        // Student can delete only their own document or documents attached to their registration leadership
+        const isDirectOwner = doc.owner_id === authUserId;
+        const isRegistrationLeader = regRecord && regRecord.leader_id === authUserId;
 
-      let storageDeleted = false;
-      let storageErrorDetail: string | null = null;
-      let targetBucket = 'documents';
-
-      const { error: removeErr1 } = await supabaseClient
-        .storage
-        .from('documents')
-        .remove([doc.storage_path]);
-
-      if (!removeErr1) {
-        storageDeleted = true;
-      } else {
-        const { error: removeErr2 } = await supabaseClient
-          .storage
-          .from('events')
-          .remove([doc.storage_path]);
-
-        if (!removeErr2) {
-          storageDeleted = true;
-          targetBucket = 'events';
+        if (isDirectOwner || isRegistrationLeader) {
+          isAuthorized = true;
         } else {
-          console.error("Storage remove error:", removeErr1, removeErr2);
-          storageErrorDetail = 'Failed to remove file from storage.';
+          results.push({
+            id: docId,
+            status: 'UNAUTHORIZED',
+            file_name: doc.file_name,
+            error: 'Access denied: You do not have permission to delete this document.',
+          });
+          continue;
         }
       }
 
-      if (!storageDeleted) {
+      if (!isAuthorized) {
         results.push({
           id: docId,
-          status: 'STORAGE_FAILURE',
+          status: 'UNAUTHORIZED',
           file_name: doc.file_name,
-          error: `Storage file removal failed. Database record preserved.`,
+          error: 'Access denied: Unauthorized document deletion attempt.',
         });
         continue;
       }
 
+      // Resolve and sanitize storage path
+      let parsedTarget: { bucket: string; path: string };
+      try {
+        parsedTarget = normalizeStoragePath(doc.storage_path);
+      } catch (err: any) {
+        results.push({
+          id: docId,
+          status: 'INVALID',
+          file_name: doc.file_name,
+          error: err.message || 'Malformed storage path.',
+        });
+        continue;
+      }
+
+      const { bucket: targetBucket, path: normalizedPath } = parsedTarget;
+
+      // 4. Physical Storage Deletion
+      // Requirement: Remove or update metadata ONLY when Storage deletion has succeeded
+      // or the object is confirmed already absent. Never report success if file still exists.
+      let storageRemoved = false;
+      let storageErrorDetail: string | null = null;
+      let finalBucketUsed = targetBucket;
+
+      // Primary attempt on resolved bucket
+      const { data: removeData1, error: removeErr1 } = await supabaseClient
+        .storage
+        .from(targetBucket)
+        .remove([normalizedPath]);
+
+      if (!removeErr1) {
+        storageRemoved = true;
+        finalBucketUsed = targetBucket;
+      } else {
+        console.warn(`Primary storage removal failed on bucket ${targetBucket}:`, removeErr1.message);
+        // Fallback attempt on 'events' bucket if primary was 'documents'
+        if (targetBucket === 'documents') {
+          const { error: removeErr2 } = await supabaseClient
+            .storage
+            .from('events')
+            .remove([normalizedPath]);
+          if (!removeErr2) {
+            storageRemoved = true;
+            finalBucketUsed = 'events';
+          } else {
+            storageErrorDetail = removeErr1.message || removeErr2.message || 'Failed to remove file from storage.';
+          }
+        } else {
+          storageErrorDetail = removeErr1.message || 'Failed to remove file from storage.';
+        }
+      }
+
+      // Verification check: ensure file does not still exist in storage
+      if (storageRemoved) {
+        try {
+          const pathSegments = normalizedPath.split('/');
+          const targetFileName = pathSegments.pop() || '';
+          const folderPrefix = pathSegments.join('/');
+
+          const { data: listCheck, error: listErr } = await supabaseClient
+            .storage
+            .from(finalBucketUsed)
+            .list(folderPrefix, { search: targetFileName, limit: 10 });
+
+          if (!listErr && Array.isArray(listCheck)) {
+            const stillPersists = listCheck.some((item) => item.name === targetFileName);
+            if (stillPersists) {
+              console.error(`Post-removal check failed: ${normalizedPath} still persists in bucket ${finalBucketUsed}.`);
+              storageRemoved = false;
+              storageErrorDetail = 'Storage object removal was reported, but file still persists in bucket.';
+            }
+          }
+        } catch (verifyErr) {
+          console.warn('Storage post-deletion check skipped due to non-blocking error:', verifyErr);
+        }
+      }
+
+      if (!storageRemoved) {
+        results.push({
+          id: docId,
+          status: 'STORAGE_FAILURE',
+          file_name: doc.file_name,
+          error: `Storage removal failed: ${storageErrorDetail || 'Object could not be deleted'}. Database record preserved.`,
+        });
+        continue;
+      }
+
+      // 5. Database Metadata Deletion (Only after storage removal succeeded or confirmed absent)
       const { error: dbDeleteErr } = await supabaseClient
         .from('documents')
         .delete()
@@ -352,28 +527,30 @@ serve(async (req: Request) => {
           id: docId,
           status: 'DATABASE_FAILURE',
           file_name: doc.file_name,
-          error: `Storage file removed, but database metadata deletion failed.`,
+          error: `Storage file removed, but database metadata deletion failed: ${dbDeleteErr.message}`,
         });
         continue;
       }
 
+      // 6. Immutable Audit Logging
       try {
         await supabaseClient
           .from('audit_logs')
           .insert({
             actor_id: effectiveCoordinatorId || authUserId || null,
-            action: 'COORDINATOR_DELETE_DOCUMENT',
+            action: 'DOCUMENT_PERMANENTLY_DELETED',
             entity_type: 'DOCUMENT',
             entity_id: doc.id,
             metadata: {
               document_id: doc.id,
               file_name: doc.file_name,
-              storage_path: doc.storage_path,
-              storage_bucket: targetBucket,
-              registration_id: reg.id,
-              sub_event_id: reg.sub_event_id,
+              storage_path: normalizedPath,
+              storage_bucket: finalBucketUsed,
+              raw_storage_path: doc.storage_path,
+              entity_type: doc.entity_type,
+              entity_id: doc.entity_id,
               actor_role: actorRole,
-              coordinator_id: effectiveCoordinatorId,
+              actor_id: effectiveCoordinatorId || authUserId,
               deleted_at: new Date().toISOString(),
             }
           });
@@ -385,7 +562,9 @@ serve(async (req: Request) => {
         id: docId,
         status: 'DELETED',
         file_name: doc.file_name,
-        message: 'Document deleted successfully from storage and database.',
+        storage_path: normalizedPath,
+        storage_bucket: finalBucketUsed,
+        message: 'Document permanently removed from storage and database.',
       });
     }
 

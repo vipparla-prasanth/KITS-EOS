@@ -29,6 +29,17 @@ import type { Event, Category, SubEvent } from '@kits-eos/shared/src/types/model
 import { formatDateTime12h } from '@kits-eos/shared/src/utils/date';
 import { PendingResultSubmissions } from '../../components/results/PendingResultSubmissions';
 import { CorrectPublishedResultModal } from '../../components/results/CorrectPublishedResultModal';
+import {
+  resolveEventHierarchy,
+  getHierarchyConfig,
+  getSubEventSelectPlaceholder,
+  isSubEventSelectDisabled,
+} from './resultHierarchy';
+import {
+  resolveStudentName,
+  resolveCandidateTitle,
+  formatRollNumber,
+} from './candidateFormat';
 
 export interface MemberInfo {
   memberId: string;
@@ -76,6 +87,12 @@ export function ResultsList() {
   const [selectedSubEventId, setSelectedSubEventId] = useState<string>('');
   const [currentSubEvent, setCurrentSubEvent] = useState<any | null>(null);
 
+  // Dynamic Hierarchy Mode: Case 1 (Categorized: Event → Category → Sub-Event) vs Case 2 (Direct: Event → Sub-Event)
+  const [hasCategories, setHasCategories] = useState<boolean>(true);
+  const [isLoadingEvents, setIsLoadingEvents] = useState<boolean>(false);
+  const [isLoadingCategories, setIsLoadingCategories] = useState<boolean>(false);
+  const [isLoadingSubEvents, setIsLoadingSubEvents] = useState<boolean>(false);
+
   // 2. Candidate Data State (Grouped at Registration / Team Level)
   const [candidates, setCandidates] = useState<PodiumCandidate[]>([]);
 
@@ -107,101 +124,216 @@ export function ResultsList() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isCorrectPublishedModalOpen, setIsCorrectPublishedModalOpen] = useState(false);
 
+  // Dynamic layout & control configurations
+  const hierarchyConfig = useMemo(() => getHierarchyConfig(hasCategories), [hasCategories]);
+
+  const subEventPlaceholder = useMemo(() => {
+    return getSubEventSelectPlaceholder({
+      isLoadingSubEvents,
+      hasCategories,
+      selectedCategoryId,
+      selectedEventId,
+      subEventsCount: subEvents.length,
+    });
+  }, [isLoadingSubEvents, hasCategories, selectedCategoryId, selectedEventId, subEvents.length]);
+
+  const isSubEventDisabled = useMemo(() => {
+    return isSubEventSelectDisabled({
+      selectedEventId,
+      isLoadingCategories,
+      isLoadingSubEvents,
+      hasCategories,
+      selectedCategoryId,
+      subEventsCount: subEvents.length,
+    });
+  }, [selectedEventId, isLoadingCategories, isLoadingSubEvents, hasCategories, selectedCategoryId, subEvents.length]);
+
   // =========================================================================
   // STEP 1: INITIAL LOAD - FETCH EVENTS
   // =========================================================================
   useEffect(() => {
+    let isMounted = true;
     async function loadEvents() {
       try {
+        setIsLoadingEvents(true);
         setError(null);
 
         const { data, error: err } = await supabase
           .from('events')
           .select('id, name, status')
+          .neq('status', 'PERMANENTLY_DELETED')
           .order('name');
 
+        if (!isMounted) return;
         if (err) throw err;
         setEvents((data as Event[]) || []);
       } catch (err: any) {
+        if (!isMounted) return;
         console.error('Failed to load events:', err);
         setError(err.message || 'Failed to load events from database.');
+      } finally {
+        if (isMounted) {
+          setIsLoadingEvents(false);
+        }
       }
     }
 
     loadEvents();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // =========================================================================
-  // STEP 2: WHEN EVENT CHANGES - FETCH CATEGORIES
+  // STEP 2: WHEN EVENT CHANGES - DYNAMICALLY RESOLVE HIERARCHY & DATA
   // =========================================================================
   useEffect(() => {
     if (!selectedEventId) {
+      setHasCategories(true);
       setCategories([]);
       setSelectedCategoryId('');
       setSubEvents([]);
       setSelectedSubEventId('');
       setCurrentSubEvent(null);
       setCandidates([]);
+      setIsLoadingCategories(false);
+      setIsLoadingSubEvents(false);
       return;
     }
 
-    async function loadCategories() {
-      try {
-        const { data, error: err } = await supabase
-          .from('categories')
-          .select('id, name, event_id, status')
-          .eq('event_id', selectedEventId)
-          .order('name');
+    let isMounted = true;
 
-        if (err) throw err;
-        setCategories((data as Category[]) || []);
+    async function loadEventHierarchy() {
+      try {
+        setIsLoadingCategories(true);
+        setIsLoadingSubEvents(false);
+        setError(null);
+
+        // Reset child selections immediately when parent event changes
         setSelectedCategoryId('');
-        setSubEvents([]);
         setSelectedSubEventId('');
         setCurrentSubEvent(null);
         setCandidates([]);
+        setSubEvents([]);
+
+        // Determine category availability dynamically from actual database data
+        const { data: catData, error: catErr } = await supabase
+          .from('categories')
+          .select('id, name, event_id, status')
+          .eq('event_id', selectedEventId)
+          .neq('status', 'PERMANENTLY_DELETED')
+          .order('name');
+
+        if (!isMounted) return;
+        if (catErr) throw catErr;
+
+        const eventCategories = (catData as Category[]) || [];
+        const resolution = resolveEventHierarchy(eventCategories);
+
+        if (resolution.hasCategories) {
+          // Case 1: Main event has categories
+          // Display: Event → Category → Sub-Event
+          setHasCategories(true);
+          setCategories(eventCategories);
+          setIsLoadingCategories(false);
+          // Sub-events will be loaded when a category is selected (Step 3)
+        } else {
+          // Case 2: Main event has direct sub-events and NO categories
+          // Display: Event → Sub-Event (Category control completely hidden)
+          setHasCategories(false);
+          setCategories([]);
+          setIsLoadingCategories(false);
+          setIsLoadingSubEvents(true);
+
+          const { data: subData, error: subErr } = await supabase
+            .from('sub_events')
+            .select('id, name, category_id, event_id, status, participation_type, max_team_size, results_locked, results_published, winner_team_id, runner_team_id, third_team_id')
+            .eq('event_id', selectedEventId)
+            .neq('status', 'PERMANENTLY_DELETED')
+            .order('name');
+
+          if (!isMounted) return;
+          if (subErr) throw subErr;
+
+          setSubEvents((subData as unknown as SubEvent[]) || []);
+          setIsLoadingSubEvents(false);
+        }
       } catch (err: any) {
-        console.error('Failed to load categories:', err);
-        setError(err.message || 'Failed to load categories.');
+        if (!isMounted) return;
+        console.error('Failed to load event hierarchy:', err);
+        setError(err.message || 'Failed to load event categories or sub-events.');
+        setCategories([]);
+        setSubEvents([]);
+        setIsLoadingCategories(false);
+        setIsLoadingSubEvents(false);
       }
     }
 
-    loadCategories();
+    loadEventHierarchy();
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedEventId]);
 
   // =========================================================================
-  // STEP 3: WHEN CATEGORY CHANGES - FETCH SUB-EVENTS
+  // STEP 3: WHEN CATEGORY CHANGES - FETCH CATEGORY-LINKED SUB-EVENTS (CASE 1)
   // =========================================================================
   useEffect(() => {
+    // Only execute category-linked query if the main event actually has categories
+    if (!hasCategories) {
+      return;
+    }
+
     if (!selectedCategoryId) {
       setSubEvents([]);
       setSelectedSubEventId('');
       setCurrentSubEvent(null);
       setCandidates([]);
+      setIsLoadingSubEvents(false);
       return;
     }
 
-    async function loadSubEvents() {
+    let isMounted = true;
+
+    async function loadCategorySubEvents() {
       try {
+        setIsLoadingSubEvents(true);
+        setError(null);
+        setSelectedSubEventId('');
+        setCurrentSubEvent(null);
+        setCandidates([]);
+
         const { data, error: err } = await supabase
           .from('sub_events')
           .select('id, name, category_id, event_id, status, participation_type, max_team_size, results_locked, results_published, winner_team_id, runner_team_id, third_team_id')
           .eq('category_id', selectedCategoryId)
+          .neq('status', 'PERMANENTLY_DELETED')
           .order('name');
 
+        if (!isMounted) return;
         if (err) throw err;
+
         setSubEvents((data as unknown as SubEvent[]) || []);
-        setSelectedSubEventId('');
-        setCurrentSubEvent(null);
-        setCandidates([]);
       } catch (err: any) {
-        console.error('Failed to load sub-events:', err);
-        setError(err.message || 'Failed to load sub-events.');
+        if (!isMounted) return;
+        console.error('Failed to load category sub-events:', err);
+        setError(err.message || 'Failed to load sub-events for the selected category.');
+        setSubEvents([]);
+      } finally {
+        if (isMounted) {
+          setIsLoadingSubEvents(false);
+        }
       }
     }
 
-    loadSubEvents();
-  }, [selectedCategoryId]);
+    loadCategorySubEvents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCategoryId, hasCategories]);
 
   // =========================================================================
   // STEP 4: LOAD SUB-EVENT WORKFLOW & CANDIDATES GROUPED BY REGISTRATION/TEAM
@@ -227,6 +359,7 @@ export function ResultsList() {
           .select(`
             id,
             sub_event_id,
+            leader_id,
             status,
             payments (
               id,
@@ -237,6 +370,7 @@ export function ResultsList() {
               team_name,
               team_members (
                 id,
+                user_id,
                 snapshot_name,
                 snapshot_roll_number,
                 snapshot_college,
@@ -266,6 +400,60 @@ export function ResultsList() {
       const subData = subRes.data;
       setCurrentSubEvent(subData);
 
+      // Collect user IDs and roll numbers to enrich missing or generic candidate names from student_profiles
+      const candidateUserIds = new Set<string>();
+      const candidateRollNumbers = new Set<string>();
+
+      (regRes.data || []).forEach((reg: any) => {
+        if (reg.leader_id) candidateUserIds.add(reg.leader_id);
+        const teamsList = Array.isArray(reg.teams) ? reg.teams : reg.teams ? [reg.teams] : [];
+        teamsList.forEach((team: any) => {
+          const rawMembers = Array.isArray(team?.team_members) ? team.team_members : team?.team_members ? [team.team_members] : [];
+          rawMembers.forEach((m: any) => {
+            if (m.user_id) candidateUserIds.add(m.user_id);
+            if (m.snapshot_roll_number) candidateRollNumbers.add(m.snapshot_roll_number.trim());
+          });
+        });
+      });
+
+      const profileByUserIdMap = new Map<string, any>();
+      const profileByRollMap = new Map<string, any>();
+
+      const userIdsList = Array.from(candidateUserIds).filter(Boolean);
+      const rollNumbersList = Array.from(candidateRollNumbers).filter(Boolean);
+
+      if (userIdsList.length > 0 || rollNumbersList.length > 0) {
+        try {
+          const profilePromises: PromiseLike<any>[] = [];
+          if (userIdsList.length > 0) {
+            profilePromises.push(
+              supabase
+                .from('student_profiles')
+                .select('user_id, roll_number, full_name, college, department, year_of_study')
+                .in('user_id', userIdsList)
+            );
+          }
+          if (rollNumbersList.length > 0) {
+            profilePromises.push(
+              supabase
+                .from('student_profiles')
+                .select('user_id, roll_number, full_name, college, department, year_of_study')
+                .in('roll_number', rollNumbersList)
+            );
+          }
+
+          const profileResponses = await Promise.all(profilePromises);
+          profileResponses.forEach((res: any) => {
+            (res.data || []).forEach((p: any) => {
+              if (p.user_id) profileByUserIdMap.set(p.user_id, p);
+              if (p.roll_number) profileByRollMap.set(p.roll_number.trim().toUpperCase(), p);
+            });
+          });
+        } catch (profileErr) {
+          console.warn('Non-fatal: could not enrich student profiles:', profileErr);
+        }
+      }
+
       // Build Set of attended member IDs
       const attendedMemberIdSet = new Set<string>();
 
@@ -293,17 +481,28 @@ export function ResultsList() {
 
           const rawMembers = Array.isArray(team.team_members) ? team.team_members : team.team_members ? [team.team_members] : [];
           
-          // Map individual member attendance and certificates
+          // Map individual member attendance and certificates with canonical name resolution
           const memberList: MemberInfo[] = rawMembers.map((m: any) => {
             const isAttended = attendedMemberIdSet.has(m.id);
             const cert = certMap.get(m.id);
+
+            const prof = (m.user_id && profileByUserIdMap.get(m.user_id)) ||
+                         (m.snapshot_roll_number && profileByRollMap.get(m.snapshot_roll_number.trim().toUpperCase())) ||
+                         (reg.leader_id && profileByUserIdMap.get(reg.leader_id));
+
+            const resolvedName = resolveStudentName(m.snapshot_name, prof?.full_name);
+            const resolvedRoll = formatRollNumber(m.snapshot_roll_number || prof?.roll_number);
+            const resolvedCollege = m.snapshot_college?.trim() || prof?.college?.trim() || 'KITS Akshar Institute of Technology';
+            const resolvedDept = m.snapshot_department?.trim() || prof?.department?.trim() || 'Engineering';
+            const resolvedYear = m.snapshot_year || prof?.year_of_study || 3;
+
             return {
               memberId: m.id,
-              name: m.snapshot_name || 'Participant',
-              rollNumber: m.snapshot_roll_number || 'N/A',
-              college: m.snapshot_college || 'KITS Akshar Institute of Technology',
-              department: m.snapshot_department || 'Engineering',
-              year: m.snapshot_year || 3,
+              name: resolvedName,
+              rollNumber: resolvedRoll,
+              college: resolvedCollege,
+              department: resolvedDept,
+              year: resolvedYear,
               isLeader: Boolean(m.is_leader),
               manualToken: m.manual_token,
               isAttended,
@@ -314,7 +513,7 @@ export function ResultsList() {
 
           // Identify Team Leader or fallback to first member
           const leader = memberList.find(m => m.isLeader) || memberList[0];
-          const isTeam = memberList.length > 1 || (team.team_name && team.team_name !== 'Solo Participant');
+          const isTeam = memberList.length > 1 || (team.team_name && team.team_name.trim() !== '' && team.team_name.trim() !== 'Solo Participant');
           const totalMembers = memberList.length;
           const attendedMembers = memberList.filter(m => m.isAttended).length;
           const isFullyAttended = attendedMembers === totalMembers && totalMembers > 0;
@@ -331,12 +530,18 @@ export function ResultsList() {
           // Winner certificate code from leader
           const leaderCert = leader ? certMap.get(leader.memberId) : null;
 
+          const candidateTeamName = resolveCandidateTitle({
+            isTeam,
+            teamName: team.team_name,
+            leaderName: leader?.name,
+          });
+
           candidateList.push({
             teamId: team.id,
             registrationId: reg.id,
-            teamName: team.team_name || (leader ? `${leader.name} (Solo)` : 'Solo Participant'),
+            teamName: candidateTeamName,
             isTeam,
-            leaderName: leader?.name || 'Participant',
+            leaderName: leader?.name || 'Name unavailable',
             leaderRoll: leader?.rollNumber || 'N/A',
             leaderDept: leader?.department || 'Engineering',
             leaderCollege: leader?.college || 'KITS Akshar Institute of Technology',
@@ -692,7 +897,9 @@ export function ResultsList() {
       />
 
       {/* =========================================================================
-          1. TOP HIERARCHY SELECTOR (1. Event → 2. Category → 3. Sub-Event)
+          1. TOP HIERARCHY SELECTOR
+             Case 1 (Categorized): Event → Category → Sub-Event (3 Columns)
+             Case 2 (Direct):      Event → Sub-Event (2 Columns)
           ========================================================================= */}
       <div className="bg-white p-5 sm:p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
         <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
@@ -702,54 +909,59 @@ export function ResultsList() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div className={`grid grid-cols-1 ${hierarchyConfig.gridColsClass} gap-3 text-xs`}>
           {/* Step 1: Event Selector */}
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-1">
-              1. Event <span className="text-kits-red">*</span>
+              {hierarchyConfig.eventLabel} <span className="text-kits-red">*</span>
             </label>
             <select
+              disabled={isLoadingEvents}
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-medium focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue cursor-pointer"
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-medium focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              <option value="">— Select Event —</option>
+              <option value="">{isLoadingEvents ? 'Loading events...' : '— Select Event —'}</option>
               {events.map((ev) => (
                 <option key={ev.id} value={ev.id}>{ev.name}</option>
               ))}
             </select>
           </div>
 
-          {/* Step 2: Category Selector */}
-          <div>
-            <label className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-1">
-              2. Category <span className="text-kits-red">*</span>
-            </label>
-            <select
-              disabled={!selectedEventId}
-              value={selectedCategoryId}
-              onChange={(e) => setSelectedCategoryId(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-medium focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 cursor-pointer"
-            >
-              <option value="">— Select Category —</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-          </div>
+          {/* Step 2: Category Selector (Conditionally rendered: Case 1 only) */}
+          {hasCategories && (
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-1">
+                {hierarchyConfig.categoryLabel} <span className="text-kits-red">*</span>
+              </label>
+              <select
+                disabled={!selectedEventId || isLoadingCategories || categories.length === 0}
+                value={selectedCategoryId}
+                onChange={(e) => setSelectedCategoryId(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-medium focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <option value="">
+                  {isLoadingCategories ? 'Loading categories...' : '— Select Category —'}
+                </option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {/* Step 3: Sub-Event Selector */}
+          {/* Sub-Event Selector (Step 3 in Case 1, Step 2 in Case 2) */}
           <div>
             <label className="text-[10px] font-black uppercase tracking-wider text-gray-500 block mb-1">
-              3. Sub-Event <span className="text-kits-red">*</span>
+              {hierarchyConfig.subEventLabel} <span className="text-kits-red">*</span>
             </label>
             <select
-              disabled={!selectedCategoryId}
+              disabled={isSubEventDisabled}
               value={selectedSubEventId}
               onChange={(e) => setSelectedSubEventId(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-medium focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 cursor-pointer"
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl font-medium focus:bg-white focus:border-kits-blue focus:ring-1 focus:ring-kits-blue disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              <option value="">— Select Sub-Event —</option>
+              <option value="">{subEventPlaceholder}</option>
               {subEvents.map((sub) => (
                 <option key={sub.id} value={sub.id}>{sub.name}</option>
               ))}
@@ -764,7 +976,11 @@ export function ResultsList() {
       {!selectedSubEventId ? (
         <EmptyState
           title="Select a Sub-Event"
-          description="Choose an Event, Category, and Sub-Event above to load attended candidates and manage results declaration."
+          description={
+            hasCategories
+              ? "Choose an Event, Category, and Sub-Event above to load attended candidates and manage results declaration."
+              : "Choose an Event and Sub-Event above to load attended candidates and manage results declaration."
+          }
           icon={<Layers className="h-10 w-10 text-gray-300" />}
         />
       ) : isLoadingCandidates ? (
@@ -833,7 +1049,11 @@ export function ResultsList() {
                     <div>
                       <span className="block font-black text-amber-900">{lockedWinner.teamName}</span>
                       <span className="text-[10px] text-gray-500 font-mono font-normal">
-                        Leader: {lockedWinner.leaderName} ({lockedWinner.leaderRoll})
+                        {lockedWinner.isTeam ? (
+                          <>Leader: {lockedWinner.leaderName} (Roll No: {lockedWinner.leaderRoll})</>
+                        ) : (
+                          <>Roll No: {lockedWinner.leaderRoll}</>
+                        )}
                       </span>
                     </div>
                   ) : (
@@ -872,7 +1092,11 @@ export function ResultsList() {
                     <div>
                       <span className="block font-black text-kits-blue">{lockedRunner.teamName}</span>
                       <span className="text-[10px] text-gray-500 font-mono font-normal">
-                        Leader: {lockedRunner.leaderName} ({lockedRunner.leaderRoll})
+                        {lockedRunner.isTeam ? (
+                          <>Leader: {lockedRunner.leaderName} (Roll No: {lockedRunner.leaderRoll})</>
+                        ) : (
+                          <>Roll No: {lockedRunner.leaderRoll}</>
+                        )}
                       </span>
                     </div>
                   ) : (
@@ -917,7 +1141,11 @@ export function ResultsList() {
                     <div>
                       <span className="block font-black text-purple-900">{lockedThird.teamName}</span>
                       <span className="text-[10px] text-gray-500 font-mono font-normal">
-                        Leader: {lockedThird.leaderName} ({lockedThird.leaderRoll})
+                        {lockedThird.isTeam ? (
+                          <>Leader: {lockedThird.leaderName} (Roll No: {lockedThird.leaderRoll})</>
+                        ) : (
+                          <>Roll No: {lockedThird.leaderRoll}</>
+                        )}
                       </span>
                     </div>
                   ) : isThirdSkipped ? (
@@ -968,7 +1196,13 @@ export function ResultsList() {
                   <span className="font-black uppercase tracking-wide block text-xs sm:text-sm">Stage 1: Select 1st Place (Winner)</span>
                   <span className="text-amber-100 text-[11px]">
                     {candidateTeamId 
-                      ? `Candidate Selected: ${candidates.find(c => c.teamId === candidateTeamId)?.teamName}` 
+                      ? (() => {
+                          const sel = candidates.find(c => c.teamId === candidateTeamId);
+                          if (!sel) return '';
+                          return sel.isTeam
+                            ? `Candidate Selected: ${sel.teamName} (Leader: ${sel.leaderName} · Roll No: ${sel.leaderRoll})`
+                            : `Candidate Selected: ${sel.leaderName || sel.teamName} (Roll No: ${sel.leaderRoll})`;
+                        })()
                       : 'Check the candidate (solo participant or team) below who won 1st Place'}
                   </span>
                 </div>
@@ -993,7 +1227,13 @@ export function ResultsList() {
                   <span className="font-black uppercase tracking-wide block text-xs sm:text-sm">Stage 2: Select 2nd Place (Runner-Up)</span>
                   <span className="text-blue-100 text-[11px]">
                     {candidateTeamId 
-                      ? `Candidate Selected: ${candidates.find(c => c.teamId === candidateTeamId)?.teamName}` 
+                      ? (() => {
+                          const sel = candidates.find(c => c.teamId === candidateTeamId);
+                          if (!sel) return '';
+                          return sel.isTeam
+                            ? `Candidate Selected: ${sel.teamName} (Leader: ${sel.leaderName} · Roll No: ${sel.leaderRoll})`
+                            : `Candidate Selected: ${sel.leaderName || sel.teamName} (Roll No: ${sel.leaderRoll})`;
+                        })()
                       : 'Winner is locked. Check the candidate who secured 2nd Place'}
                   </span>
                 </div>
@@ -1018,7 +1258,13 @@ export function ResultsList() {
                   <span className="font-black uppercase tracking-wide block text-xs sm:text-sm">Stage 3: Select 3rd Place (Optional)</span>
                   <span className="text-purple-100 text-[11px]">
                     {candidateTeamId 
-                      ? `Candidate Selected: ${candidates.find(c => c.teamId === candidateTeamId)?.teamName}` 
+                      ? (() => {
+                          const sel = candidates.find(c => c.teamId === candidateTeamId);
+                          if (!sel) return '';
+                          return sel.isTeam
+                            ? `Candidate Selected: ${sel.teamName} (Leader: ${sel.leaderName} · Roll No: ${sel.leaderRoll})`
+                            : `Candidate Selected: ${sel.leaderName || sel.teamName} (Roll No: ${sel.leaderRoll})`;
+                        })()
                       : 'Select 3rd place from remaining candidates or click Skip'}
                   </span>
                 </div>
@@ -1283,7 +1529,9 @@ export function ResultsList() {
                               </span>
 
                               <h4 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">
-                                {candidate.teamName}
+                                {candidate.isTeam 
+                                  ? candidate.teamName 
+                                  : (candidate.leaderName || candidate.teamName || 'Name unavailable')}
                               </h4>
 
                               {/* Participation Format Badge */}
@@ -1311,9 +1559,15 @@ export function ResultsList() {
                             <div className="text-xs text-gray-600 flex items-center gap-2 flex-wrap font-medium">
                               <span>
                                 {candidate.isTeam ? (
-                                  <>Team Leader: <strong className="text-gray-900">{candidate.leaderName}</strong> ({candidate.leaderRoll})</>
+                                  <>
+                                    Team Leader: <strong className="text-gray-900 font-bold">{candidate.leaderName || 'Name unavailable'}</strong>
+                                    <span className="text-gray-300 mx-1.5">·</span>
+                                    Roll No: <strong className="font-mono text-gray-900">{candidate.leaderRoll || 'N/A'}</strong>
+                                  </>
                                 ) : (
-                                  <>Roll No: <strong className="text-gray-900">{candidate.leaderRoll}</strong></>
+                                  <>
+                                    Roll No: <strong className="font-mono text-gray-900">{candidate.leaderRoll || 'N/A'}</strong>
+                                  </>
                                 )}
                               </span>
                               <span className="text-gray-300">•</span>
@@ -1402,7 +1656,7 @@ export function ResultsList() {
                               >
                                 <div className="space-y-0.5">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="font-bold text-gray-900">{m.name}</span>
+                                    <span className="font-bold text-gray-900">{m.name || 'Name unavailable'}</span>
                                     {m.isLeader && (
                                       <span className="text-[9px] font-black uppercase px-1.5 py-0.2 bg-amber-100 text-amber-900 border border-amber-200 rounded">
                                         Leader
@@ -1410,7 +1664,7 @@ export function ResultsList() {
                                     )}
                                   </div>
                                   <div className="text-[10px] text-gray-500 font-mono">
-                                    {m.rollNumber} • {m.department} (Yr {m.year}) • <span className="font-sans font-semibold text-gray-700">{m.college}</span>
+                                    Roll No: <span className="text-gray-700 font-semibold">{m.rollNumber || 'N/A'}</span> • {m.department} (Yr {m.year}) • <span className="font-sans font-semibold text-gray-700">{m.college}</span>
                                   </div>
                                 </div>
 
@@ -1511,7 +1765,9 @@ export function ResultsList() {
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-black text-gray-900 text-sm">
-                    {confirmModal.candidateDetails.teamName}
+                    {confirmModal.candidateDetails.isTeam 
+                      ? confirmModal.candidateDetails.teamName 
+                      : (confirmModal.candidateDetails.leaderName || confirmModal.candidateDetails.teamName || 'Name unavailable')}
                   </span>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
                     confirmModal.candidateDetails.isTeam 
@@ -1523,7 +1779,13 @@ export function ResultsList() {
                 </div>
 
                 <div className="text-[11px] text-gray-600 space-y-0.5 font-mono">
-                  <div>Team Leader: <strong>{confirmModal.candidateDetails.leaderName}</strong> ({confirmModal.candidateDetails.leaderRoll})</div>
+                  <div>
+                    {confirmModal.candidateDetails.isTeam ? (
+                      <>Team Leader: <strong>{confirmModal.candidateDetails.leaderName}</strong> (Roll No: {confirmModal.candidateDetails.leaderRoll})</>
+                    ) : (
+                      <>Student: <strong>{confirmModal.candidateDetails.leaderName}</strong> · Roll No: <strong>{confirmModal.candidateDetails.leaderRoll}</strong></>
+                    )}
+                  </div>
                   <div>Dept: <strong>{confirmModal.candidateDetails.leaderDept} (Yr {confirmModal.candidateDetails.leaderYear})</strong></div>
                   <div>College: <strong>{confirmModal.candidateDetails.leaderCollege}</strong></div>
                   <div>Attendance: <strong>{confirmModal.candidateDetails.attendedMembers} / {confirmModal.candidateDetails.totalMembers} Members Attended</strong></div>
@@ -1535,7 +1797,7 @@ export function ResultsList() {
                     <ul className="list-disc list-inside space-y-0.5 font-mono">
                       {confirmModal.candidateDetails.members.map((m) => (
                         <li key={m.memberId} className="flex items-center justify-between">
-                          <span>{m.name} ({m.rollNumber})</span>
+                          <span>{m.name || 'Name unavailable'} (Roll No: {m.rollNumber})</span>
                           <span className={m.isAttended ? 'text-emerald-700 font-bold' : 'text-red-600 font-bold'}>
                             {m.isAttended ? 'ATTENDED (Eligible)' : 'NOT ATTENDED (No Certificate)'}
                           </span>
@@ -1575,20 +1837,20 @@ export function ResultsList() {
                 <span className="font-bold text-kits-blue block">Final Results & Certificate Eligibility:</span>
                 <ul className="space-y-1.5 text-[11px]">
                   <li>
-                    <strong>1st Place (Winner):</strong> {lockedWinner?.teamName}
+                    <strong>1st Place (Winner):</strong> {lockedWinner?.teamName} {!lockedWinner?.isTeam && lockedWinner?.leaderRoll ? `(Roll No: ${lockedWinner.leaderRoll})` : ''}
                     <span className="text-gray-600 block pl-3 text-[10px]">
                       • {lockedWinner?.attendedMembers} of {lockedWinner?.totalMembers} members attended (Only attended members receive Winner certificates)
                     </span>
                   </li>
                   <li>
-                    <strong>2nd Place (Runner-Up):</strong> {lockedRunner?.teamName}
+                    <strong>2nd Place (Runner-Up):</strong> {lockedRunner?.teamName} {!lockedRunner?.isTeam && lockedRunner?.leaderRoll ? `(Roll No: ${lockedRunner.leaderRoll})` : ''}
                     <span className="text-gray-600 block pl-3 text-[10px]">
                       • {lockedRunner?.attendedMembers} of {lockedRunner?.totalMembers} members attended (Only attended members receive Runner certificates)
                     </span>
                   </li>
                   {lockedThird && (
                     <li>
-                      <strong>3rd Place:</strong> {lockedThird.teamName}
+                      <strong>3rd Place:</strong> {lockedThird.teamName} {!lockedThird?.isTeam && lockedThird?.leaderRoll ? `(Roll No: ${lockedThird.leaderRoll})` : ''}
                       <span className="text-gray-600 block pl-3 text-[10px]">
                         • {lockedThird.attendedMembers} of {lockedThird.totalMembers} members attended (Only attended members receive 3rd Place certificates)
                       </span>
@@ -1663,7 +1925,7 @@ export function ResultsList() {
         <CorrectPublishedResultModal
           subEventId={currentSubEvent.id}
           subEventName={currentSubEvent.name}
-          categoryName={categories.find(c => c.id === selectedCategoryId)?.name}
+          categoryName={categories.find(c => c.id === (selectedCategoryId || currentSubEvent.category_id))?.name}
           eventName={events.find(e => e.id === selectedEventId)?.name}
           currentWinnerTeamId={currentSubEvent.winner_team_id || null}
           currentRunnerTeamId={currentSubEvent.runner_team_id || null}

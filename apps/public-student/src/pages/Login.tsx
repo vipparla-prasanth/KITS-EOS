@@ -18,6 +18,7 @@ import { DEPARTMENTS, DEFAULT_COLLEGE, CollegeSelect, formatDateTime12h, consume
 
 import { AccountSuspendedScreen } from '../components/AccountSuspendedScreen';
 import { PasswordInput } from '../components/ui/PasswordInput';
+import { playRegistrationSuccessSound } from '../utils/registrationSound';
 
 /**
  * KITS-EOS Student Authentication Portal
@@ -182,6 +183,7 @@ export function Login() {
       } as any, from);
 
       if (err) throw err;
+      playRegistrationSuccessSound({ dedupeKey: `signup-${signUpEmail.trim().toLowerCase()}` });
       navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Sign up error:', err);

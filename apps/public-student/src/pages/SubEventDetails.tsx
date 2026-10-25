@@ -71,9 +71,23 @@ export function SubEventDetails() {
       setError(null);
       setIsNotFound(false);
 
-      const [subRes, evRes] = await Promise.all([
+      // Phase 3: Parallelize all independent queries across the intercontinental network
+      const [subRes, evRes, catRes, coordRpcRes, regRes] = await Promise.all([
         supabase.from('sub_events').select('*').eq('id', subEventId).maybeSingle(),
         supabase.from('events').select('*').eq('id', eventId).maybeSingle(),
+        categoryId
+          ? supabase.from('categories').select('*').eq('id', categoryId).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        supabase.rpc('get_sub_event_coordinators', { p_sub_event_id: subEventId }),
+        user
+          ? supabase
+              .from('registrations')
+              .select('id, status')
+              .eq('sub_event_id', subEventId)
+              .eq('leader_id', user.id)
+              .neq('status', 'CANCELLED')
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
 
       if (subRes.error) {
@@ -96,66 +110,48 @@ export function SubEventDetails() {
         return;
       }
 
-      let catRes: any = null;
-      if (categoryId) {
-        catRes = await supabase.from('categories').select('*').eq('id', categoryId).maybeSingle();
-      }
-
       setSubEvent(subRes.data as SubEvent);
       setEvent(evRes.data as Event);
       if (catRes?.data) setCategory(catRes.data as Category);
 
-        // Fetch coordinators via dedicated RPC first
-        const { data: rpcData, error: rpcErr } = await supabase.rpc('get_sub_event_coordinators', {
-          p_sub_event_id: subEventId
-        });
-
-        if (!rpcErr && Array.isArray(rpcData)) {
-          setCoordinators(rpcData);
-        } else {
-          // Direct fallback query
-          const coordRes = await supabase.from('coordinator_assignments').select(`
+      // Process coordinators from RPC result or execute direct fallback query
+      let validCoords: PublicCoordinator[] = [];
+      if (!coordRpcRes.error && Array.isArray(coordRpcRes.data) && coordRpcRes.data.length > 0) {
+        validCoords = coordRpcRes.data;
+      } else {
+        // Direct fallback query if RPC failed or returned empty
+        const coordRes = await supabase.from('coordinator_assignments').select(`
+          id,
+          coordinator_id,
+          sub_event_id,
+          coordinators (
             id,
-            coordinator_id,
-            sub_event_id,
-            coordinators (
-              id,
-              display_name,
-              phone_number,
-              contact_visible,
-              coordinator_type
-            )
-          `).eq('sub_event_id', subEventId);
+            display_name,
+            phone_number,
+            contact_visible,
+            coordinator_type
+          )
+        `).eq('sub_event_id', subEventId);
 
-          if (coordRes.data) {
-            const mapped: PublicCoordinator[] = (coordRes.data as any[])
-              .filter((c: any) => c.coordinators)
-              .map((c: any) => ({
-                assignment_id: c.id,
-                coordinator_id: c.coordinator_id,
-                display_name: c.coordinators.display_name,
-                phone_number: c.coordinators.phone_number,
-                coordinator_type: c.coordinators.coordinator_type || 'FACULTY',
-                contact_visible: c.coordinators.contact_visible ?? true,
-              }));
-            setCoordinators(mapped);
-          }
+        if (coordRes.data) {
+          validCoords = (coordRes.data as any[])
+            .filter((c: any) => c.coordinators)
+            .map((c: any) => ({
+              assignment_id: c.id,
+              coordinator_id: c.coordinator_id,
+              display_name: c.coordinators.display_name,
+              phone_number: c.coordinators.phone_number,
+              coordinator_type: c.coordinators.coordinator_type || 'FACULTY',
+              contact_visible: c.coordinators.contact_visible ?? true,
+            }));
         }
+      }
+      setCoordinators(validCoords);
 
-        // Check if current student is already registered
-        if (user) {
-          const { data: regData } = await supabase
-            .from('registrations')
-            .select('id, status')
-            .eq('sub_event_id', subEventId)
-            .eq('leader_id', user.id)
-            .neq('status', 'CANCELLED')
-            .maybeSingle();
-
-          if (regData) {
-            setAlreadyRegistered(true);
-          }
-        }
+      // Process pre-fetched registration check
+      if (regRes?.data) {
+        setAlreadyRegistered(true);
+      }
       } catch (err: any) {
         console.error('Failed to load sub-event:', err);
         setError(err.message || 'Sub-event not found.');

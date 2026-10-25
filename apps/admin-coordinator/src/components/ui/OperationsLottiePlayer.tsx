@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import lottie, { type AnimationItem } from 'lottie-web';
+import lottie from 'lottie-web/build/player/lottie_light';
+import type { AnimationItem } from 'lottie-web';
 import operationsAnalystData from '../../assets/lottie/operations-analyst.json';
 
 export interface OperationsLottiePlayerProps {

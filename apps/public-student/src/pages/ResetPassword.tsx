@@ -226,11 +226,16 @@ export function ResetPassword() {
       // Successfully updated password!
       sessionStorage.removeItem(RECOVERY_STORAGE_KEY);
       
-      // Cleanly sign out the temporary recovery session so user logs in normally
+      // Cleanly sign out all sessions across devices so user logs in afresh with new credentials
       try {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'global' });
       } catch {
-        // Silent signout catch
+        // Fallback to local signout if global signout endpoint encounters network issue
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch {
+          // Silent signout catch
+        }
       }
 
       setStatus('SUCCESS');

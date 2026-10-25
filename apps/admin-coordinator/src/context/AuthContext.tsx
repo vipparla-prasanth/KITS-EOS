@@ -9,7 +9,8 @@ import {
   isSessionValid, 
   SessionExpiryNotice,
   isOAuthCallbackInProgress,
-  triggerExpiry
+  triggerExpiry,
+  cleanupSessionNotifications
 } from '@kits-eos/shared';
 
 export type UserRole = 'STUDENT' | 'ADMIN' | 'COORDINATOR' | 'PAYMENT_MANAGER' | null;
@@ -203,6 +204,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribeExpiry = onSessionExpired(async (reason) => {
       if (reason === 'EXPIRED') {
+        try {
+          await cleanupSessionNotifications({ timeoutMs: 2000 });
+        } catch {
+          // Non-blocking
+        }
         try {
           await supabase.auth.signOut();
         } catch {
@@ -446,6 +452,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     setAuthState('INITIALIZING');
+    try {
+      await cleanupSessionNotifications({ timeoutMs: 2000 });
+    } catch {
+      // Non-blocking: cleanup failure never hangs logout
+    }
     endSession();
     try {
       await supabase.auth.signOut();

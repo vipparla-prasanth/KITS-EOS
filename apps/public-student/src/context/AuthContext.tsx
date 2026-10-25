@@ -8,8 +8,9 @@ import {
   onSessionExpired, 
   isSessionValid,
   RECOVERY_STORAGE_KEY,
-  isRecoverySessionActive
-} from '@kits-eos/shared/src/utils/sessionLifecycle';
+  isRecoverySessionActive,
+  cleanupSessionNotifications
+} from '@kits-eos/shared';
 import { SessionExpiryNotice } from '@kits-eos/shared/src/components/SessionExpiryNotice';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { clearCachedDashboardData } from '../services/dashboardDataService';
@@ -113,7 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const inFlightProfileFetch = useRef<Map<string, Promise<StudentProfile | null>>>(new Map());
 
   const checkAccountStatus = async (currentUser: SupabaseUser | null) => {
-    if (!currentUser) {
+    // Phase 3: Guest / Unauthenticated guard: do not invoke authenticated-only RPC without valid session
+    if (!currentUser || !currentUser.id || !isSessionValid()) {
       setDeactivatedInfo(null);
       setSuspendedInfo(null);
       return { deactivated: false, suspended: false };
@@ -125,15 +127,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const checkPromise = (async () => {
       try {
+        // Fast-path: verify that an active access token is present before dispatching authenticated-only RPC
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session?.access_token) {
+          setDeactivatedInfo(null);
+          setSuspendedInfo(null);
+          return { deactivated: false, suspended: false };
+        }
+
         let { data, error } = await supabase.rpc('get_student_account_status');
 
         if (error && ((error as any).status === 401 || (error as any).code === 'PGRST303' || error.message?.includes('JWT') || error.message?.includes('expired'))) {
-          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession().catch(() => ({ data: null, error: new Error('Refresh error') }));
-          if (!refreshErr && refreshed?.session) {
-            const retryRes = await supabase.rpc('get_student_account_status');
-            if (!retryRes.error && retryRes.data) {
-              data = retryRes.data;
-              error = null;
+          // Only attempt refresh if a refresh token is present
+          if (sessionData?.session?.refresh_token) {
+            const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession().catch(() => ({ data: null, error: new Error('Refresh error') }));
+            if (!refreshErr && refreshed?.session) {
+              const retryRes = await supabase.rpc('get_student_account_status');
+              if (!retryRes.error && retryRes.data) {
+                data = retryRes.data;
+                error = null;
+              }
             }
           }
         }
@@ -231,6 +244,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribeExpiry = onSessionExpired(async (reason) => {
       if (reason === 'EXPIRED') {
+        try {
+          await cleanupSessionNotifications({ timeoutMs: 2000 });
+        } catch {
+          // Non-blocking
+        }
         try {
           await supabase.auth.signOut();
         } catch {
@@ -563,6 +581,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     clearCachedDashboardData();
+    try {
+      await cleanupSessionNotifications({ timeoutMs: 2000 });
+    } catch {
+      // Non-blocking: cleanup failure never hangs logout
+    }
     endSession();
     try {
       sessionStorage.removeItem(RECOVERY_STORAGE_KEY);
